@@ -13,11 +13,7 @@ Configure the **Task reviewer** in **Workspace settings → Reviewers**, or over
 
 The Reviewer checks the result against its assignment and sources. Reports tied to a repository include its exact saved source snapshot for read-only inspection. Reviews share worker capacity and respect the queue.
 
-The Reviewer can request clarification, corrections or focused verification, such as running the prepared candidate and collecting screenshots. Questions needing you appear in Inbox; saved answers continue review.
-
-Checks that need a prepared candidate happen during review. The Reviewer must obtain that evidence before approving; implementation does not need to be repeated.
-
-Visible UI changes and visual deliverables need visual evidence alongside functional checks.
+The Reviewer can request clarification, corrections or focused verification, such as running the prepared candidate and collecting screenshots. Visual changes need visual evidence alongside functional checks. Questions needing you appear in Inbox; saved answers continue review.
 
 Use **Stop task** to stop active review. Failed or stopped reviews need **Retry review**. If cleanup is uncertain, follow **Review rounds and diagnostics** before retrying.
 
@@ -31,19 +27,19 @@ During checks, the result shows the command, elapsed time and output. **Stop che
 
 Expand a command to read or download its log. Long logs retain their beginning and end. Successful checks can be reused for an unchanged candidate and configuration; reused checks are labeled.
 
-**Run result** provides a launcher to try the candidate. Under **Details**, inspect supporting files, review evidence, guidance and code changes. See [worker setup](/worker-setup#try-a-result) for launcher configuration.
+**Run result** provides a launcher to try the candidate. Under **Details**, inspect supporting files, review evidence, guidance and code changes. See [Try a result](/worker-setup#try-a-result) for launcher configuration.
 
 ![Code changes and exact-result review beside the Coordinator](/images/code-review.png)
 
 Choose **Request changes** for another pass, or **Approve and integrate** and confirm. Either can include testing feedback. Explicit approval of the exact result in the Coordinator conversation records the same decision.
 
-Flowfield checks and delivers approved code to your local checkout. If local changes block delivery, resolve the reported problem and retry. Changed candidates need fresh approval.
+Flowfield checks and delivers approved code to your local checkout. If local changes block delivery, resolve the reported problem and retry.
 
 ## Find delivered outcomes
 
 **Inbox → Delivered** lists completed outcomes by delivery time. Open a result to access code or retained files, or browse outputs across tasks in [Files](/files).
 
-Delivery updates your local branch. Running, pushing and publishing need separate instructions; each repository has its own result and approval.
+Ask the Coordinator when you want to run, push or publish a delivered result.
 
 ## Earlier results and follow-ups
 

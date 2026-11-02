@@ -5,15 +5,15 @@ description: Turn an agreed outcome into focused work, with dependencies and opt
 
 A task keeps an outcome, success criteria, context, activity and results together. Capture work in **Backlog** and move it to **Up next** when you want it executed. Code tasks belong to a project; reports and files can belong to the workspace.
 
-Open a task for its definition, subtasks and activity. Use **Task settings** for agent overrides, [Inbox](/inbox) for questions and [results](/review) for approval.
+Open a task for its definition, subtasks and activity. Use **Task settings** for agent overrides, Inbox for questions and results for approval.
 
 ## Define useful work
 
-Describe the outcome and how you will judge it. The Coordinator can clarify the scope and select [worker documents](/documents#supply-worker-context). Edit task definitions and labels while the task is in **Backlog**. Move queued work back to Backlog before editing; stop active work first. The Coordinator can also update idle tasks. Drag cards on the board to change priorities.
+Describe the outcome and how you will judge it. The Coordinator can clarify the scope and select the documents the Worker needs. [Planning effective tasks](/planning-tasks) gives examples of requests and success criteria.
 
-Tasks use workspace-local keys such as `T-1`. For reports, datasets or images, ask for a workspace task without a project. See [Files](/files) for outputs and inputs.
+Tasks use workspace-local keys such as `T-1`. See [Files](/files) for working with reports, datasets and images.
 
-Flowfield captures the task and selected guidance for each execution. Flowfield [checks guidance changes](/documents#keep-tasks-current) at work and review handoffs. Discuss changes to the intended outcome with the Coordinator.
+Each execution captures the task and its selected guidance. See [Keep tasks current](/documents#keep-tasks-current) for how guidance changes reach unfinished work.
 
 For a correction to completed work, ask the Coordinator to reopen the task. It returns to Backlog with its history preserved and requires new approval for code delivery.
 
@@ -37,7 +37,7 @@ Each board column scrolls independently. On narrow screens, scroll sideways to r
 
 ## Edit a task
 
-In **Backlog**, choose **Edit task** to change the title, description, acceptance criteria or labels, then **Save task**. Project assignment stays fixed. If the task leaves Backlog while you edit, Save becomes unavailable. **Cancel** lets you discard unsaved changes and return to the task.
+Move queued work back to Backlog before editing; stop active work first. In **Backlog**, choose **Edit task** to change the title, description, acceptance criteria or labels, then **Save task**. Project assignment stays fixed. If the task leaves Backlog while you edit, Save becomes unavailable. **Cancel** lets you discard unsaved changes and return to the task.
 
 ## Archive or delete
 
@@ -51,7 +51,7 @@ See the [CLI](/cli#tasks-and-subtasks) for command-line deletion.
 
 Tasks can depend on other tasks in the same workspace, including other projects. Dependents wait for delivered results; archiving unfinished work does not satisfy them. Cross-project prerequisites supply context and files without merging their code into the dependent repository.
 
-Completed tasks keep their delivered results when dependencies change. Reopen for corrections or create a new task for new work.
+Completed tasks keep their delivered results when dependencies change.
 
 ## Work within a task
 
@@ -79,6 +79,6 @@ Choose **Stop task** and confirm to stop active Worker or Reviewer execution and
 
 The feed groups changes, questions, activity and results into initial work, corrections and follow-ups. Expand an event for details; contribution events name their subtask. Older streamed activity may expire, while task events, results and files remain.
 
-Activity follows new output until you scroll up. Task **Metrics** shows lifetime Tokens, Cost, Duration and Corrections; open a callout for details or [Metrics](/metrics) for workspace comparisons.
+Activity follows new output until you scroll up. Task **Metrics** shows lifetime Tokens, Cost, Duration and Corrections; open a callout for details. See [Metrics](/metrics#explore-workspace-activity) to compare activity across tasks.
 
 Use **View result** to open the latest result, or find earlier results in the feed. Request and result links open their response and recovery controls.

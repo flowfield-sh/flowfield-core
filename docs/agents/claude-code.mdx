@@ -7,7 +7,7 @@ description: Use Claude Code for your Coordinator, Workers and Reviewer.
 
 Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in on the machine running Flowfield. Flowfield uses the official Agent SDK with your installed CLI. The SDK helper ships with Flowfield; no additional Node runtime is required.
 
-In **Settings → Harnesses**, keep detected paths or override the executable and configuration directory. Accounts stay in Claude Code. See [shared setup](/agents/overview).
+In **Settings → Harnesses**, keep detected paths or override the executable and configuration directory. Accounts stay in Claude Code. See [Agent setup](/agents/overview#setup).
 
 For authentication failures, sign in with the executable and configuration directory shown in **Settings → Harnesses**, verify installation, then resend.
 
@@ -35,7 +35,7 @@ Claude loads native user/project settings, instructions and skills. Managed sess
 
 ## Standalone conversation
 
-Use the [shared connection steps](/mcp-integration) with `claude-code`:
+Follow [Connect an external agent](/mcp-integration#connect-your-agent) with `claude-code`:
 
 ```sh
 flowfield integration connect claude-code

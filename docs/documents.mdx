@@ -3,7 +3,7 @@ title: Workspace documents
 description: Maintain shared guidance that stays current as tasks progress.
 ---
 
-**Documents** holds versioned Markdown for purpose, conventions, architecture and specifications. **Workspace guidance** is always included in new task executions. Ask the Coordinator to create custom documents; you can edit them directly. Keep current work status in tasks and repository conventions in their authoritative files.
+**Documents** holds versioned Markdown for purpose, conventions, architecture and specifications. **Workspace guidance** is required context for every task. Ask the Coordinator to create custom documents; you can edit them directly. Keep current work status in tasks and repository conventions in their authoritative files.
 
 ## Write and review
 
@@ -13,9 +13,11 @@ If another edit arrives, your draft stays available. Choose **Load latest** and 
 
 ![Title, content and document usage in one edit form](/images/document-editor.png)
 
-![A workspace document and its revision history beside the Coordinator](/images/documents.png)
+## Revision history
 
 Choose a **Revisions** entry to read earlier content. **Restore** copies it into a new revision, preserving intervening history. Document links survive renames; revision links open exact saved content.
+
+![A workspace document and its revision history beside the Coordinator](/images/documents.png)
 
 Ask the Coordinator to delete a custom document after removing it from defaults and unfinished task selections. Existing evidence links retain its history; restoring a revision returns it to the list. Workspace guidance can be cleared but not deleted.
 
@@ -29,7 +31,7 @@ Choose **Edit → Use this document** to select where a custom document applies,
 | Include for tasks without a project | Unfinished workspace-only work such as research, screenshots or PDFs. Off by default. |
 | Task-specific selection | One outcome; ask the Coordinator to select the document. |
 
-Choose **Required source** for rules the worker must read fully, or **Reference material** for optional supporting context. The same document can have different purposes in different projects/tasks. Main workspace guidance is always required. Unchecking a default removes it from the next guidance review, unless a task explicitly selects it.
+Choose **Required source** for rules the worker must read fully, or **Reference material** for optional supporting context. Unchecking a default removes it from the next guidance review, unless a task explicitly selects it.
 
 Use defaults for shared rules and task selections for specific context. Task selections can override a default’s purpose; omitting a document from that list does not exclude an inherited default. Split long mixed guidance into focused documents while preserving applicable rules and exceptions.
 
@@ -47,6 +49,4 @@ Reconciliation requires a Reviewer and respects queue capacity. Running attempts
 
 Each message captures the main guidance revision and any saved document open beside the conversation. The Coordinator can read and maintain these documents through the same revision checks.
 
-During adoption, agree which repository instructions to reference or incorporate. Existing files stay in place, and native harnesses may still load their own instructions. Configure queue, models and permissions in settings.
-
-Agents can find relevant sections of reference documents while keeping the selected revision. Required sources are read fully. For external clients, see [document tools in the MCP reference](/mcp-reference#read-documents).
+During adoption, agree which repository instructions to reference or incorporate. Existing files stay in place, and native harnesses may still load their own instructions.
