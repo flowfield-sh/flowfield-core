@@ -513,10 +513,11 @@ class Integrations:
                     self.execution._current_assignment(
                         db, current, self.workspace._task(db, workspace_id, current.task_id)
                     )
+                    settings_revision = self._settings(db, record.project_id).revision
                     if (
                         current.status != "accepted"
                         or current.result_commit != record.result_commit
-                        or self.settings(record.project_id).revision != record.settings_revision
+                        or settings_revision != record.settings_revision
                     ):
                         raise ApplicationError(
                             "integration_changed",
@@ -677,8 +678,29 @@ class Integrations:
 
     def recover(self, record: Integration) -> Integration:
         repository = self.repository(record.project_id, record.target_branch)
-        with gitops.lock(repository):
-            return self._recover_locked(record)
+        try:
+            with gitops.lock(repository):
+                return self._recover_locked(record)
+        except (ApplicationError, OSError) as error:
+            # Lock acquisition itself needs a working repository. Keep this failure
+            # local to its delivery instead of preventing every workspace from opening.
+            record = self.get(record.workspace_id, record.id)
+            if record.status not in ("preparing", "applying", "stale"):
+                return record
+            return self._recovery_problem(record, error)
+
+    def _recovery_problem(self, record: Integration, error: Exception) -> Integration:
+        record.status, record.problem_code = "stale", "delivery_uncertain"
+        if isinstance(error, ApplicationError) and error.code in (
+            "settings_changed",
+            "assignment_changed",
+            "delivery_destination_changed",
+            "target_changed",
+        ):
+            record.problem_code = error.code
+        record.problem = f"Check the project checkout before retrying interrupted delivery: {error}"
+        record.completed_at = now()
+        return self._save(record)
 
     def _recover_locked(self, record: Integration) -> Integration:
         repository = self.repository(record.project_id, record.target_branch)
@@ -710,16 +732,6 @@ class Integrations:
                 record.status, record.problem_code = "stale", "validation_stale"
                 record.problem = "Service stopped during validation. Prepare again."
         except (ApplicationError, OSError) as error:
-            record.status, record.problem_code = "stale", "delivery_uncertain"
-            if isinstance(error, ApplicationError) and error.code in (
-                "settings_changed",
-                "assignment_changed",
-                "delivery_destination_changed",
-                "target_changed",
-            ):
-                record.problem_code = error.code
-            record.problem = (
-                f"Check the project checkout before retrying interrupted delivery: {error}"
-            )
+            return self._recovery_problem(record, error)
         record.completed_at = now()
         return self._save(record)

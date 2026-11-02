@@ -2,6 +2,7 @@
 
 import os
 import shlex
+import sqlite3
 from pathlib import Path
 from uuid import uuid4
 
@@ -29,21 +30,24 @@ class Inspections:
 
     def settings(self, project_id: str) -> InspectionSettings:
         with self.workspace.connection() as db:
-            self.workspace._project(db, project_id)
-            row = db.execute(
-                "SELECT data FROM inspection_settings WHERE project_id=?", (project_id,)
-            ).fetchone()
-            return (
-                InspectionSettings.model_validate_json(row[0])
-                if row
-                else InspectionSettings(project_id=project_id)
-            )
+            return self._settings(db, project_id)
+
+    def _settings(self, db: sqlite3.Connection, project_id: str) -> InspectionSettings:
+        self.workspace._project(db, project_id)
+        row = db.execute(
+            "SELECT data FROM inspection_settings WHERE project_id=?", (project_id,)
+        ).fetchone()
+        return (
+            InspectionSettings.model_validate_json(row[0])
+            if row
+            else InspectionSettings(project_id=project_id)
+        )
 
     def configure(self, project_id: str, request: InspectionConfig) -> InspectionSettings:
         with self.workspace.connection(
             write=True, workspace_id=Workspaces(self.workspace).for_project(project_id).id
         ) as db:
-            current = self.settings(project_id)
+            current = self._settings(db, project_id)
             self.workspace._current(current.revision, request.expected_revision)
             value = InspectionSettings(
                 project_id=project_id,

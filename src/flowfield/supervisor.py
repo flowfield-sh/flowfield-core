@@ -102,7 +102,7 @@ class Supervisor:
             self.permissions.restart()
             self.coordinator.store.restart()
             self.catalogs.restart()
-            recovery = asyncio.create_task(asyncio.to_thread(self.integrations.restart))
+            recovery = asyncio.create_task(asyncio.to_thread(self._recover))
             try:
                 await asyncio.shield(recovery)
             except asyncio.CancelledError:
@@ -119,6 +119,12 @@ class Supervisor:
             self.lock.close()
             self.lock = None
             raise
+
+    def _recover(self) -> None:
+        from flowfield.outputs import Outputs
+
+        Outputs(self.workspace).recover()
+        self.integrations.restart()
 
     async def model_options(
         self,

@@ -178,3 +178,83 @@ def test_missing_transaction_guard_refuses_before_changing_files(tmp_path, monke
         )
     assert baseline(repo) == run.base_commit
     assert not (repo / "result.txt").exists()
+
+
+@pytest.mark.parametrize("unavailable", ["missing", "locked"])
+@pytest.mark.parametrize("git_applied", [False, True])
+def test_unavailable_recovery_starts_service_and_preserves_exact_retry(
+    tmp_path, unavailable, git_applied
+):
+    import asyncio
+    from contextlib import nullcontext
+
+    from workspace_fixtures import TEST_AGENTS
+
+    from flowfield.adapters import git_integration
+    from flowfield.application import TaskCreate
+    from flowfield.workspaces import WorkspaceCreate, Workspaces
+
+    service, repo, run = ready(tmp_path)
+    approved = current(service)
+    record = service.integrations.get("harbor", approved.integration_id)
+    record.status, record.apply_started_at = "applying", "2026-11-01T12:00:00Z"
+    service.integrations._save(record)
+    if git_applied:
+        git_checkout.deliver(
+            repo,
+            record.target_branch,
+            record.target_before,
+            record.candidate_commit,
+            record.checkout,
+        )
+    other = Workspaces(service.workspace).create(WorkspaceCreate(**TEST_AGENTS, name="Unaffected"))
+    task = service.workspace.create_task(other.id, TaskCreate(title="Unrelated work"))
+    moved = repo.with_name("unavailable")
+    if unavailable == "missing":
+        repo.rename(moved)
+    fresh = Supervisor(Workspace(service.workspace.directory))
+
+    async def restart():
+        await fresh.start()
+        try:
+            assert fresh.loop_task is not None and not fresh.loop_task.done()
+            assert fresh.workspace.task(other.id, task.id).title == "Unrelated work"
+            blocked = current(fresh)
+            assert blocked.status == "stale"
+            assert blocked.problem_code == "delivery_uncertain"
+            assert blocked.approved_at == approved.approved_at
+            assert blocked.candidate_commit == approved.candidate_commit
+            assert blocked.next_action.action == "retry-delivery"
+        finally:
+            await fresh.close()
+
+    try:
+        with git_integration.lock(repo) if unavailable == "locked" else nullcontext():
+            asyncio.run(restart())
+    finally:
+        if unavailable == "missing":
+            moved.rename(repo)
+    blocked = current(fresh)
+    fresh.results.retry_delivery(
+        "harbor", blocked.id, RunAction(expected_revision=blocked.revision)
+    )
+    fresh.results.process("harbor")
+    delivered = current(fresh)
+    assert delivered.status == "delivered", delivered.problem
+    assert delivered.id == approved.id and delivered.approved_at == approved.approved_at
+    assert baseline(repo) == approved.candidate_commit
+    assert len(fresh.integrations.page("harbor").items) == 1
+
+
+def test_recovery_does_not_hide_database_failures(tmp_path, monkeypatch):
+    import sqlite3
+
+    service, _, _ = ready(tmp_path)
+    record = service.integrations.get("harbor", current(service).integration_id)
+
+    def fail(_):
+        raise sqlite3.DatabaseError("database damaged")
+
+    monkeypatch.setattr(service.integrations, "_recover_locked", fail)
+    with pytest.raises(sqlite3.DatabaseError, match="damaged"):
+        service.integrations.recover(record)

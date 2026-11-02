@@ -2,6 +2,7 @@
 
 import fcntl
 import json
+import logging
 import os
 import sqlite3
 from contextlib import closing
@@ -14,6 +15,35 @@ from flowfield.errors import ApplicationError
 from flowfield.schema import SCHEMA_VERSION, TASK_DELETIONS, TASK_REVIEWS
 
 DATABASE = "workspace.sqlite3"
+
+
+class Connection(sqlite3.Connection):
+    """A write transaction owns newly retained files until its references commit."""
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self._created_files: set[Path] = set()
+
+    def creating_file(self, path: Path) -> None:
+        if not self.in_transaction:
+            raise RuntimeError("Retained files require an open write transaction")
+        if path.exists() or path.is_symlink():
+            raise FileExistsError(path)
+        self._created_files.add(path)
+
+    def commit(self) -> None:
+        super().commit()
+        self._created_files.clear()
+
+    def rollback(self) -> None:
+        super().rollback()
+        for path in self._created_files:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                # Startup reconciliation retries cleanup after filesystem failures.
+                logging.getLogger(__name__).warning("Retained file cleanup pending: %s", path)
+        self._created_files.clear()
 
 
 def acquire_lock(directory: Path, name: str, *, shared: bool = False) -> BinaryIO:

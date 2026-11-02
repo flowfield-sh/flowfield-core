@@ -23,6 +23,7 @@ from flowfield.outputs import Outputs
 from flowfield.results import Results
 from flowfield.review_records import ReviewRecord, ReviewRecords
 from flowfield.reviewer_settings import EffectiveReviewer, Reviewers
+from flowfield.storage import Connection
 from flowfield.worker_settings import occupancy, read_workspace
 
 
@@ -109,7 +110,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
 
     def check_decision_evidence(
         self,
-        db: sqlite3.Connection,
+        db: Connection,
         review: TaskReview,
         data: dict[str, Any],
         decision: dict[str, Any],

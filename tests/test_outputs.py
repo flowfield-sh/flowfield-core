@@ -223,3 +223,166 @@ def test_text_preview_is_bounded_and_rejects_binary(tmp_path):
                 "supported": False,
                 "truncated": False,
             }
+
+
+def test_submission_rollback_removes_only_new_files(tmp_path, monkeypatch):
+    execution, run, output, owner = prepared(tmp_path)
+    (output / "proof.txt").write_text("committed")
+    saved = capture(execution, run, ["proof.txt"])[0]
+    (output / "proof.txt").write_text("failed successor")
+
+    def fail(*_):
+        raise RuntimeError("later transaction failure")
+
+    monkeypatch.setattr(execution, "_save", fail)
+    with pytest.raises(RuntimeError, match="later transaction"):
+        execution.report_result(
+            owner,
+            run.id,
+            WorkerResult(
+                summary="Result", checks="Checked", files=[OutputSelection(path="proof.txt")]
+            ),
+        )
+    retained = execution.workspace.directory / "workspaces" / owner / "outputs"
+    assert [path.name for path in retained.iterdir()] == [saved.id]
+    assert Outputs(execution.workspace).content(saved).read_text() == "committed"
+    assert len(Outputs(execution.workspace).page(owner).items) == 1
+
+
+@pytest.mark.parametrize("phase", ["partial", "retained", "committed"])
+def test_startup_reclaims_crashed_capture_but_keeps_committed_evidence(tmp_path, phase):
+    import subprocess
+    import sys
+
+    from flowfield.supervisor import Supervisor
+
+    execution, run, output, owner = prepared(tmp_path)
+    (output / "proof.txt").write_text("survives if committed")
+    child = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import os, sys
+from pathlib import Path
+from flowfield.application import Workspace
+from flowfield.execution import Execution
+from flowfield.outputs import Outputs
+from flowfield.output_models import OutputSelection
+store = Workspace(Path(sys.argv[1]))
+run = Execution(store).get(sys.argv[2], sys.argv[3])
+if sys.argv[4] == 'partial':
+    import flowfield.outputs
+    flowfield.outputs.os.replace = lambda *_: os._exit(23)
+with store.connection(write=True) as db:
+    Outputs(store).capture(db, run, [OutputSelection(path='proof.txt')])
+    if sys.argv[4] == 'retained':
+        os._exit(23)
+os._exit(23)
+""",
+            str(execution.workspace.directory),
+            owner,
+            run.id,
+            phase,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert child.returncode == 23, child.stderr
+    retained = execution.workspace.directory / "workspaces" / owner / "outputs"
+    assert len(list(retained.iterdir())) == 1
+    store = Workspace(execution.workspace.directory)
+    Supervisor(store)._recover()
+    files = Outputs(store).page(owner).items
+    assert len(files) == (1 if phase == "committed" else 0)
+    assert len(list(retained.iterdir())) == len(files)
+    if files:
+        assert Outputs(store).content(files[0]).read_text() == "survives if committed"
+
+
+def test_recovery_preserves_inflight_capture_and_unrecognized_paths(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    execution, run, output, owner = prepared(tmp_path)
+    (output / "proof.txt").write_text("in flight")
+    store = execution.workspace
+    began = Event()
+
+    def recover():
+        began.set()
+        Outputs(store).recover()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with store.connection(write=True) as db:
+            saved = Outputs(store).capture(db, run, [OutputSelection(path="proof.txt")])[0]
+            future = pool.submit(recover)
+            assert began.wait(5)
+            assert not future.done()
+        future.result(timeout=10)
+    assert Outputs(store).content(saved).read_text() == "in flight"
+    retained = store.directory / "workspaces" / owner / "outputs"
+    unrelated = retained / "notes.txt"
+    unrelated.write_text("keep")
+    target = tmp_path / "outside"
+    target.write_text("keep outside")
+    link = retained / ("b" * 32)
+    link.symlink_to(target)
+    Outputs(store).recover()
+    assert unrelated.read_text() == "keep" and target.read_text() == "keep outside"
+    assert link.is_symlink()
+
+
+def test_commit_failure_reclaims_new_capture(tmp_path, monkeypatch):
+    import sqlite3
+
+    from flowfield.storage import Connection
+
+    execution, run, output, owner = prepared(tmp_path)
+    (output / "proof.txt").write_text("not committed")
+
+    def fail(_):
+        raise sqlite3.OperationalError("simulated commit failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Connection, "commit", fail)
+        with pytest.raises(sqlite3.OperationalError, match="commit failure"):
+            capture(execution, run, ["proof.txt"])
+    assert Outputs(execution.workspace).page(owner).items == []
+    retained = execution.workspace.directory / "workspaces" / owner / "outputs"
+    assert list(retained.iterdir()) == []
+
+
+@pytest.mark.parametrize("parent", ["workspaces", "workspace", "outputs"])
+def test_output_recovery_never_follows_directory_links(tmp_path, parent):
+    execution, run, output, owner = prepared(tmp_path)
+    (output / "proof.txt").write_text("committed")
+    saved = capture(execution, run, ["proof.txt"])[0]
+    store = execution.workspace
+    path = store.directory / "workspaces"
+    if parent != "workspaces":
+        path /= owner
+    if parent == "outputs":
+        path /= "outputs"
+    original = tmp_path / "original-directory"
+    path.rename(original)
+    path.symlink_to(original, target_is_directory=True)
+    orphan = original / ("c" * 32)
+    orphan.write_text("unrelated bytes behind link")
+    Outputs(store).recover()
+    assert orphan.read_text() == "unrelated bytes behind link"
+    assert Outputs(store).content(saved).read_text() == "committed"
+
+
+def test_capture_collision_cannot_remove_existing_evidence(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    execution, run, output, owner = prepared(tmp_path)
+    (output / "proof.txt").write_text("original")
+    saved = capture(execution, run, ["proof.txt"])[0]
+    monkeypatch.setattr("flowfield.outputs.uuid4", lambda: SimpleNamespace(hex=saved.id))
+    (output / "proof.txt").write_text("replacement")
+    with pytest.raises(ApplicationError, match="Could not retain"):
+        capture(execution, run, ["proof.txt"])
+    assert Outputs(execution.workspace).content(saved).read_text() == "original"

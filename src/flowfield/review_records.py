@@ -10,6 +10,7 @@ from flowfield.application import Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import Record
 from flowfield.run_activity import ActivityUpdate, RunActivityPage, update_activity
+from flowfield.storage import Connection
 
 
 class ReviewRecord(Record):
@@ -175,12 +176,15 @@ class ReviewRecords[J: ReviewRecord](ABC):
 
     def attempt(self, identity: str) -> dict[str, Any]:
         with self.store.connection() as db:
-            row = db.execute(
-                f"SELECT data FROM {self.attempt_table} WHERE id=?", (identity,)
-            ).fetchone()
-            if not row:
-                raise ApplicationError("not_found", "Review attempt not found.", 404)
-            return dict(json.loads(row[0]))
+            return self._attempt(db, identity)
+
+    def _attempt(self, db: sqlite3.Connection, identity: str) -> dict[str, Any]:
+        row = db.execute(
+            f"SELECT data FROM {self.attempt_table} WHERE id=?", (identity,)
+        ).fetchone()
+        if not row:
+            raise ApplicationError("not_found", "Review attempt not found.", 404)
+        return dict(json.loads(row[0]))
 
     def write(self, project: str, attempt: str, updates: list[ActivityUpdate]) -> None:
         """ActivityRecorder storage adapter; the same coalescing and bounds as worker output."""
@@ -250,7 +254,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
             return review
 
     def check_decision_evidence(
-        self, db: sqlite3.Connection, review: J, data: dict[str, Any], decision: dict[str, Any]
+        self, db: Connection, review: J, data: dict[str, Any], decision: dict[str, Any]
     ) -> None:
         """Subclass evidence gate, in the same transaction as the decision."""
         return None
@@ -264,7 +268,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
                 raise ApplicationError(
                     "review_closed", "Review round no longer owns execution.", 409
                 )
-            data = self.attempt(attempt)
+            data = self._attempt(db, attempt)
             if data.get("decision") and data["decision"] != decision:
                 raise ApplicationError("review_closed", "The round already has a decision.", 409)
             self.check_decision_evidence(db, review, data, decision)

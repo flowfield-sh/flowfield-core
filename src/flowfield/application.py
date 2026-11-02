@@ -49,7 +49,7 @@ from flowfield.publication import (
 )
 from flowfield.questions import QuestionReference, Questions, blocking_questions, pending_questions
 from flowfield.schema import SCHEMA, SCHEMA_VERSION
-from flowfield.storage import acquire_lock, initialize, require_current
+from flowfield.storage import Connection, acquire_lock, initialize, require_current
 
 if TYPE_CHECKING:
     from flowfield.workspaces import WorkspaceRecord
@@ -390,9 +390,11 @@ class Workspace:
         workspace_id: str | None = None,
         notify: bool = True,
         usage_only: bool = False,
-    ) -> Iterator[sqlite3.Connection]:
+    ) -> Iterator[Connection]:
         with acquire_lock(self.directory, ".initialize.lock", shared=True):
-            db = sqlite3.connect(self.database.as_uri() + "?mode=rw", uri=True, timeout=10)
+            db = sqlite3.connect(
+                self.database.as_uri() + "?mode=rw", uri=True, timeout=10, factory=Connection
+            )
             db.row_factory = sqlite3.Row
             db.execute("PRAGMA foreign_keys = ON")
             if not write:

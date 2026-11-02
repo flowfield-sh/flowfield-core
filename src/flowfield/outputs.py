@@ -2,10 +2,13 @@
 
 import hashlib
 import json
+import logging
 import mimetypes
 import os
+import re
 import sqlite3
 import stat
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -14,6 +17,7 @@ from flowfield.application import Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import Run
 from flowfield.output_models import OutputFile, OutputPage, OutputSelection
+from flowfield.storage import Connection
 
 MAX_FILE_BYTES = 128 * 1024 * 1024
 MAX_SUBMISSION_BYTES = 512 * 1024 * 1024
@@ -50,7 +54,7 @@ class Outputs:
             os.close(directory)
 
     def capture(
-        self, db: sqlite3.Connection, run: Run, selections: list[OutputSelection]
+        self, db: Connection, run: Run, selections: list[OutputSelection]
     ) -> list[OutputFile]:
         row = db.execute("SELECT data FROM execution_local WHERE run_id=?", (run.id,)).fetchone()
         metadata = json.loads(row[0]) if row else {}
@@ -60,7 +64,7 @@ class Outputs:
 
     def capture_owned(
         self,
-        db: sqlite3.Connection,
+        db: Connection,
         owner: str,
         task_id: str,
         selections: list[OutputSelection],
@@ -104,6 +108,8 @@ class Outputs:
             destination = self._path(value)
             staging = destination.with_suffix(".partial")
             try:
+                db.creating_file(staging)
+                db.creating_file(destination)
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 descriptor = self._source(source, selection.path)
                 with os.fdopen(descriptor, "rb") as incoming, staging.open("xb") as outgoing:
@@ -137,10 +143,6 @@ class Outputs:
                 finally:
                     os.close(parent)
             except (OSError, ValueError) as error:
-                staging.unlink(missing_ok=True)
-                destination.unlink(missing_ok=True)
-                for previous in copied:
-                    self._path(previous).unlink(missing_ok=True)
                 raise ApplicationError(
                     "output_capture_failed",
                     f"Could not retain {selection.path}: {error}. "
@@ -155,6 +157,57 @@ class Outputs:
                 (value.id, owner, run_id, value.model_dump_json(), review_attempt_id),
             )
         return copied
+
+    def recover(self) -> None:
+        """Remove abandoned captures while excluding every concurrent writer.
+
+        Files become durable before their SQLite references. After process death,
+        only committed references distinguish retained evidence from abandoned bytes.
+        Work through directory descriptors so cleanup never follows a replaced link.
+        """
+        with self.store.connection(write=True, notify=False) as db:
+            flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            try:
+                root = os.open(self.store.directory / "workspaces", flags)
+            except FileNotFoundError:
+                return
+            except OSError:
+                logging.getLogger(__name__).warning("Output cleanup could not open workspace files")
+                return
+            try:
+                for (identity,) in db.execute("SELECT id FROM workspaces"):
+                    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", identity):
+                        continue
+                    try:
+                        self._recover_workspace(db, root, identity, flags)
+                    except FileNotFoundError:
+                        pass
+                    except OSError:
+                        logging.getLogger(__name__).warning(
+                            "Output cleanup pending for workspace %s", identity
+                        )
+            finally:
+                os.close(root)
+
+    @staticmethod
+    def _recover_workspace(db: Connection, root: int, identity: str, flags: int) -> None:
+        with ExitStack() as cleanup:
+            directory = root
+            for name in (identity, "outputs"):
+                directory = os.open(name, flags, dir_fd=directory)
+                cleanup.callback(os.close, directory)
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    if not re.fullmatch(r"[0-9a-f]{32}(?:\.partial)?", entry.name):
+                        continue
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    if db.execute(
+                        "SELECT 1 FROM output_files WHERE workspace_id=? AND id=?",
+                        (identity, entry.name.removesuffix(".partial")),
+                    ).fetchone():
+                        continue
+                    os.unlink(entry.name, dir_fd=directory)
 
     @staticmethod
     def for_run(db: sqlite3.Connection, run_id: str) -> list[OutputFile]:

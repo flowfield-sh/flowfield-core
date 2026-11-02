@@ -9,6 +9,7 @@
 
 ### Bug fixes
 
+- Keep unavailable repositories from blocking service startup, and clean up files left by failed or interrupted submissions.
 - Give report Reviewers access to the correct repository snapshot.
 - Preserve Claude tool-permission arguments.
 
