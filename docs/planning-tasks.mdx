@@ -1,0 +1,52 @@
+---
+title: Planning effective tasks
+description: Give agents a clear outcome, useful context and a way to judge the result.
+---
+
+A useful task explains what should change and how you'll know it worked. Start with the problem in the Coordinator conversation; refine the task together before putting it in the queue.
+
+## Describe the outcome
+
+Give the Coordinator the behavior you want, the reason it matters and any boundaries it should preserve.
+
+A request such as “improve search” leaves several decisions open. A more useful starting point is:
+
+> People cannot find catalog entries when they use different capitalization. Make title search case-insensitive while preserving the existing filters and result ordering. Add tests for mixed-case queries and titles. Keep the search interface unchanged.
+
+This gives the Worker a focused change and gives you a way to review it. If you don't yet know the solution, ask the Coordinator to investigate the behavior and discuss alternatives before creating implementation work.
+
+## Supply the context that matters
+
+Point to relevant code, examples, screenshots or documents. Explain constraints that aren't obvious from the repository, such as a required interaction or a consumer that depends on the current output format.
+
+Keep reusable conventions in [workspace documents](/documents). Use the conversation for decisions about the current task, and ask the Coordinator to record the agreed requirements in its definition.
+
+For example:
+
+> Use the API conventions document for this task. The attached CSV shows the format our customer imports. Preserve its column names and ordering, and add a test using that example.
+
+## Make success observable
+
+Success criteria describe the result you expect to inspect. For the search example:
+
+- A mixed-case query finds the same titles as its lowercase equivalent.
+- Existing filters and ordering still apply.
+- Tests cover the changed behavior and pass with the project's saved checks.
+
+For a visual change, include the interactions and screen sizes that matter. For a report, name the questions it must answer, the sources it should use and the format you want delivered.
+
+## Choose the right size
+
+Keep work together when it produces one result you want to review and approve. Split it when the outcomes can be prioritized, reviewed or delivered independently.
+
+Use **task dependencies** when one outcome needs another delivered first. For example, a new API endpoint can precede the application feature that uses it. Use **subtasks** when contributions belong to one result, such as an endpoint and its tests. The Coordinator can help choose the split and record the dependencies.
+
+See [Tasks and execution](/tasks#dependencies) for how the queue handles these relationships.
+
+## Give feedback against the task
+
+Before execution, refine the definition in Backlog. During review, point to the behavior or evidence that needs attention:
+
+> Searching works with mixed case, but changing the category clears the query. Preserve the query when a filter changes and add a regression test.
+
+This gives the next pass a specific target. For a new outcome, create another task so its priorities and result stay clear.

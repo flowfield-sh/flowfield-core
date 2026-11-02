@@ -1,0 +1,66 @@
+---
+title: Troubleshooting
+description: Find the next step when setup, execution or delivery needs attention.
+---
+
+Start with the message beside the affected task, setting or result. It identifies the blocked action and the information Flowfield needs to continue.
+
+## Flowfield does not open
+
+Run `flowfield serve` in a terminal and read its output. Keep that terminal open while using the browser interface. If the command is missing, follow the PATH instructions in [Installation](/installation).
+
+If the port is occupied, open the existing Flowfield service or choose another port with `flowfield serve --port 8770`. Connect the browser and any CLI or MCP clients to that same port.
+
+## An agent or model is unavailable
+
+Open **Settings → Harnesses** and choose **Verify installation** for the harness you want to use. Check that it is installed and signed in on the machine running Flowfield. Correct executable or configuration-directory overrides if needed.
+
+Open the model selector again after correcting the native account or provider configuration. Harness-specific setup is documented for [Codex](/agents/codex), [Claude Code](/agents/claude-code) and [Pi](/agents/pi).
+
+For a discovery process that did not stop cleanly, follow [agent setup recovery](/agents/overview#recover-setup-and-discovery).
+
+## A task stays in Up next
+
+Read its status on Task Board, then open the task for the details. Check these conditions:
+
+- The workspace queue is running.
+- The task's project setup is valid and its agent selections are available.
+- Required questions have been answered in Inbox.
+- Prerequisite tasks have delivered their results.
+- Worker capacity is available.
+
+Resolve the reported condition. The queue starts eligible work according to priority; [Tasks and execution](/tasks#priorities-and-queue) explains the ordering.
+
+## Setup or validation fails
+
+Open the command output and fix the reported failure. Confirm that the command works from a fresh checkout, that its dependencies are installed by setup, and that required tools are available on the service host.
+
+Save corrected commands in **Project settings → Integration** and choose **Validate setup** again. A development server belongs in the Run command; validation commands must finish. See [Project setup and checks](/worker-setup#validate-before-running-workers).
+
+## A Worker or Reviewer stops
+
+Open the task and inspect its latest activity, question or failure. Answer an outstanding question in Inbox. For failed or stopped execution, follow **Retry worker** or **Retry review** after resolving the cause.
+
+If Flowfield reports uncertain cleanup, inspect and stop the remaining native work before confirming that it has stopped. The task retains the earlier work and evidence for the next attempt.
+
+## The Coordinator cannot continue
+
+Use the recovery action in the conversation. If its native session is unavailable, choose **Start new session** and resend the request with any needed attachments. Saved conversation remains available.
+
+If cleanup is uncertain, stop remaining native work on the host, then choose **Confirm coordinator stopped**. See [Stop and continue later](/coordinator#stop-and-continue-later).
+
+## Approved code has not reached my branch
+
+Open the approved result and read its delivery status. Local edits, a changed branch or repository access can block delivery. Resolve the reported repository problem, then retry delivery from the result.
+
+If the candidate changes while reconciling with the destination, review and approve the updated result. [Review and delivery](/review#earlier-results-and-follow-ups) explains this flow.
+
+## The browser loses its connection
+
+Check that the Flowfield service is still running. **Connection lost** retries automatically; choose **Try reconnecting** after restoring the service. Your open views and drafts remain available.
+
+If the connection dropped during a save, inspect the current value before submitting again. **Reconnecting…** indicates that the update stream is reconnecting; follow any recovery action shown in the affected view.
+
+## Find local data or restore a backup
+
+Use `flowfield storage status` to locate the store. [Local storage](/storage) documents the data directory, backups and compatible-version recovery.

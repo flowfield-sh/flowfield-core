@@ -1,0 +1,69 @@
+---
+title: Configuration and permissions
+description: Find the settings that control agents, project execution and code delivery.
+---
+
+Flowfield has host, workspace, project and task settings. Use the narrowest level that matches what you want to change.
+
+## Where settings live
+
+| Location | Settings |
+| --- | --- |
+| Global **Settings** | Harness paths, appearance, notifications and updates. |
+| **Workspace settings** | Agent choices, worker capacity, queue startup and labels. |
+| **Project settings** | Delivery branch, setup, checks, result launcher and default documents. |
+| **Task settings** | Worker and Reviewer overrides for subsequent attempts. |
+
+The Coordinator's input controls and **Workspace settings → Coordinator** edit the same saved agent choice. A task inherits workspace Worker and Reviewer choices until you override them; **Reset** restores inheritance.
+
+## Agent choices
+
+Choose a harness and model for each role. Available models, effort, access modes and Fast settings come from the selected harness. Changes apply to subsequent turns or attempts.
+
+**Fast** offers quicker responses with increased usage on supported models. See the [agent pages](/agents/overview) for the controls available in Codex, Claude Code and Pi.
+
+Use **Settings → Harnesses** to override an executable or configuration directory, then choose **Verify installation**. Native accounts and provider settings remain with the harness.
+
+## Queue and capacity
+
+| Control | Effect |
+| --- | --- |
+| **Run queue** | Starts eligible queued work. |
+| **Pause queue** | Prevents new starts while active work continues. |
+| **Stop task** | Stops active execution for that task and returns it to Backlog. |
+| Worker capacity | Limits concurrent Worker and Reviewer execution; defaults to five. |
+| **Auto-start worker queue** | Starts the queue when the service starts; off by default. |
+
+The Coordinator runs independently of worker slots. [Tasks and execution](/tasks#priorities-and-queue) explains eligibility and ordering.
+
+## Project execution
+
+Configure the delivery branch, setup commands, validation commands and optional Run command in **Project settings → Integration**. [Project setup and checks](/worker-setup) walks through preparing and validating them.
+
+Setup and validation commands run on the machine hosting Flowfield. Workers use separate repository checkouts. Give concurrent tasks separate ports, databases and other mutable resources when their commands need them.
+
+## Permissions and approval
+
+| Decision | What it authorizes |
+| --- | --- |
+| Native access mode or tool permission | Agent actions allowed by the selected harness. |
+| **Allow saved checks outside the worker sandbox** | Running the project's saved validation commands with the Flowfield service's access. |
+| **Approve and integrate** | Delivering the exact reviewed code result to its local branch. |
+
+Choose a native access mode appropriate to the work. Answer tool permission requests in the conversation or Inbox while the agent is waiting.
+
+### Saved checks outside the worker sandbox
+
+This project setting lets Workers call `run_project_checks` for the saved validation commands. It starts disabled. Enable it for projects whose code and check scripts you trust: the checks execute the Worker's edited code with service-host access.
+
+Changing the integration settings or repository invalidates the permission. Enable it again for the updated configuration. Revoking it prevents future calls; stopping the Worker cancels running checks.
+
+### Code delivery
+
+Code approval applies to a specific result. Changes to the candidate require fresh approval. Running a result, pushing commits and publishing are separate actions you can request from the Coordinator. See [review and delivery](/review).
+
+## Document defaults
+
+Use **Documents → Edit → Use this document** to choose the projects and tasks that inherit shared guidance. Project settings expose the same worker-document defaults. Task-specific selections are managed with the Coordinator.
+
+[Workspace documents](/documents#supply-worker-context) explains required sources, references and how changes reach unfinished work.

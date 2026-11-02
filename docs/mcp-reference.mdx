@@ -1,0 +1,66 @@
+---
+title: MCP reference
+description: Connection options, tool scope and paged reads for Flowfield MCP clients.
+---
+
+For a first connection from your editor or terminal, follow [Connect an external agent](/mcp-integration). This page covers connection settings and how clients read Flowfield records.
+
+## Connection
+
+| Setting | Value |
+| --- | --- |
+| Transport | Streamable HTTP |
+| Default endpoint | `http://127.0.0.1:8765/mcp/` |
+| Supported connection helpers | `codex`, `claude-code`, `pi` |
+| Default service port | `8765` |
+
+For a different port or connection name, use matching options:
+
+```sh
+flowfield --port 8770 integration connect claude-code --name flowfield-local
+flowfield --port 8770 integration status claude-code --name flowfield-local
+flowfield --port 8770 integration disconnect claude-code --name flowfield-local
+```
+
+Disconnect removes the native connection. Restart the agent to unload it.
+
+## Tool scope
+
+An external connection can manage workspaces, projects, documents, tasks, execution and results through the public tools. Pass the workspace and record identifiers requested by each tool's schema. The server's tool descriptions provide the current arguments and response expectations.
+
+Built-in Coordinators receive a connection scoped to their workspace. Workers and Reviewers receive tools scoped to their assigned execution. All interfaces use the same task records, revisions and approval rules.
+
+For updates, use the current revision returned by the relevant read. If another edit changes the record, read it again and reconcile your intended change. Code approval binds to the exact result and candidate being reviewed.
+
+## Read documents
+
+| Tool | Purpose |
+| --- | --- |
+| `list_documents` | List document identities and current revision headers. |
+| `search_documents` | Find literal text across current workspace documents. |
+| `get_document` | Read metadata and an excerpt of a selected revision. |
+| `get_document_text` | Read, outline or search the text of an exact revision. |
+| `get_coordinator_guide` | Retrieve installed Coordinator workflow instructions. |
+
+Use the revision returned by a document read or search when requesting its text. `get_document_text` accepts:
+
+| Argument | Meaning |
+| --- | --- |
+| `mode` | `read`, `outline` or `search`; defaults to `read`. |
+| `revision` | Required document revision. |
+| `offset` | Starting character offset; defaults to zero. |
+| `end` | Optional exclusive end of the selected range. |
+| `limit` | Maximum characters per read, up to 4,000. |
+| `query` | Literal text to find in search mode. |
+
+Outline results identify heading ranges. Read a section using its `offset` and `end_offset`, then follow the returned continuation until the section is complete. Offsets count Unicode characters.
+
+`search_documents` returns `next_after` when more document pages remain, including when the current page has no matches. For text reads, copy `next_request` or continue with `next_offset` on the same revision. Workers and Reviewers navigate their assigned sources through `read_context`; required sources must be read fully.
+
+## Read execution measurements
+
+`get_context_metrics` reads numeric prompt, tool and output sizes for one execution. Supply `workspace_id`, `source` and `source_id` from the metrics evidence, then follow `next_after` for additional records.
+
+These values measure UTF-8 payload bytes. Use them to investigate large tool responses, repeated reads and failed requests. Use [Metrics](/metrics) for token consumption and estimated cost.
+
+Session instructions, messages and tool outputs are separate measurements. Native output may contain Flowfield tool results, so adding the categories can double-count content. Read the returned coverage information when comparing executions: it identifies unavailable measurements, shortened previews and event limits.

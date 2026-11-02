@@ -1,5 +1,5 @@
 ---
-title: MCP
+title: Connect an external agent
 description: Use Flowfield from an agent running in your own terminal or editor.
 ---
 
@@ -42,18 +42,8 @@ This adds a skill and an `AGENTS.md` reference while preserving existing instruc
 
 ## Connection options
 
-For a different service port or connection name, use matching options:
-
-```sh
-flowfield --port 8770 integration connect claude-code --name flowfield-local
-flowfield --port 8770 integration status claude-code --name flowfield-local
-flowfield --port 8770 integration disconnect claude-code --name flowfield-local
-```
-
-Disconnect removes the native connection; restart the agent to unload it. Built-in Flowfield agents connect automatically and need none of this setup.
+For another port or connection name, see the [MCP connection reference](/mcp-reference#connection). Built-in Flowfield agents connect automatically.
 
 ## Read context selectively
 
-Use `search_documents` to find text in the current document library, following `next_after` even when a page has no matches. Use `get_document_text` with the returned revision and `mode="outline"` or `mode="search"` to locate a section. Read it with `mode="read"`, `offset` and optional exclusive `end`, following `next_offset` until the selected range is complete. Offsets count Unicode characters. Outlines recognize `#` through `######` headings outside fenced code.
-
-The built-in Coordinator keeps core role rules in every prompt and retrieves detailed workflow instructions through `get_coordinator_guide`. Workers and Reviewers use the same navigation modes through their scoped `read_context` tool. Partial reads help navigate references; they do not replace reading required guidance.
+Connected agents can search documents and retrieve the relevant sections of an exact revision. The [MCP reference](/mcp-reference#read-documents) describes the tools, arguments and pagination rules.

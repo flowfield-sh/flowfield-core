@@ -11,15 +11,9 @@ Choose **New workspace** from Home, name it and choose a harness/model for its a
 
 Open **Projects → Add project → Choose directory**, select an existing repository and review its name and ID. Registration preserves repository instructions. Before code work, establish a committed baseline and [validate integration settings](/worker-setup).
 
-For CLI registration, `agents.json` supplies `coordinator`, `worker` and `reviewer` choices, each with `harness`, `model` and any required `effort`/`mode` returned by that harness:
+You should now see the project in the workspace's Projects view. Repeat adoption for related repositories you want to coordinate together. Use the [CLI](/cli#workspaces-and-projects) to register projects from a terminal.
 
-```sh
-flowfield workspace create "Harbor" --agents agents.json
-flowfield project init /absolute/path/catalog-api --workspace WORKSPACE_ID
-flowfield project init /absolute/path/reader-app --workspace WORKSPACE_ID
-```
-
-Use the returned workspace ID. Adoption writes `.flowfield/config.toml`; commit or ignore this metadata under repository rules. Existing projects cannot move between workspaces, and conversations cannot be merged.
+Adoption writes `.flowfield/config.toml`; commit or ignore this metadata under your repository's rules.
 
 ## Find the work
 
@@ -49,16 +43,10 @@ Edit label names, colors and usage guidance in **Settings → General → Labels
 
 ## Configure at the right level
 
-| Location | Settings |
-| --- | --- |
-| Workspace | Name, queue, shared capacity and Coordinator/Worker/Reviewer defaults. |
-| Project | Repository identity, worker-document defaults, destination branch, setup/checks and result launcher. |
-| Task | Worker and Reviewer overrides for subsequent attempts. |
+Choose agent defaults and queue capacity for the workspace. Configure setup, checks, delivery and document defaults for each project. Use task settings when a particular outcome needs different Worker or Reviewer choices.
 
-The Coordinator input and **Workspace settings → Coordinator** edit the same saved choice. Run the queue separately when ready; setup blockers in one project leave ready work elsewhere eligible. See [worker setup](/worker-setup) and [document defaults](/documents#supply-worker-context).
+[Configuration and permissions](/configuration) lists the settings and their scope. [Project setup and checks](/worker-setup) walks through preparing a repository for work.
 
 ## Connection recovery
 
-**Connection lost** preserves views and drafts while retrying automatically. Restart the service or choose **Try reconnecting**. Interrupted actions are never replayed: check whether a save completed before retrying it.
-
-**Reconnecting…** means the update stream is reconnecting. Other failures show their recovery action in the affected view.
+If the browser loses its connection, follow [connection recovery](/troubleshooting#the-browser-loses-its-connection). Your views and drafts remain available while the service reconnects.

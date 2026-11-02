@@ -1,49 +1,55 @@
 ---
 title: How Flowfield works
-description: The roles, work records and approval boundaries behind a coding conversation.
+description: Understand how the conversation, tasks, agents and results fit together.
 ---
 
-Flowfield is a workspace for you and your coding agents. Shape the plan in one conversation, give workers the context they need, and keep review and delivery attached to the outcome.
+Flowfield keeps planning and execution connected. You discuss the work in a Coordinator conversation, capture agreed outcomes as tasks, and use their results to decide what happens next.
 
 ## People and agents
 
-| Role | Responsibility |
-| --- | --- |
-| You | Define what matters, prioritize work, answer questions and approve exact code results. |
-| Coordinator | Explore ideas, maintain shared context, organize tasks and help review outcomes. |
-| Workers | Complete assigned tasks in isolated directories or repository checkouts. |
-| Reviewer | Assess the whole task result, request corrections and surface decisions needing you. |
-| Service | Schedule eligible work, retain execution evidence and deliver authorized results. |
+You set the direction and decide which code to deliver. The **Coordinator** helps investigate ideas, maintain shared context and organize tasks. **Workers** carry out those tasks, and a **Reviewer** assesses their results against the requirements.
 
-The Coordinator can keep planning while workers run. Browser, CLI and agent tools share the same work.
+The Coordinator can keep planning while Workers run. Flowfield's service manages the queue, retains the evidence and delivers approved results.
+
+Choose Codex, Claude Code or Pi for each role. You can use the same harness throughout or combine them; [agent setup](/agents/overview) explains the choices.
 
 <span id="working-with-an-existing-project" />
 
 ## Workspaces, projects and tasks
 
-A [workspace](/workspaces) brings related projects together around one Coordinator, shared documents, labels, Task Board and Inbox. Each project identifies an existing repository and its integration settings.
+A **workspace** is the home for work you want to plan together. It has one Coordinator conversation, shared documents, a Task Board and an Inbox. Add your existing repositories as **projects** within it.
 
-A task defines an outcome and success criteria. Code tasks belong to a project; file and report tasks can belong to the workspace. Tasks can depend on other tasks or split into local subtasks that share one review and delivery.
+A **task** defines an outcome and the criteria for completing it. A code task belongs to a project. Reports and files can belong directly to the workspace. A task keeps its instructions, questions, activity and results together across attempts.
 
-[Documents](/documents) preserve shared guidance and references with revision history. Flowfield checks selected guidance before work and review, while each attempt and result retains its exact sources. Labels classify tasks without changing their execution or approval.
+Use dependencies when a task needs another task's delivered result. Use local subtasks when several contributions belong to one outcome and will be reviewed together. [Planning effective tasks](/planning-tasks) helps choose a useful scope.
+
+## Shared context
+
+[Documents](/documents) hold reusable goals, conventions and specifications. Select the documents a task needs as required sources or reference material.
+
+When shared guidance changes, Flowfield checks its effect on unfinished work at execution and review handoffs. The task keeps the sources used for each attempt, so you can understand the requirements behind a result.
 
 <span id="the-task-feed" />
 <span id="notifications" />
 
 ## The board and queue
 
-The board shows **Backlog → Up next → In progress → In review → Done**. Automatic implementation and assessment remain In progress; In review means a human decision or approved delivery is pending. An Up next task may still need setup or clarification. The shared queue starts eligible work when dependencies and capacity allow it.
+Capture ideas in **Backlog**, then move the work you want executed to **Up next**. The queue starts eligible tasks in priority order as capacity becomes available.
 
-[Tasks and execution](/tasks) covers scheduling and local subtasks. [Inbox](/inbox) separates decisions in Needs me, completed outcomes in Delivered and earlier responses in History. Notifications point back to the relevant item.
+Tasks move through **In progress**, **In review** and **Done**. Automatic work and agent review happen in In progress; In review means a human decision or approved delivery is pending. Open a task to see its current status and next action.
 
-## Agent settings and permissions
-
-Choose Codex, Claude Code or Pi independently for the Coordinator, Workers and Reviewer. Workspace worker/reviewer defaults apply unless a task overrides them; running attempts retain their captured choices. Project settings own setup, checks and the delivery branch. See [agent setup](/agents/overview) and [worker configuration](/worker-setup).
-
-Native tool permissions govern agent actions on the service host. A tool permission decision is separate from human approval to deliver worker code.
+[Inbox](/inbox) brings together questions and decisions that need you. Its Delivered view collects completed outcomes. You can follow the work from the board without reading every agent turn.
 
 ## Results and approval
 
-A result contains the outcome, files and verification evidence. The Reviewer assesses it before code comes to you for approval. Flowfield delivers approved code to the local repository; complete files and reports finish after review. See [review and delivery](/review) and [Files](/files).
+A **result** contains the proposed outcome, submitted files and verification evidence. The Reviewer checks it against the task and may request corrections.
 
-Running, pushing and publishing need separate instructions. Each repository has its own results and approvals.
+For code, you inspect the result and approve the exact candidate to deliver to your local repository. A changed candidate needs a new decision. Complete reports and files finish after review and remain available in [Files](/files).
+
+Delivery updates the local branch. Ask the Coordinator when you want to run, push or publish the result. [Results, review and delivery](/review) explains that workflow.
+
+## Agent settings and permissions
+
+Workspace defaults choose the agents and queue capacity. Project settings define setup, checks and the delivery branch. Task settings can override the Worker and Reviewer for subsequent attempts.
+
+Native access modes control agent actions on the host; code approval controls delivery of a result. [Configuration and permissions](/configuration) is the reference for these settings.

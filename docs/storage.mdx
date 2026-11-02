@@ -21,7 +21,7 @@ Inspection copies remain after completion or archiving. Deleting a task removes 
 
 ## Updating and recovery
 
-Follow the [update commands](/installation#update). Stores from 0.6.0 onward upgrade in place.
+Follow the [update commands](/installation#update) to upgrade while preserving your workspaces and settings.
 
 Queues start paused unless **Auto-start worker queue** is enabled. Interrupted workers may need recovery.
 
@@ -31,9 +31,9 @@ If startup reports an unsupported database version, use a Flowfield build compat
 
 <span id="starting-fresh" />
 
-### Stores from before 0.6.0
+<span id="stores-from-before-060" />
 
-The task-model change in 0.6.0 did not migrate earlier stores. Keep the entire old data directory and use its matching Flowfield version to retrieve records or outputs. To start a separate workspace, choose a new, unused location with `flowfield --data-dir /absolute/path/to/new-flowfield-data serve`, then adopt your existing repositories. Repository files and native credentials stay separate.
+For historical upgrade requirements, consult the [release notes](https://github.com/flowfield-sh/flowfield-core/releases). To use a separate data store, select a new directory with `flowfield --data-dir /absolute/path/to/new-flowfield-data serve`.
 
 ## Inspect storage
 

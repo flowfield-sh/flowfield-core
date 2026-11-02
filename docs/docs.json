@@ -10,25 +10,38 @@
   "navigation": {
     "groups": [
       {
-        "group": "Start here",
+        "group": "Get started",
         "pages": [
+          "introduction",
+          "installation",
           "getting-started",
           "concepts"
         ]
       },
       {
-        "group": "Plan and run work",
+        "group": "Set up Flowfield",
         "pages": [
           "workspaces",
-          "coordinator",
-          "documents",
-          "tasks",
-          "worker-setup"
+          {
+            "group": "Agents",
+            "pages": [
+              "agents/overview",
+              "agents/codex",
+              "agents/claude-code",
+              "agents/pi"
+            ]
+          },
+          "worker-setup",
+          "mcp-integration"
         ]
       },
       {
-        "group": "Review and use results",
+        "group": "Using Flowfield",
         "pages": [
+          "coordinator",
+          "planning-tasks",
+          "documents",
+          "tasks",
           "inbox",
           "review",
           "files",
@@ -36,21 +49,18 @@
         ]
       },
       {
-        "group": "Agents",
+        "group": "Reference",
         "pages": [
-          "agents/overview",
-          "agents/codex",
-          "agents/claude-code",
-          "agents/pi"
+          "configuration",
+          "cli",
+          "mcp-reference",
+          "storage"
         ]
       },
       {
-        "group": "Reference",
+        "group": "Help",
         "pages": [
-          "installation",
-          "cli",
-          "mcp-integration",
-          "storage"
+          "troubleshooting"
         ]
       }
     ]

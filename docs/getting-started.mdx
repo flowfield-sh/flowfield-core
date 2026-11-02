@@ -1,57 +1,71 @@
 ---
-title: Getting started
-description: Create a workspace, shape a useful first task, and review its result.
+title: Your first task
+sidebarTitle: Your first task
+description: Take a small documentation improvement from a conversation to a reviewed change in your repository.
 ---
 
-Plan with the Coordinator, let workers carry out focused tasks, and review the results. Start with an existing repository, or skip project setup for reports and files.
+For your first task, ask Flowfield to improve the local-development instructions in a repository you know. You'll define the outcome with the Coordinator, run a Worker, review the change and deliver it to your local branch.
 
-![A Flowfield workspace with labeled tasks across its shared board](/images/task-board.png)
+## Before you begin
 
-## Install and start
+Have these ready:
 
-[Install Flowfield](/installation) and sign in to [Codex, Claude Code or Pi](/agents/overview#setup) on the same machine. With uv:
+- [Flowfield installed](/installation) and running with `flowfield serve`.
+- A supported [coding agent installed and signed in](/agents/overview).
+- An existing Git repository with a README and a committed starting point.
 
-```sh
-uv tool install flowfield-core
-flowfield serve
-```
+Choose a project whose setup commands you can recognize and whose README you can review. The example below uses your repository's own tools.
 
-Keep the service terminal open while using Flowfield. It opens the local browser interface; Ctrl-C stops the service.
+<span id="install-and-start" />
 
 ## Create a workspace
 
-Choose **New workspace**, enter a name, choose one harness/model for its agents (or **Customize roles** to choose each separately), then choose **Create workspace**. Home and the sidebar list your workspaces. Each has one Coordinator, shared work views and its own worker queue.
+Choose **New workspace**, name it after your project, and select a harness and model for its agents. Choose **Create workspace**.
+
+You'll see the Coordinator conversation beside the workspace views. The worker queue starts paused, giving you time to prepare the task.
 
 ## Add your project
 
-Open **Projects → Add project → Choose directory**. Select an existing repository, review its name and ID, then choose **Add project**. The folder chooser operates on the machine running Flowfield; use the [CLI](/cli#workspaces-and-projects) if it is unavailable.
+Open **Projects → Add project → Choose directory**. Select your repository, review its name and ID, then choose **Add project**.
 
-Discuss existing instructions with the Coordinator and decide what belongs in [workspace documents](/documents). New workspaces start with the queue paused.
+Send this to the Coordinator, replacing the branch name if needed:
 
-See [Workspaces and projects](/workspaces) when coordinating several repositories.
+> Help me prepare this project for its first task. Read its existing instructions and scripts. Use main as the delivery branch, configure the setup and validation commands appropriate to this repository, and validate the setup. Explain anything you need me to decide.
+
+The project should show successful setup validation before you start work. You can inspect the commands in **Project settings → Integration**. [Project setup and checks](/worker-setup) explains those settings.
 
 ## Shape the first task
 
-Describe the problem to the Coordinator. The model you selected at workspace creation is ready in its input controls. For example:
+Ask the Coordinator:
 
-> People get stuck importing their first catalog. Read the existing code and instructions, help me narrow the scope, and prepare a small task with clear success criteria.
+> Create a task to improve the README's local-development instructions. A new contributor should be able to find the prerequisites, install dependencies, run the tests and start the application using the repository's existing commands. Verify the instructions against the project scripts. Keep the change focused on the README and preserve useful existing content.
 
-Work through assumptions and tradeoffs before queuing implementation. Edit documents directly; use the Coordinator to define tasks and the board to order them. Open a task beside the conversation to discuss its definition or a particular result.
+Open the task on **Task Board**. Read its definition and success criteria beside the conversation. For this task, check that it calls for accurate prerequisites, working commands and a clear order of steps.
 
-Before running code tasks, ask the Coordinator to configure the project's delivery branch, setup commands, checks and a useful Run command, then validate setup. Workspace settings retain your Worker and Reviewer choices. [Worker setup and checks](/worker-setup) explains configuration and local result previews.
+Discuss any adjustments with the Coordinator or edit the task while it is in **Backlog**. You're ready to proceed when you know how you'll judge the result.
 
 ## Run the task
 
-Move the task to **Up next**, directly on Task Board or through the Coordinator, then choose **Run queue** in the sidebar. Its status explains any missing setup, input or prerequisite. Eligible work runs in an isolated checkout; open the task to follow activity.
+Move the task to **Up next** on the board, then choose **Run queue** in the sidebar. Open the task to follow its activity as a Worker reads the project and makes the change.
 
-Questions and decisions appear in **Inbox → Needs me**. Open a request and send your answer to continue work. **Pause queue** prevents new starts; **Stop task** in the task header stops active execution.
+If the agent needs a decision, open **Inbox → Needs me**, read the question and send your answer. Work continues with that answer attached to the task.
+
+The Reviewer then checks the proposed README against the assignment and evidence. It can send the work back for corrections before presenting a result to you.
 
 ## Review the result
 
-The Reviewer checks the result and can request corrections. Read its findings, inspect **Code changes**, and use the **Run result** command to try an independent copy.
+Open the result from Inbox. Read the report and reviewer findings, then inspect **Code changes**. Check the README as a new contributor would: are the prerequisites clear, are the commands correct, and can you follow them in order?
 
-Choose **Request changes** for another pass, or **Approve and integrate** and confirm. You can also approve the exact result in the Coordinator conversation. Flowfield delivers approved code to your local branch and marks the task **Done**.
+![A result with its report, checks and approval controls](/images/result-overview.png)
+
+If something is missing, choose **Request changes** and describe it. For example:
+
+> The test command is clear, but the setup instructions omit the environment file used by the application. Add the existing example-file step and explain which values a contributor needs to supply.
+
+When the result meets the criteria, choose **Approve and integrate** and confirm. Flowfield delivers the approved change to your local branch and marks the task **Done**.
 
 ## Return to the outcome
 
-Revisit completed work in **Inbox → Delivered** and submitted files in **Files**. The task feed keeps earlier questions, corrections and results. See [review and delivery](/review) for more.
+Open the README in your repository to see the delivered change. You can revisit the result in **Inbox → Delivered** or open the task to read its questions, checks and earlier results.
+
+For your next task, try a small bug fix or feature. [Planning effective tasks](/planning-tasks) covers scope and context; [How Flowfield works](/concepts) explains how tasks, agents and results fit together.

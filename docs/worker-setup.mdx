@@ -1,5 +1,5 @@
 ---
-title: Worker setup and checks
+title: Project setup and checks
 description: Configure repository setup, meaningful checks and local result previews.
 ---
 
@@ -39,15 +39,9 @@ For a shared service, agree its endpoint, data permissions, version and owner. W
 
 ## Let workers run saved checks
 
-**Project settings → Integration → Allow saved checks outside the worker sandbox** lets workers call `run_project_checks` for the exact saved validation commands. It starts disabled. This permission runs the worker’s edited code with Flowfield’s service-host access, including access that the native harness may restrict. Enable it only for a project whose code and check scripts you trust. It does not approve code delivery or grant general native shell permission.
+Enable **Allow saved checks outside the worker sandbox** in Project settings if Workers should run the saved validation commands with service-host access. Review the [permission and its scope](/configuration#saved-checks-outside-the-worker-sandbox) before enabling it.
 
-Workers run only the saved commands in their assigned checkout. Output remains in attempt evidence; final candidate validation runs separately.
-
-Saved checks retain their output on the first run, up to 8 MiB per command, with any truncation disclosed. Workers and Reviewers can page the verified logs through the returned `log_section`; a shortened tool preview does not require rerunning a passing check. These receipts are already evidence and do not need duplicate attachments.
-
-For checks run through native harness tools, Workers are instructed to capture useful logs during the first invocation, preserve the exit code, and select those files with their result. This does not change native access permissions.
-
-Changing integration settings or the repository invalidates this permission. Enable it again for the new settings. Revocation prevents future calls; stopping the worker cancels running checks.
+Saved checks retain their logs with the attempt. Workers and Reviewers can inspect that evidence, and you can read the command output when reviewing the result.
 
 ## Choose workers
 
@@ -55,7 +49,7 @@ Set workspace defaults or use **Task settings → Worker** to override them. Cha
 
 Fast is off by default; enable it in Worker or Reviewer settings when supported. See [agent setup](/agents/overview) and [worker documents](/documents#supply-worker-context).
 
-Workers use separate Git worktrees and scoped Flowfield connections. Git isolation separates repository edits, not the whole host: use separate ports, databases and other mutable resources for concurrent tasks, or serialize them. Native access modes govern agent tools; configured setup and validation commands run directly on the service host.
+For concurrent tasks, configure separate ports, databases and other mutable resources. See [project execution](/configuration#project-execution) for where commands run.
 
 ## Try a result
 
