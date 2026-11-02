@@ -18,7 +18,7 @@ export const usageCost = (
   detailed = false,
 ) =>
   nanodollars == null
-    ? "-"
+    ? "—"
     : !detailed && nanodollars > 0 && nanodollars < 10_000_000
       ? "<$0.01"
       : new Intl.NumberFormat(undefined, {

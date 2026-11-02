@@ -164,7 +164,7 @@ test("failed reads retry and unknown usage never becomes measured zero", async (
   await retry.click();
   await expect(usage.locator("dd").first()).toHaveText("—");
   await expect(usage.locator("dd").nth(2)).toHaveText("—");
-  await expect(usage.locator("dd").nth(1)).toHaveText("-");
+  await expect(usage.locator("dd").nth(1)).toHaveText("—");
   view.totals.cost.nanodollars = 0;
   view.totals.tokens = tokens(0);
   view.totals.elapsed_seconds = 0;

@@ -7,10 +7,12 @@ Before running tasks, configure each project's **Project settings → Integratio
 
 | Setting | Purpose | Example |
 | --- | --- | --- |
-| Destination branch | Existing local branch where approved code is delivered. | `main` |
+| Destination branch | Local branch where approved code is delivered. | `main` |
 | Setup commands | Install dependencies in fresh worktrees. | `pnpm install --frozen-lockfile` |
 | Validation commands | Check the proposed code before approval. | `pnpm test` |
 | Run command | Optional launcher for **Run result**. | `pnpm dev` |
+
+Saving a new destination branch name creates it from the repository’s current commit.
 
 Enter one shell command per line for setup and validation. Choose commands appropriate to your repository; the service host must already provide the language tools and credentials.
 

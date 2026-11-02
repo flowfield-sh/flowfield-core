@@ -53,15 +53,15 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
 <table>
   <tr>
     <td width="25%" align="center"><a href="docs/images/readme/board.png"><img src="docs/images/readme/board.png" alt="Workspace task board"></a><br><strong>Tasks</strong></td>
-    <td width="25%" align="center"><a href="docs/images/readme/documents.png"><img src="docs/images/readme/documents.png" alt="Shared workspace guidance and revisions"></a><br><strong>Documents</strong></td>
-    <td width="25%" align="center"><a href="docs/images/readme/document-editor.png"><img src="docs/images/readme/document-editor.png" alt="Edit shared guidance and its task usage"></a><br><strong>Document editing</strong></td>
-    <td width="25%" align="center"><a href="docs/images/readme/files.png"><img src="docs/images/readme/files.png" alt="Retained files and previews"></a><br><strong>Files</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/inbox.png"><img src="docs/images/readme/inbox.png" alt="Questions and results awaiting review"></a><br><strong>Inbox</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/review.png"><img src="docs/images/readme/review.png" alt="Changes, checks and approval controls"></a><br><strong>Code review</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/task.png"><img src="docs/images/readme/task.png" alt="Task activity, subtasks and results"></a><br><strong>Task history</strong></td>
   </tr>
   <tr>
-    <td width="25%" align="center"><a href="docs/images/readme/inbox.png"><img src="docs/images/readme/inbox.png" alt="Questions and results awaiting review"></a><br><strong>Inbox</strong></td>
-    <td width="25%" align="center"><a href="docs/images/readme/task.png"><img src="docs/images/readme/task.png" alt="Task activity, subtasks and results"></a><br><strong>Task history</strong></td>
-    <td width="25%" align="center"><a href="docs/images/readme/metrics-cost.png"><img src="docs/images/readme/metrics-cost.png" alt="Tokens, cost and running time"></a><br><strong>Metrics</strong></td>
-    <td width="25%" align="center"><a href="docs/images/readme/review.png"><img src="docs/images/readme/review.png" alt="Changes, checks and approval controls"></a><br><strong>Code review</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/documents.png"><img src="docs/images/readme/documents.png" alt="Shared workspace guidance and revisions"></a><br><strong>Documents</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/files.png"><img src="docs/images/readme/files.png" alt="Retained files and previews"></a><br><strong>Files</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/metrics.png"><img src="docs/images/readme/metrics.png" alt="Tokens, cost and running time"></a><br><strong>Metrics</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/document-editor.png"><img src="docs/images/readme/document-editor.png" alt="Edit shared guidance and its task usage"></a><br><strong>Document editing</strong></td>
   </tr>
 </table>
 
