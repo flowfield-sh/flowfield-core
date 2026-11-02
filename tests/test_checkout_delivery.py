@@ -220,11 +220,15 @@ def test_unavailable_recovery_starts_service_and_preserves_exact_retry(
             assert fresh.loop_task is not None and not fresh.loop_task.done()
             assert fresh.workspace.task(other.id, task.id).title == "Unrelated work"
             blocked = current(fresh)
-            assert blocked.status == "stale"
-            assert blocked.problem_code == "delivery_uncertain"
             assert blocked.approved_at == approved.approved_at
             assert blocked.candidate_commit == approved.candidate_commit
-            assert blocked.next_action.action == "retry-delivery"
+            if unavailable == "missing":
+                assert blocked.status == "stale"
+                assert blocked.problem_code == "delivery_uncertain"
+                assert blocked.next_action.action == "retry-delivery"
+            else:
+                assert blocked.status == "delivering"
+                assert fresh.integrations.get("harbor", record.id).revision == record.revision
         finally:
             await fresh.close()
 
@@ -235,9 +239,11 @@ def test_unavailable_recovery_starts_service_and_preserves_exact_retry(
         if unavailable == "missing":
             moved.rename(repo)
     blocked = current(fresh)
-    fresh.results.retry_delivery(
-        "harbor", blocked.id, RunAction(expected_revision=blocked.revision)
-    )
+    if unavailable == "missing":
+        fresh.results.retry_delivery(
+            "harbor", blocked.id, RunAction(expected_revision=blocked.revision)
+        )
+    fresh.results.process("harbor")
     fresh.results.process("harbor")
     delivered = current(fresh)
     assert delivered.status == "delivered", delivered.problem
@@ -258,3 +264,39 @@ def test_recovery_does_not_hide_database_failures(tmp_path, monkeypatch):
     monkeypatch.setattr(service.integrations, "_recover_locked", fail)
     with pytest.raises(sqlite3.DatabaseError, match="damaged"):
         service.integrations.recover(record)
+
+
+def test_recovery_does_not_overwrite_live_preparation(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    from flowfield.adapters import git_integration
+
+    service, repo, run = fixture(tmp_path)
+    entered, release = Event(), Event()
+    original = git_integration.run_checks
+
+    def checks(environment, commands, timeout=60, **kwargs):
+        if commands:
+            entered.set()
+            assert release.wait(10)
+        return original(environment, commands, timeout, **kwargs)
+
+    monkeypatch.setattr(git_integration, "run_checks", checks)
+    with ThreadPoolExecutor() as pool:
+        work = pool.submit(service.results.process, "harbor")
+        try:
+            assert entered.wait(10)
+            pending = current(service)
+            integration = service.integrations.get("harbor", pending.integration_id)
+            assert integration.status == "preparing"
+            service.integrations.restart()
+            service.results.process("harbor")
+            assert service.integrations.get("harbor", integration.id) == integration
+            assert current(service).revision == pending.revision
+            assert current(service).status == "preparing"
+        finally:
+            release.set()
+        work.result(10)
+    assert current(service).status == "ready"
+    assert baseline(repo) == run.base_commit

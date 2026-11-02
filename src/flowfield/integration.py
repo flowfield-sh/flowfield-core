@@ -682,6 +682,10 @@ class Integrations:
             with gitops.lock(repository):
                 return self._recover_locked(record)
         except (ApplicationError, OSError) as error:
+            if isinstance(error, ApplicationError) and error.code == "integration_busy":
+                # A live preparation/delivery can own this lock, including a caller
+                # outside the scheduler. Do not overwrite its state; retry later.
+                return self.get(record.workspace_id, record.id)
             # Lock acquisition itself needs a working repository. Keep this failure
             # local to its delivery instead of preventing every workspace from opening.
             record = self.get(record.workspace_id, record.id)
