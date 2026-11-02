@@ -131,22 +131,37 @@ test("failed reads retry and unknown usage never becomes measured zero", async (
 }, info) => {
   const f = await setup(request),
     view = usageFixture(f.workspace, f.task.id);
-  let fail = true;
+  let recovered = false;
   view.totals.tokens = unknownTokens;
   view.totals.elapsed_seconds = null;
   view.totals.cost.nanodollars = null;
   view.totals.cost.known_nanodollars = null;
   view.totals.cost.priced_tokens = 0;
-  await page.route("**/tasks/*/usage", (route) =>
-    fail
-      ? route.fulfill({ status: 503, json: { detail: "Temporary failure" } })
-      : route.fulfill({ json: view }),
-  );
+  await page.route("**/tasks/*/usage", async (route) => {
+    recovered ||= await page.evaluate(
+      () => document.documentElement.dataset.metricsRetried === "true",
+    );
+    await route.fulfill(
+      recovered
+        ? { json: view }
+        : { status: 503, json: { detail: "Temporary failure" } },
+    );
+  });
   await page.goto(f.url);
   const usage = page.getByRole("region", { name: "Task metrics", exact: true });
   await expect(usage.getByText(/Could not refresh/)).toBeVisible();
-  fail = false;
-  await usage.getByRole("button", { name: "Retry task metrics" }).click();
+  const retry = usage.getByRole("button", { name: "Retry task metrics" });
+  // Initial background refreshes must keep failing until the actual click.
+  await retry.evaluate((button) =>
+    button.addEventListener(
+      "click",
+      () => {
+        document.documentElement.dataset.metricsRetried = "true";
+      },
+      { once: true },
+    ),
+  );
+  await retry.click();
   await expect(usage.locator("dd").first()).toHaveText("—");
   await expect(usage.locator("dd").nth(2)).toHaveText("—");
   await expect(usage.locator("dd").nth(1)).toHaveText("-");
