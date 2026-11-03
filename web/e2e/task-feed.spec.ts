@@ -8,7 +8,6 @@ import {
   existingDirectory,
   state,
   checkout,
-  cli,
   closeOverlay,
   ensureEditing,
   connectMcp,
@@ -424,7 +423,7 @@ test("archive preserves dated records and supports restore and mobile archiving"
   );
 });
 
-test("automatic readiness agrees across browser, CLI and MCP without a Draft state", async ({
+test("automatic readiness agrees across browser and MCP without a Draft state", async ({
   page,
   request,
 }) => {
@@ -459,15 +458,23 @@ test("automatic readiness agrees across browser, CLI and MCP without a Draft sta
   await expect(
     editor.getByRole("button", { name: /publish|prepare/i }),
   ).toHaveCount(0);
-  const first = cli([
-    "task",
-    "edit",
-    "T-1",
-    "--completion",
-    "report",
-    "--workspace",
-    await projectWorkspace(request, "publication"),
-  ]);
+  const first = await (
+    await connectMcp(page.request)
+  )("edit_task", {
+    workspace_id: await projectWorkspace(request, "publication"),
+    task_id: "T-1",
+    changes: {
+      expected_revision: (
+        await (
+          await connectMcp(page.request)
+        )("get_task", {
+          workspace_id: await projectWorkspace(request, "publication"),
+          task_id: "T-1",
+        })
+      ).revision,
+      completion: "report",
+    },
+  });
   expect(first.readiness).toBe("ready");
   expect(first).not.toHaveProperty("publication_status");
   await expect(draft).toHaveCount(0);
@@ -487,22 +494,30 @@ test("automatic readiness agrees across browser, CLI and MCP without a Draft sta
     },
   });
   await expect(draft).toHaveCount(0);
-  const fromCli = cli([
-    "task",
-    "edit",
-    "T-1",
-    "--completion",
-    "report",
-    "--workspace",
-    await projectWorkspace(request, "publication"),
-  ]);
-  expect(fromCli.readiness).toBe("ready");
+  const fromAgent = await (
+    await connectMcp(page.request)
+  )("edit_task", {
+    workspace_id: await projectWorkspace(request, "publication"),
+    task_id: "T-1",
+    changes: {
+      expected_revision: (
+        await (
+          await connectMcp(page.request)
+        )("get_task", {
+          workspace_id: await projectWorkspace(request, "publication"),
+          task_id: "T-1",
+        })
+      ).revision,
+      completion: "report",
+    },
+  });
+  expect(fromAgent.readiness).toBe("ready");
   await expect(draft).toHaveCount(0);
   await call("edit_task", {
     workspace_id: await projectWorkspace(page.request, "publication"),
     task_id: "T-1",
     changes: {
-      expected_revision: fromCli.revision,
+      expected_revision: fromAgent.revision,
       body: "Export filtered rows as JSON, capped at 500. Test Unicode, empty output and overflow. Use UTF-8.",
     },
   });

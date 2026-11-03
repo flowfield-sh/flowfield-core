@@ -11,8 +11,8 @@ Connected agents can:
 
 - Manage workspaces, projects, tasks, subtasks, priorities and dependencies.
 - Maintain shared documents and labels, and browse task files.
-- Configure execution, control the queue, answer questions and review results.
-- Read activity, results and metrics.
+- Configure agent choices, project execution and service settings, control the queue, relay your answers and review results.
+- Read activity, exact execution logs, diffs, review history and metrics.
 
 These operations use the same records and rules as the browser. Delivering code still requires your approval of the exact result.
 
@@ -29,16 +29,30 @@ Use `codex`, `claude-code` or `pi`. Start a fresh agent conversation to load the
 
 For another MCP client, configure a Streamable HTTP connection to `http://127.0.0.1:8765/mcp/`. The service runs locally; the client must be able to reach it.
 
+## Disconnect
+
+```sh
+flowfield integration disconnect codex
+```
+
+The helper removes this Flowfield connection from the harness's user-scoped configuration. Terminal and editor clients that share that configuration are affected. Restart them to unload the tools. For a manually configured MCP client, remove the Flowfield server from that client's configuration.
+
+Disconnecting leaves Flowfield's workspaces, tasks and built-in agents intact. Built-in agents receive their own scoped connections automatically. It does not sign you out of the native harness.
+
+## Set up through an external agent
+
+After connecting, ask the agent to discover available models, create a workspace with your Coordinator, Worker and Reviewer choices, and adopt your existing repositories. It can configure project setup, checks and the result launcher before you enable the queue. You can continue in the browser at any point; both interfaces use the same saved settings and records.
+
 ## Add coordinator guidance
 
 Optionally install Flowfield’s coordinator skill in an [adopted project](/workspaces#create-and-adopt):
 
 ```sh
-flowfield project guidance preview
-flowfield project guidance install
+flowfield integration guidance preview
+flowfield integration guidance install
 ```
 
-This adds a skill and an `AGENTS.md` reference while preserving existing instructions. Review the files, then ask your agent to read the guidance.
+This adds a skill and an `AGENTS.md` reference while preserving existing instructions. Review the files, then ask your agent to read the guidance. `flowfield integration guidance remove` removes the installed guidance while preserving your other instructions and local edits.
 
 ## Connection options
 

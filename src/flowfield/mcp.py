@@ -22,10 +22,12 @@ from flowfield.application import (
     TaskReconcile,
     Workspace,
 )
+from flowfield.attachments import Attachments, AttachmentUpload
 from flowfield.attention import AttentionColumn, RequestKind
 from flowfield.context_measurements import ContextMeasurements
 from flowfield.conversation_api import add_conversation_tools
 from flowfield.coordinator_settings import CoordinatorSettings
+from flowfield.document_settings import DocumentSettingsEdit, DocumentSettingsService
 from flowfield.document_usage import DocumentUsage, DocumentUsageEdit
 from flowfield.documents import DocumentCreate, DocumentEdit, DocumentRestore, Documents
 from flowfield.errors import ApplicationError
@@ -106,6 +108,89 @@ def create_mcp(
         if "author" not in request.model_fields_set:
             return request.model_copy(update={"author": "agent"})
         return request
+
+    @mcp.tool(annotations=read)
+    async def get_project_setup(workspace_id: Identifier, request: ProjectSetup) -> CallToolResult:
+        """Preview adoption defaults for an existing local repository; writes nothing.
+        Use the returned defaults when adopting it into this workspace.
+        """
+
+        def action() -> dict[str, Any]:
+            Workspaces(workspace()).get(workspace_id)
+            return workspace().project_setup_defaults(request).model_dump()
+
+        return await invoke(action)
+
+    @mcp.tool(annotations=write)
+    async def upload_attachment(
+        workspace_id: Identifier, request: AttachmentUpload
+    ) -> CallToolResult:
+        """Upload user-provided text or image bytes (base64) for a Coordinator message or
+        task reply. Include its returned href as a Markdown link in that message.
+        Limit: 2 MiB images, 64 KiB UTF-8 text, four attachments per message.
+        Unsent attachments expire. This does not create a task input file.
+        """
+        return await invoke(
+            lambda: Attachments(workspace()).upload(workspace_id, request).model_dump()
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_document_settings(
+        workspace_id: Identifier,
+        document_id: Identifier,
+        after: Identifier | None = None,
+        limit: PageLimit = 20,
+    ) -> CallToolResult:
+        """Read document metadata/excerpt and paged usage for an atomic settings edit.
+        Follow usage.next_cursor as after. Read full content with get_document_text.
+        """
+
+        def action() -> dict[str, Any]:
+            from flowfield.reads import page
+
+            value = DocumentSettingsService(workspace()).get(workspace_id, document_id).model_dump()
+            usage = value["usage"]
+            projects = page(
+                [item for item in usage["projects"] if after is None or item["id"] > after],
+                limit,
+                "id",
+            )
+            usage["projects"] = projects["items"]
+            usage["next_cursor"] = projects["next_cursor"]
+            return excerpt(value)
+
+        return await invoke(action)
+
+    @mcp.tool(annotations=write)
+    async def edit_document_settings(
+        workspace_id: Identifier, document_id: Identifier, request: DocumentSettingsEdit
+    ) -> CallToolResult:
+        """Edit document metadata/content and usage together, with both revision guards.
+        Omitted usage remains unchanged. Read settings first; concurrent changes reject
+        the entire edit without saving a partial change.
+        """
+        return await mutate(
+            lambda: (
+                DocumentSettingsService(workspace())
+                .edit(workspace_id, document_id, attributed(request))
+                .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_question_history(
+        workspace_id: Identifier,
+        question_id: Identifier,
+        before: Annotated[int, Field(ge=1)] | None = None,
+        limit: Annotated[int, Field(ge=1, le=10)] = 10,
+    ) -> CallToolResult:
+        """Page revisions of a durable question. Read complete fields with get_text."""
+
+        return await invoke(
+            lambda: Questions(workspace()).history(
+                workspace_id, question_id, before=before, limit=limit
+            )
+        )
 
     @mcp.tool(annotations=read)
     async def get_coordinator_guide(
@@ -1236,7 +1321,15 @@ def create_mcp(
         )
 
     if supervisor is not None:
+        from flowfield.evidence_mcp import add_evidence_tools
         from flowfield.execution_mcp import add_execution_tools
+        from flowfield.settings_mcp import add_settings_tools
 
         add_execution_tools(mcp, supervisor, reads)
+        add_settings_tools(mcp, supervisor)
+        add_evidence_tools(mcp, supervisor)
+        if include_service_tools:
+            from flowfield.coordinator_mcp import add_coordinator_control_tools
+
+            add_coordinator_control_tools(mcp, supervisor)
     return mcp

@@ -1,6 +1,6 @@
 import { startService } from "./service";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { basename, resolve, join } from "node:path";
+import { mkdirSync } from "node:fs";
+import { basename, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { openResource } from "./shell-navigation";
 import {
@@ -301,37 +301,6 @@ export async function projectWorkspace(
   const response = await request.get(`/api/projects/${projectId}/workspace`);
   expect(response.ok(), await response.text()).toBeTruthy();
   return (await response.json()).id;
-}
-
-export function fixtureCliProject(arguments_: string[]) {
-  const agents = join(state, "fixture-agents.json");
-  writeFileSync(
-    agents,
-    JSON.stringify(
-      Object.fromEntries(
-        ["coordinator", "worker", "reviewer"].map((role) => [
-          role,
-          { harness: "codex", model: "test-model" },
-        ]),
-      ),
-    ),
-  );
-  const nameAt = arguments_.indexOf("--name");
-  const workspace = cli([
-    "workspace",
-    "create",
-    nameAt < 0 ? basename(arguments_[0]) : arguments_[nameAt + 1],
-    "--agents",
-    agents,
-  ]);
-  return cli([
-    "project",
-    "init",
-    arguments_[0],
-    "--workspace",
-    workspace.id,
-    ...arguments_.slice(1),
-  ]);
 }
 
 export async function fixtureMcpProject(

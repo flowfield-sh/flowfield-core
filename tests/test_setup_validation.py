@@ -106,66 +106,6 @@ def test_interrupted_process_evidence_blocks_duplicate_execution(tmp_path, monke
         )
 
 
-def test_cli_check_changes_preserve_other_settings(monkeypatch):
-    from typer.testing import CliRunner
-
-    from flowfield.cli import app
-
-    current = {
-        "revision": 2,
-        "target_branch": "delivery",
-        "checks": ["old"],
-    }
-    writes = []
-
-    def request(self, method, path, data=None):
-        if method == "PUT":
-            writes.append(data)
-        return current
-
-    monkeypatch.setattr("flowfield.client.Client.request", request)
-    result = CliRunner().invoke(
-        app,
-        [
-            "project",
-            "integration",
-            "configure",
-            "--project",
-            "example",
-            "--target",
-            "delivery",
-            "--check",
-            "new",
-            "--json",
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    assert writes[0]["target_branch"] == "delivery"
-    assert writes[0]["checks"] == ["new"]
-    assert writes[0]["runtime"] is None and writes[0]["checks"] == ["new"]
-    assert "setup_commands" not in writes[0]
-    assert "setup_timeout_seconds" not in writes[0]
-    assert "check_timeout_seconds" not in writes[0]
-    cleared = CliRunner().invoke(
-        app,
-        [
-            "project",
-            "integration",
-            "configure",
-            "--project",
-            "example",
-            "--target",
-            "delivery",
-            "--check",
-            "new",
-            "--clear-setup",
-            "--json",
-        ],
-    )
-    assert cleared.exit_code == 0, cleared.output
-    assert writes[-1]["setup_commands"] == []
-
-
 def test_revalidation_preserves_exact_failed_evidence_and_settings(tmp_path, monkeypatch):
     _, service, settings = configured(tmp_path, monkeypatch, checks=["printf ECONNREFUSED; exit 1"])
     failed = asyncio.run(

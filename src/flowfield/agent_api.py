@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, Query
 
+from flowfield.agent_configuration import configure_worker
 from flowfield.agent_models import AgentRole, AgentSettingsEdit, AgentSettingsView
 from flowfield.agent_settings import AgentSettings
 from flowfield.permission_models import PermissionAnswer, PermissionPage, PermissionRecord
@@ -21,11 +22,7 @@ def agent_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     async def task_edit(
         workspace_id: str, task_id: str, request: AgentSettingsEdit
     ) -> AgentSettingsView:
-        service = supervisor()
-        if request.selection:
-            task = service.workspace.task(workspace_id, task_id)
-            await service.validate_agent_choice(request.selection, task.project_id)
-        return AgentSettings(service.workspace).edit(workspace_id, "worker", request, task_id)
+        return await configure_worker(supervisor(), workspace_id, task_id, request)
 
     @router.get("/permissions")
     def permissions(
@@ -48,8 +45,6 @@ def agent_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
 
     @router.get("/permissions/{permission_id}")
     def permission(workspace_id: str, permission_id: str) -> PermissionRecord:
-        service = supervisor()
-        with service.workspace.connection() as db:
-            return service.permissions._get(db, workspace_id, permission_id)
+        return supervisor().permissions.get(workspace_id, permission_id)
 
     return router

@@ -2,7 +2,6 @@
 
 import asyncio
 from collections.abc import Callable
-from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Query
@@ -10,7 +9,7 @@ from fastapi.responses import FileResponse
 
 from flowfield.adapters.git_review import changed_files, file_patch
 from flowfield.check_logs import download
-from flowfield.errors import ApplicationError
+from flowfield.execution_evidence import command_receipts, comparison, setup_receipts
 from flowfield.integration_models import (
     IntegrationConfig,
     IntegrationPage,
@@ -58,38 +57,15 @@ def integration_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     def integration_log(
         workspace_id: str, identity: str, phase: Literal["setup", "checks"], index: int
     ) -> FileResponse:
-        value = supervisor().integrations.read(workspace_id, identity)
-        if not value.workspace:
-            raise ApplicationError("not_found", "No command environment retained.", 404)
-        checks = value.setup_checks if phase == "setup" else value.checks
-        if value.progress:
-            checks = value.progress.setup_checks if phase == "setup" else value.progress.checks
-        return download(Path(value.workspace).parent / "runtime", checks, index)
+        return download(
+            *command_receipts(supervisor(), workspace_id, "integration", identity, phase), index
+        )
 
     @router.get("/projects/{project_id}/setup-validation/{identity}/logs/{phase}/{index}")
     def setup_log(
         project_id: str, identity: str, phase: Literal["setup", "checks"], index: int
     ) -> FileResponse:
-        value = supervisor().setup_validation.get(project_id, identity)
-        if not value or not value.workspace:
-            raise ApplicationError("not_found", "No command environment retained.", 404)
-        return download(
-            Path(value.workspace).parent / "runtime",
-            value.setup if phase == "setup" else value.checks,
-            index,
-        )
-
-    def comparison(workspace_id: str, identity: str) -> tuple[Path, str, str]:
-        record = supervisor().integrations.get(workspace_id, identity)
-        if not record.candidate_commit:
-            raise ApplicationError(
-                "candidate_missing", "This integration has no combined candidate.", 409
-            )
-        return (
-            Path(supervisor().workspace.project(record.project_id).path),
-            record.target_before,
-            record.candidate_commit,
-        )
+        return download(*setup_receipts(supervisor(), project_id, identity, phase), index)
 
     @router.get("/workspaces/{workspace_id}/integrations/{identity}/diff")
     async def diff(
@@ -99,11 +75,16 @@ def integration_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         limit: int = Query(default=50, ge=1, le=100),
     ) -> ChangedFiles:
         return await asyncio.to_thread(
-            changed_files, *comparison(workspace_id, identity), offset, limit
+            changed_files,
+            *comparison(supervisor(), workspace_id, "integration", identity),
+            offset,
+            limit,
         )
 
     @router.get("/workspaces/{workspace_id}/integrations/{identity}/diff/{file_id}")
     async def patch(workspace_id: str, identity: str, file_id: int) -> FilePatch:
-        return await asyncio.to_thread(file_patch, *comparison(workspace_id, identity), file_id)
+        return await asyncio.to_thread(
+            file_patch, *comparison(supervisor(), workspace_id, "integration", identity), file_id
+        )
 
     return router

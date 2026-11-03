@@ -2,14 +2,12 @@ import { historicalQuestionResponse } from "./historical-questions";
 import { historicalQuestion } from "./historical-questions";
 import { openResource } from "./shell-navigation";
 import {
-  fixtureCliProject,
   projectWorkspace,
   fixtureProject,
   choose,
   test,
   existingDirectory,
   state,
-  cli,
   closeOverlay,
   connectMcp,
 } from "./support";
@@ -21,16 +19,22 @@ test("task keys link to persistent selections with history and draft protection"
   page,
   request,
 }) => {
-  fixtureCliProject([
-    existingDirectory(join(state, "navigation")),
-    "--name",
-    "Navigation trial",
-  ]);
-  fixtureCliProject([
-    existingDirectory(join(state, "nav-other")),
-    "--name",
-    "Other navigation",
-  ]);
+  await (
+    await fixtureProject(page.request, {
+      data: {
+        path: existingDirectory(join(state, "navigation")),
+        name: "Navigation trial",
+      },
+    })
+  ).json();
+  await (
+    await fixtureProject(page.request, {
+      data: {
+        path: existingDirectory(join(state, "nav-other")),
+        name: "Other navigation",
+      },
+    })
+  ).json();
   const call = await connectMcp(request);
   const workspace = await projectWorkspace(page.request, "navigation");
   const otherWorkspace = await projectWorkspace(page.request, "nav-other");
@@ -416,17 +420,20 @@ test.describe("relative timestamps", () => {
     page,
   }) => {
     const project = "relative-times";
-    fixtureCliProject([existingDirectory(join(state, project))]);
-    const task = cli([
-      "task",
-      "create",
-      "--title",
-      "Timestamp evidence",
-      "--workspace",
-      await projectWorkspace(page.request, project),
-      "--body",
-      "Keep timestamp evidence accessible.",
-    ]);
+    await (
+      await fixtureProject(page.request, {
+        data: { path: existingDirectory(join(state, project)) },
+      })
+    ).json();
+    const task = await (
+      await connectMcp(page.request)
+    )("create_task", {
+      workspace_id: await projectWorkspace(page.request, project),
+      task: {
+        title: "Timestamp evidence",
+        body: "Keep timestamp evidence accessible.",
+      },
+    });
     const created = Date.parse(task.updated_at);
     await page.clock.install({ time: new Date(created) });
     await page.clock.pauseAt(new Date(created + 10000));

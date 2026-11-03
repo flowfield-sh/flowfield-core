@@ -1,4 +1,4 @@
-"""Bounded context reads shared by MCP and CLI, separate from the browser snapshot."""
+"""Bounded context reads for MCP and internal app transport, separate from the browser snapshot."""
 
 import json
 import sqlite3

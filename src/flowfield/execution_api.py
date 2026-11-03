@@ -2,7 +2,6 @@
 
 import asyncio
 from collections.abc import Callable
-from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Query
@@ -10,7 +9,7 @@ from fastapi.responses import FileResponse
 
 from flowfield.adapters.git_review import changed_files, file_patch
 from flowfield.check_logs import download
-from flowfield.errors import ApplicationError
+from flowfield.execution_evidence import command_receipts, comparison
 from flowfield.execution_models import (
     ModelOption,
     Run,
@@ -77,30 +76,11 @@ def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     def command_log(
         workspace_id: str, run_id: str, phase: Literal["setup", "checks"], index: int
     ) -> FileResponse:
-        service = supervisor()
-        value = service.execution.get(workspace_id, run_id)
-        environment = service.environment(run_id)
-        if not environment:
-            raise ApplicationError("not_found", "No command environment retained.", 404)
-        return download(
-            environment.runtime,
-            value.setup_checks if phase == "setup" else value.project_check_results,
-            index,
-        )
+        return download(*command_receipts(supervisor(), workspace_id, "run", run_id, phase), index)
 
     @router.get("/workspaces/{workspace_id}/runs/{run_id}/activity")
     def activity(workspace_id: str, run_id: str, after: int = Query(-1, ge=-1)) -> RunActivityPage:
         return RunActivity(supervisor().workspace).read(workspace_id, run_id, after)
-
-    def comparison(workspace_id: str, run_id: str) -> tuple[Path, str, str]:
-        service = supervisor()
-        record = service.execution.get(workspace_id, run_id)
-        environment = service.environment(run_id)
-        if not environment or not record.result_commit:
-            raise ApplicationError(
-                "result_missing", "This attempt has no captured code result yet.", 409
-            )
-        return environment.checkout, record.base_commit, record.result_commit
 
     @router.get("/workspaces/{workspace_id}/runs/{run_id}/diff")
     async def diff(
@@ -110,12 +90,14 @@ def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         limit: int = Query(default=50, ge=1, le=100),
     ) -> ChangedFiles:
         return await asyncio.to_thread(
-            changed_files, *comparison(workspace_id, run_id), offset, limit
+            changed_files, *comparison(supervisor(), workspace_id, "run", run_id), offset, limit
         )
 
     @router.get("/workspaces/{workspace_id}/runs/{run_id}/diff/{file_id}")
     async def patch(workspace_id: str, run_id: str, file_id: int) -> FilePatch:
-        return await asyncio.to_thread(file_patch, *comparison(workspace_id, run_id), file_id)
+        return await asyncio.to_thread(
+            file_patch, *comparison(supervisor(), workspace_id, "run", run_id), file_id
+        )
 
     @router.post("/workspaces/{workspace_id}/runs/{run_id}/stop")
     async def stop(workspace_id: str, run_id: str, request: RunAction) -> Run:

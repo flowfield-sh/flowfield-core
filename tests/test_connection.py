@@ -73,9 +73,18 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                         "list_workspaces",
                         "create_workspace",
                         "create_task",  # Either explicit workspace or project destination.
+                        "get_harness_settings",
+                        "configure_harness",
+                        "check_harness_setup",
+                        "confirm_harness_discovery_stopped",
+                        "get_notification_settings",
+                        "configure_notifications",
+                        "get_update_status",
+                        "configure_updates",
+                        "check_for_updates",
                     }:
                         assert {"project_id", "workspace_id"}.intersection(
-                            tool.inputSchema["required"]
+                            tool.inputSchema.get("required", [])
                         )
                 assert tools["get_board"].annotations.readOnlyHint
                 assert not tools["prioritize_task"].annotations.readOnlyHint

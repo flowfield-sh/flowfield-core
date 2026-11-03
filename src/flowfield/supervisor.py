@@ -48,6 +48,7 @@ from flowfield.results import Results
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
 from flowfield.setup_validation import SetupValidation
 from flowfield.storage import acquire_lock, optimize
+from flowfield.updates import Updates
 from flowfield.usage import Usage
 from flowfield.worker_context import brief_context
 from flowfield.worker_tools import WorkerBridge
@@ -64,6 +65,7 @@ def process_stamp(pid: int) -> str:
 class Supervisor:
     def __init__(self, workspace: Workspace):
         self.workspace, self.execution = workspace, Execution(workspace)
+        self.updates = Updates(workspace)
         self.integrations = Integrations(workspace)
         self.results = Results(workspace)
         from flowfield.review_execution import ReviewExecution
@@ -994,6 +996,7 @@ class Supervisor:
 
     async def close(self) -> None:
         self.closing = True
+        await self.updates.close()
         await self.harness_checks.close()
         await self.coordinator.close()
         self.permissions.close()

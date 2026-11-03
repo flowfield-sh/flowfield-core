@@ -23,9 +23,9 @@ class UpdateSettings(BaseModel):
 
 
 class NotificationService:
-    def __init__(self, workspace: Workspace):
+    def __init__(self, workspace: Workspace, updates: Updates):
         self.announcements = Announcements(workspace)
-        self.updates = Updates(workspace)
+        self.updates = updates
         self.stopped = asyncio.Event()
         self.task: asyncio.Task[None] | None = None
 
@@ -46,11 +46,8 @@ class NotificationService:
 
     async def close(self) -> None:
         self.stopped.set()
-        try:
-            if self.task:
-                await self.task
-        finally:
-            await self.updates.close()
+        if self.task:
+            await self.task
 
 
 def notification_router(service: Callable[[], NotificationService]) -> APIRouter:

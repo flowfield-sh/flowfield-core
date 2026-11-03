@@ -1,6 +1,5 @@
 """Task graph validity, readiness and reconciliation across coordinated edits."""
 
-import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -8,14 +7,11 @@ import pytest
 from fastapi.testclient import TestClient
 from lifecycle_fixtures import run_report
 from project_fixtures import adopt, existing_directory, task_request
-from service_fixtures import running_service
-from typer.testing import CliRunner
 from workspace_fixtures import TEST_AGENTS
 
 from flowfield.api import create_app
 from flowfield.application import ProjectSetup, TaskEdit, TaskReconcile, Workspace
 from flowfield.browser import BrowserReads
-from flowfield.cli import app
 from flowfield.errors import ApplicationError
 
 
@@ -203,57 +199,39 @@ def test_concurrent_edges_and_completion_are_serialized(tmp_path: Path) -> None:
     assert not final.blocked_by and not final.reconciliation_reason
 
 
-def test_http_reconciliation_and_cli_dependencies(tmp_path: Path) -> None:
-    runner = CliRunner()
-    choices = tmp_path / "agents.json"
-    choices.write_text(
-        json.dumps({role: choice.model_dump() for role, choice in TEST_AGENTS.items()})
-    )
-    with running_service(tmp_path / "state") as base:
-        args = ["--data-dir", str(tmp_path / "state"), "--port", base.rsplit(":", 1)[1]]
-
-        def cli(*command: str):
-            result = runner.invoke(app, args + list(command))
-            assert result.exit_code == 0, result.output
-            return result.output
-
-        space = json.loads(
-            cli("workspace", "create", "Product", "--agents", str(choices), "--json")
+def test_http_reconciliation_and_dependencies(tmp_path: Path) -> None:
+    with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://127.0.0.1") as client:
+        space = client.post(
+            "/api/workspaces",
+            json={
+                "name": "Product",
+                **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
+            },
+        ).json()
+        base = f"/api/workspaces/{space['id']}"
+        assert (
+            client.post(
+                base + "/projects", json={"path": existing_directory(str(tmp_path / "harbor"))}
+            ).status_code
+            == 201
         )
-        cli(
-            "project",
-            "init",
-            existing_directory(str(tmp_path / "harbor")),
-            "--workspace",
-            space["id"],
+        assert (
+            client.post(base + "/tasks", json={"id": "a", "title": "Serializer"}).status_code == 201
         )
-        cli("task", "create", "--workspace", space["id"], "--id", "a", "--title", "Serializer")
-        cli(
-            "task",
-            "create",
-            "--workspace",
-            space["id"],
-            "--id",
-            "b",
-            "--title",
-            "Download",
-            "--depends-on",
-            "a",
-        )
-        assert "Blocked by: T-1 (Serializer)" in cli(
-            "task", "show", "T-2", "--workspace", space["id"]
-        )
-        cli("task", "edit", "b", "--workspace", space["id"], "--no-dependencies")
-        cli(
-            "task",
-            "edit",
-            "b",
-            "--workspace",
-            space["id"],
-            "--depends-on",
-            "a",
-            "--depends-on",
-            "a",
+        created = client.post(
+            base + "/tasks", json={"id": "b", "title": "Download", "dependencies": ["a"]}
+        ).json()
+        assert created["blocked_by"][0]["key"] == "T-1"
+        cleared = client.put(
+            base + "/tasks/b", json={"expected_revision": 1, "dependencies": []}
+        ).json()
+        assert not cleared["dependencies"]
+        assert (
+            client.put(
+                base + "/tasks/b",
+                json={"expected_revision": cleared["revision"], "dependencies": ["a", "a"]},
+            ).status_code
+            == 200
         )
         store = Workspace(tmp_path / "state")
         for key in ("a", "b"):

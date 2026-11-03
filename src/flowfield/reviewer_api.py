@@ -4,12 +4,12 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, Query
 
+from flowfield.agent_configuration import configure_reviewer
 from flowfield.execution_models import RunAction
-from flowfield.outputs import Outputs
 from flowfield.reviewer_settings import ReviewerEdit, Reviewers, ReviewerSettingsView
 from flowfield.run_activity import RunActivityPage
 from flowfield.supervisor import Supervisor
-from flowfield.task_reviews import ReviewAttemptInfo, ReviewAttemptPage, TaskReview
+from flowfield.task_reviews import ReviewAttemptPage, TaskReview
 
 
 def reviewer_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
@@ -25,19 +25,7 @@ def reviewer_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         request: ReviewerEdit,
         entity: str = "",
     ) -> ReviewerSettingsView:
-        service = supervisor()
-        owner = Reviewers(service.workspace)
-        current = owner.get(workspace, entity=entity)
-        service.workspace._current(current.revision, request.expected_revision)
-        if request.selection and request.enabled is not False:
-            from flowfield.adapters.coordinator_directory import prepare
-
-            await service.validate_agent_choice(
-                request.selection,
-                None,
-                project_path=str(prepare(service.workspace, workspace)),
-            )
-        return owner.configure(workspace, request, entity=entity)
+        return await configure_reviewer(supervisor(), workspace, request, entity)
 
     @router.get("/workspaces/{workspace}/tasks/{task}/review")
     def current(workspace: str, task: str) -> TaskReview | None:
@@ -51,23 +39,7 @@ def reviewer_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     def attempts(
         workspace: str, identity: str, before: int | None = Query(default=None, ge=1)
     ) -> ReviewAttemptPage:
-        page = supervisor().review_execution.reviews.attempts(workspace, identity, before)
-        with supervisor().workspace.connection() as db:
-            for item in page["items"]:
-                item["files"] = Outputs.selected(db, workspace, item.get("output_ids", []))
-        return ReviewAttemptPage(
-            items=[
-                ReviewAttemptInfo(
-                    **{
-                        key: value
-                        for key, value in item.items()
-                        if key in ReviewAttemptInfo.model_fields
-                    }
-                )
-                for item in page["items"]
-            ],
-            next_before=page["next_before"],
-        )
+        return supervisor().review_execution.reviews.attempt_page(workspace, identity, before)
 
     @router.post("/workspaces/{workspace}/reviews/{identity}/stop")
     async def stop(workspace: str, identity: str, request: RunAction) -> TaskReview:

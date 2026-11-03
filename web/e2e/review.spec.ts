@@ -1,9 +1,9 @@
+import { fixtureProject } from "./support";
 import { responseViews } from "./response-evidence";
 import { dialogViews } from "./dialog-evidence";
 import { resultRequest } from "./support";
 import { projectWorkspace } from "./support";
 import {
-  fixtureCliProject,
   test,
   existingDirectory,
   state,
@@ -22,7 +22,11 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   page,
 }, testInfo) => {
   await stubResourcePresence(page);
-  fixtureCliProject([existingDirectory(join(state, "run-ui"))]);
+  await (
+    await fixtureProject(page.request, {
+      data: { path: existingDirectory(join(state, "run-ui")) },
+    })
+  ).json();
   await page.route("**/api/projects/run-ui/inspection/settings", (route) =>
     route.fulfill({
       json: {
@@ -33,18 +37,16 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
       },
     }),
   );
-  cli([
-    "task",
-    "create",
-    "--workspace",
-    await projectWorkspace(page.request, "run-ui"),
-    "--id",
-    "one",
-    "--title",
-    "Review a managed result",
-    "--body",
-    "Implement the behavior",
-  ]);
+  await (
+    await connectMcp(page.request)
+  )("create_task", {
+    workspace_id: await projectWorkspace(page.request, "run-ui"),
+    task: {
+      id: "one",
+      title: "Review a managed result",
+      body: "Implement the behavior",
+    },
+  });
   let run = {
     id: "attempt-one",
     project_id: "run-ui",
@@ -537,14 +539,14 @@ test("validated result approval delivers real Git code with the worker queue pau
   });
   expect(read.status).toBe("ready");
   expect(
-    cli([
-      "task",
-      "results",
-      "show",
-      seed.result,
-      "--workspace",
-      await projectWorkspace(request, seed.project),
-    ]).candidate_commit,
+    (
+      await (
+        await connectMcp(page.request)
+      )("get_result", {
+        workspace_id: await projectWorkspace(request, seed.project),
+        result_id: seed.result,
+      })
+    ).candidate_commit,
   ).toBe(seed.candidate);
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, seed.project)}/inbox`,
@@ -936,7 +938,9 @@ test("adoption preserves repository guidance and standalone installation stays e
   const original = "# Repository rules\n\nKeep our conventions.\n";
   writeFileSync(agents, original);
   writeFileSync(join(root, "AGENTS.override.md"), "Local override\n");
-  const adopted = fixtureCliProject([root]);
+  const adopted = await (
+    await fixtureProject(page.request, { data: { path: root } })
+  ).json();
   await page.goto("/projects/" + adopted.id);
   await expect(
     page.getByRole("article", { name: "Coordinator welcome" }),
@@ -946,13 +950,13 @@ test("adoption preserves repository guidance and standalone installation stays e
   const before = await (
     await request.get("/api/projects/" + adopted.id + "/workspace")
   ).json();
-  cli(["project", "guidance", "install"], root);
+  cli(["integration", "guidance", "install"], root);
   expect(readFileSync(agents, "utf8").startsWith(original)).toBe(true);
   expect(
     existsSync(join(root, ".agents/skills/flowfield-coordinator/SKILL.md")),
   ).toBe(true);
   writeFileSync(agents, readFileSync(agents, "utf8") + "\nNew local rule\n");
-  cli(["project", "guidance", "remove"], root);
+  cli(["integration", "guidance", "remove"], root);
   expect(readFileSync(agents, "utf8")).toBe(original + "\nNew local rule\n");
   expect(readFileSync(join(root, "AGENTS.override.md"), "utf8")).toBe(
     "Local override\n",

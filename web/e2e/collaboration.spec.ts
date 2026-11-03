@@ -12,7 +12,6 @@ import {
   test,
   existingDirectory,
   state,
-  cli,
   closeOverlay,
   connectMcp,
   resultMessage,
@@ -272,23 +271,25 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
   await expect(
     page.getByRole("tab", { name: "Decisions", exact: true }),
   ).toHaveCount(0);
-  const note = cli([
-    "task",
-    "note",
-    "T-1",
-    "--workspace",
-    await projectWorkspace(request, identity.project_id),
-    "--body",
-    "Serializer verified; download integration remains.",
-  ]);
+  const note = await (
+    await connectMcp(page.request)
+  )("add_activity", {
+    workspace_id: await projectWorkspace(request, identity.project_id),
+    entry: {
+      kind: "note",
+      task_id: "T-1",
+      body: "Serializer verified; download integration remains.",
+    },
+  });
   expect(
-    cli([
-      "task",
-      "activity",
-      "T-1",
-      "--workspace",
-      await projectWorkspace(request, identity.project_id),
-    ]).items[0].id,
+    (
+      await (
+        await connectMcp(page.request)
+      )("list_activity", {
+        workspace_id: await projectWorkspace(request, identity.project_id),
+        task_id: "T-1",
+      })
+    ).items[0].id,
   ).toBe(note.id);
   await page.goto(
     `/workspaces/${await projectWorkspace(request, "activity-trial")}/tasks/T-1/history`,
@@ -489,12 +490,13 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     },
   });
   expect(
-    cli([
-      "inbox",
-      "list",
-      "--workspace",
-      await projectWorkspace(request, project_id),
-    ]).needs_you_count,
+    (
+      await (
+        await connectMcp(page.request)
+      )("list_questions", {
+        workspace_id: await projectWorkspace(request, project_id),
+      })
+    ).needs_you_count,
   ).toBe(1);
   await page.goto(
     `/workspaces/${await projectWorkspace(request, project_id)}/tasks`,
@@ -732,15 +734,23 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   await detail
     .getByLabel("Your answer", { exact: true })
     .fill("My unsaved custom answer");
-  cli([
-    "inbox",
-    "answer",
-    q.id,
-    "--workspace",
-    await projectWorkspace(request, project_id),
-    "--answer",
-    "Cap it at 10,000.",
-  ]);
+  await (
+    await connectMcp(page.request)
+  )("answer_question", {
+    workspace_id: await projectWorkspace(request, project_id),
+    question_id: q.id,
+    response: {
+      expected_revision: (
+        await (
+          await connectMcp(page.request)
+        )("get_question", {
+          workspace_id: await projectWorkspace(request, project_id),
+          question_id: q.id,
+        })
+      ).revision,
+      answer: "Cap it at 10,000.",
+    },
+  });
   await expect(
     detail.getByText("This question changed while you were answering."),
   ).toBeVisible();
@@ -831,24 +841,31 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   await expect(detail).toContainText(
     "Answer saved. Ask the coordinator to apply it.",
   );
-  const reply = cli([
-    "inbox",
-    "show",
-    q.id,
-    "--workspace",
-    await projectWorkspace(request, project_id),
-  ]);
+  const reply = await (
+    await connectMcp(page.request)
+  )("get_question", {
+    workspace_id: await projectWorkspace(request, project_id),
+    question_id: q.id,
+  });
   expect(reply.answer).toContain("narrowing filters");
   expect(reply.revision).toBe(4);
-  const withdrawal = cli([
-    "inbox",
-    "withdraw",
-    q.id,
-    "--workspace",
-    await projectWorkspace(request, project_id),
-    "--reason",
-    "Export postponed.",
-  ]);
+  const withdrawal = await (
+    await connectMcp(page.request)
+  )("withdraw_question", {
+    workspace_id: await projectWorkspace(request, project_id),
+    question_id: q.id,
+    withdrawal: {
+      expected_revision: (
+        await (
+          await connectMcp(page.request)
+        )("get_question", {
+          workspace_id: await projectWorkspace(request, project_id),
+          question_id: q.id,
+        })
+      ).revision,
+      reason: "Export postponed.",
+    },
+  });
   expect(withdrawal.status).toBe("withdrawn");
   await expect(
     detail.getByRole("heading", { name: "Reason withdrawn", exact: true }),
@@ -923,7 +940,7 @@ test("correcting answers preserves the original and links the replacement", asyn
   ).toHaveCount(0);
 });
 
-test("project questions link affected tasks and reconcile through CLI and MCP", async ({
+test("project questions link affected tasks and reconcile through MCP", async ({
   page,
   request,
 }) => {
@@ -1000,17 +1017,18 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
   expect(briefing.recommendation.action).toBe("apply_answer");
   expect(briefing.recommendation.id).toBe(q.id);
   expect(briefing.attention.answered.items[0].id).toBe(q.id);
-  const result = cli([
-    "inbox",
-    "apply",
-    q.id,
-    "--workspace",
-    await projectWorkspace(request, project_id),
-    "--description",
-    "Offline UTF-8 outputs, without BOM.",
-    "--decision",
-    "Exports use UTF-8 without BOM; the Report task uses the project convention.",
-  ]);
+  const result = await resumed("apply_answer", {
+    workspace_id: await projectWorkspace(request, project_id),
+    question_id: q.id,
+    application: {
+      expected_revision: 2,
+      expected_workspace_revision: 1,
+      description: "Offline UTF-8 outputs, without BOM.",
+      decision:
+        "Exports use UTF-8 without BOM; the Report task uses the project convention.",
+      task_updates: [{ task_id: "second", expected_revision: 1 }],
+    },
+  });
   expect(result.applied_workspace_revision).toBe(2);
   expect(result.applied_task_revisions.second).toBe(1);
   await expect(
@@ -1075,21 +1093,19 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
       status: "in_progress",
     },
   });
-  const checkpoint = cli([
-    "task",
-    "handoff",
-    "T-1",
-    "--workspace",
-    await projectWorkspace(request, project_id),
-    "--expected-revision",
-    "1",
-    "--supersedes",
-    "none",
-    "--body",
-    "catalog.py validates records. Checks: 4 unit tests pass. Next: inspect duplicate-ID handling.",
-    "--author",
-    "agent",
-  ]);
+  const checkpoint = await (
+    await connectMcp(page.request)
+  )("add_activity", {
+    workspace_id: await projectWorkspace(request, project_id),
+    entry: {
+      kind: "handoff",
+      task_id: "T-1",
+      expected_task_revision: 1,
+      supersedes: null,
+      body: "catalog.py validates records. Checks: 4 unit tests pass. Next: inspect duplicate-ID handling.",
+      author: "agent",
+    },
+  });
   await call("add_activity", {
     workspace_id: await projectWorkspace(request, project_id),
     entry: {

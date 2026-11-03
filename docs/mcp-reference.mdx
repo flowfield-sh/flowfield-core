@@ -3,7 +3,7 @@ title: MCP reference
 description: Connection options, tool scope and paged reads for Flowfield MCP clients.
 ---
 
-For a first connection from your editor or terminal, follow [Connect an external agent](/mcp-integration). This page covers connection settings and how clients read Flowfield records.
+For a first connection from your editor or terminal, follow [Connect an external agent](/mcp-integration). MCP is the supported programmatic interface for agents. The HTTP endpoints used by the bundled app are internal transport, not a separately supported public API.
 
 ## Connection
 
@@ -22,15 +22,32 @@ flowfield --port 8770 integration status claude-code --name flowfield-local
 flowfield --port 8770 integration disconnect claude-code --name flowfield-local
 ```
 
-Disconnect removes the native connection. Restart the agent to unload it.
+Use the same port and name when disconnecting. See [Disconnect](/mcp-integration#disconnect) for which clients are affected.
 
 ## Tool scope
 
 An external connection can manage workspaces, projects, documents, tasks, execution and results through the public tools. Pass the workspace and record identifiers requested by each tool's schema. The server's tool descriptions provide the current arguments and response expectations.
 
-Built-in Coordinators receive a connection scoped to their workspace. Workers and Reviewers receive tools scoped to their assigned execution. All interfaces use the same task records, revisions and approval rules.
+Built-in Coordinators manage their assigned workspace and its member projects, plus explicitly service-wide harness, notification and update settings. They cannot switch workspaces or start and stop their own conversation. External clients can create workspaces and control the built-in Coordinator. Workers and Reviewers keep tools scoped to their assigned execution.
+
+Saved application settings and workflows are available through MCP. Appearance, unsent drafts, file pickers and browser/OS notification permission belong to the browser. A Coordinator setting that requires a fresh native session must be changed after the active turn stops, through the GUI or an external agent.
+
+Permission and cleanup tools relay your explicit decisions for the exact request. They do not let an agent infer approval, approve its own permission request or assume a process has stopped.
 
 For updates, use the current revision returned by the relevant read. If another edit changes the record, read it again and reconcile your intended change. Code approval binds to the exact result and candidate being reviewed.
+
+## Configure and recover work
+
+Discover tools and their schemas through MCP; the server supplies current arguments and constraints.
+
+| Area | Starting reads and actions |
+| --- | --- |
+| Agent choices | `get_coordinator_settings`, `get_workspace_workers`, `get_task_worker_settings`, `get_reviewer_settings`; matching configuration tools save revision-checked choices. |
+| Host setup | `get_harness_settings`, `configure_harness`, `check_harness_setup`; paths affect all workspaces, not native accounts. |
+| Review recovery | `get_review`, `get_review_attempts`, `get_review_activity`, `retry_review`; cleanup confirmation requires your host inspection. |
+| Execution evidence | `get_execution_diff`, `get_execution_patch`, `get_execution_log`, `get_setup_log`; follow returned pages for complete evidence. |
+
+Changing settings does not authorize enabling a paused queue or delivering code. Native permissions and saved-check grants require your explicit authorization; code approval binds to the exact result and candidate.
 
 ## Read documents
 

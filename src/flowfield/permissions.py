@@ -120,6 +120,10 @@ class Permissions:
         self.workspace = workspace
         self.turns: dict[str, PermissionTurn] = {}
 
+    def get(self, workspace: str, identity: str) -> PermissionRecord:
+        with self.workspace.connection() as db:
+            return self._get(db, workspace, identity)
+
     @staticmethod
     def _get(db: sqlite3.Connection, project: str, identity: str) -> PermissionRecord:
         column = "workspace_id"

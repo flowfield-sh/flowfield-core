@@ -8,73 +8,6 @@ from flowfield.cli import app
 runner = CliRunner()
 
 
-def test_coordinator_history_cli_cursor_and_full_text(monkeypatch):
-    from flowfield.client import Client
-
-    calls = []
-
-    def request(self, method, path, payload=None, **kwargs):
-        calls.append((method, path))
-        if "/coordinator-text?" in path:
-            return {
-                "text": "Retained reply",
-                "revision": 3,
-                "next_offset": 14,
-                "output_omitted": True,
-            }
-        return {
-            "items": [
-                {
-                    "number": 4,
-                    "status": "completed",
-                    "id": "older",
-                    "human": "Original requirement",
-                    "coordinator": "Saved reply",
-                    "output_omitted": False,
-                }
-            ],
-            "next_cursor": 4,
-        }
-
-    monkeypatch.setattr(Client, "request", request)
-    page = runner.invoke(
-        app,
-        [
-            "workspace",
-            "coordinator-history",
-            "--workspace",
-            "harbor",
-            "--before",
-            "5",
-            "--limit",
-            "1",
-        ],
-    )
-    assert page.exit_code == 0, page.output
-    assert "Original requirement" in page.output and "--before 4" in page.output
-    assert calls[-1] == ("GET", "context/workspaces/harbor/coordinator-history?before=5&limit=1")
-    full = runner.invoke(
-        app,
-        [
-            "workspace",
-            "coordinator-text",
-            "older",
-            "--workspace",
-            "harbor",
-            "--field",
-            "coordinator",
-            "--revision",
-            "3",
-            "--offset",
-            "2",
-        ],
-    )
-    assert full.exit_code == 0, full.output
-    assert "Retained reply" in full.output and "--offset 14 --revision 3" in full.output
-    assert "cannot be recovered" in full.output
-    assert "identity=older&field=coordinator&offset=2&limit=4000&revision=3" in calls[-1][1]
-
-
 def test_cli_help_and_versions() -> None:
     assert runner.invoke(app, ["--help"]).exit_code == 0
     result = runner.invoke(app, ["--version"])
@@ -108,98 +41,19 @@ def test_guidance_install_has_outcome_files_and_next_steps(monkeypatch):
         "baseline_ref": "HEAD",
     }
     monkeypatch.setattr(Client, "request", lambda *args, **kwargs: payload)
-    result = runner.invoke(app, ["project", "guidance", "install", "--project", "harbor"])
+    result = runner.invoke(app, ["integration", "guidance", "install", "--project", "harbor"])
     assert result.exit_code == 0, result.output
     assert result.output.startswith("Project guidance installed.\n\nChanged files:\n- AGENTS.md")
     assert "\nReview:\n- Review additional" in result.output
     assert "\nNext:\n- Review and commit" in result.output
     assert "Worker baseline:" not in result.output and "Instruction files:" not in result.output
-    shown = runner.invoke(app, ["project", "guidance", "show", "--project", "harbor"])
+    shown = runner.invoke(app, ["integration", "guidance", "show", "--project", "harbor"])
     assert "Worker baseline:" in shown.output and "Instruction files:" in shown.output
 
 
-def test_result_action_renders_a_bounded_mutation_receipt(monkeypatch) -> None:
-    from flowfield.client import Client
-
-    calls = []
-
-    def request(self, method, path, payload=None, **kwargs):
-        calls.append((method, path, payload))
-        return {
-            "saved": True,
-            "id": "result-one",
-            "task_key": "T-1",
-            "version": 2,
-            "revision": 3,
-            "status": "preparing",
-            "candidate_commit": None,
-        }
-
-    monkeypatch.setattr(Client, "request", request)
-    result = runner.invoke(
-        app,
-        [
-            "task",
-            "results",
-            "prepare",
-            "result-one",
-            "--workspace",
-            "harbor",
-            "--expected-revision",
-            "2",
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    assert "Result v2" in result.output and "pending" in result.output
-    assert calls[0][1].endswith("/results/result-one/prepare")
-
-
-def test_managed_question_cli_displays_reservation_without_application_step(monkeypatch):
-    from flowfield.client import Client
-
-    monkeypatch.setattr(
-        Client,
-        "request",
-        lambda *args, **kwargs: {
-            "id": "scope",
-            "task_key": "T-1",
-            "status": "assigned",
-            "question": "Which records?",
-            "answer": "Favourites",
-            "delivery": {"state": "Resuming", "message": "Preparing work with your saved answer."},
-        },
-    )
-    result = runner.invoke(app, ["inbox", "show", "scope", "--workspace", "harbor"])
-    assert result.exit_code == 0, result.stdout
-    assert "Resuming" in result.stdout and "Favourites" in result.stdout
-    assert "Awaiting application" not in result.stdout
-
-
-def test_task_delete_confirms_then_sends_exact_revision(monkeypatch):
-    from flowfield.client import Client
-
-    calls = []
-
-    def request(self, method, path, payload=None, **kwargs):
-        calls.append((method, path, payload))
-        return {"revision": 7} if method == "GET" else {"key": "T-9", "cleanup_pending": False}
-
-    monkeypatch.setattr(Client, "request", request)
-    args = ["task", "delete", "T-9", "--workspace", "harbor"]
-    cancelled = runner.invoke(app, args, input="n\n")
-    assert cancelled.exit_code != 0 and calls == []
-    deleted = runner.invoke(app, args, input="y\n")
-    assert deleted.exit_code == 0, deleted.output
-    assert "T-9 deleted." in deleted.output
-    assert calls[-1] == (
-        "DELETE",
-        "workspaces/harbor/tasks/T-9",
-        {"expected_revision": 7, "author": "human"},
-    )
-
-
-def test_inbox_cannot_create_coordinator_questions():
-    for command in ("ask", "follow-up", "retract-answer"):
-        result = runner.invoke(app, ["inbox", command])
-        assert result.exit_code == 2
-        assert "No such command" in result.output
+def test_cli_boundary_excludes_application_management():
+    for command in ("workspace", "project", "task", "inbox", "status"):
+        result = runner.invoke(app, [command, "--help"])
+        assert result.exit_code == 2 and "No such command" in result.output
+    assert runner.invoke(app, ["harness", "configure"]).exit_code == 2
+    assert runner.invoke(app, ["integration", "guidance", "--help"]).exit_code == 0

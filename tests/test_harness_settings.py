@@ -527,7 +527,7 @@ def test_offline_status_respects_saved_override_without_initializing_missing_sta
     assert not log.exists()
 
 
-def test_cli_host_configuration_targets_service_and_reset_is_revisioned(monkeypatch):
+def test_cli_host_diagnostics_and_recovery_target_service(monkeypatch):
     calls = []
 
     def request(self, method, path, body=None):
@@ -536,27 +536,6 @@ def test_cli_host_configuration_targets_service_and_reset_is_revisioned(monkeypa
 
     monkeypatch.setattr(Client, "request", request)
     runner = CliRunner()
-    result = runner.invoke(
-        cli,
-        [
-            "harness",
-            "configure",
-            "claude-code",
-            "--revision",
-            "1",
-            "--config-directory",
-            "/host/native-config",
-            "--json",
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    assert calls[-1] == (
-        "PUT",
-        "harnesses/claude-code",
-        {"expected_revision": 1, "executable": None, "config_directory": "/host/native-config"},
-    )
-    result = runner.invoke(cli, ["harness", "configure", "codex", "--revision", "2", "--json"])
-    assert result.exit_code == 0 and calls[-1][2]["config_directory"] is None
     result = runner.invoke(cli, ["harness", "settings", "codex", "--json"])
     assert result.exit_code == 0 and calls[-1][:2] == ("GET", "harnesses/codex")
     result = runner.invoke(

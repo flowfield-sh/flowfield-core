@@ -1,11 +1,9 @@
 ---
 title: CLI
-description: Inspect work, configure execution and automate versioned operations.
+description: Run the service, connect external agents and diagnose the local installation.
 ---
 
-Most commands use the running local service. Project commands read `.flowfield/config.toml` in your repository; pass the command's `--project ID` option elsewhere. Task and workspace operations require `--workspace WORKSPACE_ID`. Use `--help` at any command level for its full options.
-
-Add `--json` to data commands for structured output. Errors go to stderr with a nonzero exit status. Versioned edits require the current revision; paged reads return cursors or offsets that you must follow to read the remaining content.
+Use the CLI to run Flowfield and connect agents in your terminal or editor. Manage work and settings in the browser or through [MCP](/mcp-integration). `--help` lists the options at each command level; `--json` produces structured data, with errors on stderr and a nonzero exit status.
 
 ## Service and storage
 
@@ -13,104 +11,40 @@ Add `--json` to data commands for structured output. Errors go to stderr with a 
 flowfield serve
 flowfield --version
 flowfield version --json
-flowfield --port 8770 project list
 flowfield update status
 flowfield update check
 flowfield storage status
 ```
 
-`serve` opens the browser in an interactive terminal; `serve --no-open` prints the URL without opening it. Global `--port` or `FLOWFIELD_PORT` selects the service; `--data-dir` or `FLOWFIELD_DATA_DIR` selects its data directory.
+`serve` opens the browser in an interactive terminal. Use `serve --no-open` to print the URL without opening it, and Ctrl-C to stop the service. Global `--port` or `FLOWFIELD_PORT` selects the service; `--data-dir` or `FLOWFIELD_DATA_DIR` selects its data directory.
 
 Update commands report availability; they do not install releases. Storage inspection works offline. See [installation](/installation#update) and [storage](/storage#inspect-storage).
 
-## Workspaces and projects
-
-For creation, `agents.json` supplies `coordinator`, `worker` and `reviewer` selections. Each includes the selected `harness`, `model` and supported `effort`/`mode`.
+## External agents
 
 ```sh
-flowfield workspace create "Harbor" --agents agents.json
-flowfield workspace list
-flowfield workspace show WORKSPACE_ID
-flowfield workspace labels WORKSPACE_ID
-flowfield project init /absolute/path --workspace WORKSPACE_ID
-flowfield project list
-flowfield project show
+flowfield integration connect codex
+flowfield integration status codex
+flowfield integration disconnect codex
 ```
 
-Create a workspace before adopting a repository. `project init` accepts initial `--id` and `--name` overrides. See [workspaces](/workspaces) for ownership and navigation.
+Use `codex`, `claude-code` or `pi`. [Connect an external agent](/mcp-integration) explains connection scope, disconnection and optional project guidance.
 
-Use `project guidance preview`, `install` or `show` for [coordinator guidance](/mcp-integration#add-coordinator-guidance). `remove` preserves local edits; `export --part coordinator` prints the packaged skill.
+For guidance in an adopted repository, use `integration guidance preview`, `install`, `show` or `remove`. Outside the repository, pass `--project ID`. `export --part coordinator` prints the packaged skill without changing files.
 
-## Tasks and subtasks
-
-```sh
-flowfield task list --workspace WORKSPACE_ID
-flowfield task show T-1 --workspace WORKSPACE_ID
-flowfield task activity T-1 --workspace WORKSPACE_ID
-flowfield task relationships T-1 --workspace WORKSPACE_ID
-flowfield task revisions T-1 --workspace WORKSPACE_ID
-flowfield task subtask list T-1 --workspace WORKSPACE_ID
-flowfield task subtask create T-1 --workspace WORKSPACE_ID --title "Implement API" --body "Add the agreed endpoint and tests" --completion code
-```
-
-Task creation accepts an optional `--project PROJECT_ID` for repository work. Task keys accept either case; internal IDs remain exact. Repeated `--depends-on` values name prerequisite tasks in the same workspace. For subtask creation and editing, they name sibling subtasks within the parent task. Repeated `--label` values replace a task’s labels; `--no-labels` clears them.
-
-Create a new task for follow-up to completed work, referencing the original task and result.
-
-Use `task archive` / `task restore` to hide or restore work. `task delete T-1 --workspace WORKSPACE_ID` permanently removes a task and its owned records/files after confirmation; `--yes` confirms noninteractively. Stop previews first. See [task deletion](/tasks#archive-or-delete) for retained dependencies and cleanup.
-
-## Execution, questions and results
-
-```sh
-flowfield workspace workers show --workspace WORKSPACE_ID
-flowfield workspace workers models --workspace WORKSPACE_ID
-flowfield workspace workers run --workspace WORKSPACE_ID
-flowfield workspace workers pause --workspace WORKSPACE_ID
-flowfield inbox list --workspace WORKSPACE_ID
-flowfield inbox show QUESTION_ID --workspace WORKSPACE_ID
-flowfield task runs list --workspace WORKSPACE_ID
-flowfield task runs show ATTEMPT_ID --workspace WORKSPACE_ID
-flowfield task results list T-1 --workspace WORKSPACE_ID
-flowfield task results show RESULT_ID --workspace WORKSPACE_ID
-```
-
-Use `workspace workers models --refresh` after account or configuration changes, and `workspace workers configure --help` for model, access and capacity settings.
-
-Run enables eligible Up next starts. Pause leaves active work running. `task runs stop ATTEMPT_ID` targets one attempt; `task runs retry ATTEMPT_ID` queues a fresh attempt while respecting pause, dependencies and capacity.
-
-Use `task results review --help` for approval or request-changes options. A candidate commit and current result revision are required. `task results retry-delivery --help` covers approved code blocked from the checkout. Answers and reviews preserve their task/attempt/result bindings. See [the review workflow](/review#review-an-exact-result).
-
-## Project integration
-
-```sh
-flowfield project integration show
-flowfield project integration configure --target main --check "make test"
-```
-
-Repeat `--check` for multiple commands; repeated `--setup` options replace the saved setup commands. Omitted setup and timeout options retain their saved values; `--clear-setup` explicitly removes setup commands. The Coordinator can configure and validate richer environment and run-command settings. See [Project setup and checks](/worker-setup).
-
-## Host harness settings
+## Host diagnostics and recovery
 
 ```sh
 flowfield harness status codex
 flowfield harness settings codex
-flowfield harness configure codex --revision 1 \
-  --executable /absolute/path/to/codex \
-  --config-directory /absolute/path/to/native-config
 ```
 
-Use the revision returned by settings. Configure replaces both overrides; omit both paths to restore detection. The configuration path is a directory, matching `CODEX_HOME`, `CLAUDE_CONFIG_DIR` or `PI_CODING_AGENT_DIR`. Overrides take precedence over native environment variables and change no native files or accounts.
+`status` inspects detected native paths offline without launching an agent. `settings` reads readiness and discovery ownership from the running service. Change paths in **Settings → Harnesses**, or ask a connected agent to configure them through MCP.
 
-Changes apply to future turns/attempts. A changed native session location may require the Coordinator's fresh-session recovery. For an interrupted discovery hold, inspect and stop remaining native work before confirming its exact ID:
+If discovery is held after an interruption, inspect and stop the remaining native processes on the service host, then confirm the exact discovery ID:
 
 ```sh
-flowfield harness confirm-stopped codex --discovery DISCOVERY_ID
+flowfield --port 8770 harness confirm-stopped codex --discovery DISCOVERY_ID
 ```
 
-See [agent recovery](/agents/overview#recover-setup-and-discovery) and [connection options](/mcp-reference#connection).
-
-## Saved conversation reads
-
-`workspace coordinator-history --workspace WORKSPACE_ID --json` returns newest exchanges first; pass `next_cursor` as `--before`. Use `workspace coordinator-text TURN --workspace WORKSPACE_ID --field human --revision REVISION --json` for human text or `--field coordinator` for public replies.
-
-Follow `next_offset` as `--offset` while keeping the revision; restart if output changed. Marked omissions are not recoverable. Saved history does not reconstruct native tool history or transfer permissions or approval.
+Use the same port as the service being recovered. See [agent recovery](/agents/overview#recover-setup-and-discovery).

@@ -72,7 +72,9 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
         )
         app.state.supervisor = Supervisor(app.state.workspace)
         await app.state.supervisor.start()
-        app.state.notifications = NotificationService(app.state.workspace)
+        app.state.notifications = NotificationService(
+            app.state.workspace, app.state.supervisor.updates
+        )
         try:
             await app.state.notifications.start()
             async with mcp.session_manager.run():

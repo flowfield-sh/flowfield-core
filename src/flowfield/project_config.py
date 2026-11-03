@@ -76,5 +76,5 @@ def discover_project(start: Path) -> str:
             break
     raise ApplicationError(
         "project_required",
-        "No project config found. Run flowfield project init here or pass --project.",
+        "No project config found. Adopt this repository in Flowfield or pass --project.",
     )

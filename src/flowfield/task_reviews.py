@@ -108,6 +108,22 @@ class TaskReviews(ReviewRecords[TaskReview]):
     job_table = "task_reviews"
     attempt_table = "review_attempts"
 
+    def attempt_page(
+        self, workspace: str, identity: str, before: int | None = None
+    ) -> ReviewAttemptPage:
+        page = self.attempts(workspace, identity, before)
+        with self.store.connection() as db:
+            items = []
+            for item in page["items"]:
+                fields = {
+                    key: value
+                    for key, value in item.items()
+                    if key in ReviewAttemptInfo.model_fields
+                }
+                fields["files"] = Outputs.selected(db, workspace, item.get("output_ids", []))
+                items.append(ReviewAttemptInfo(**fields))
+        return ReviewAttemptPage(items=items, next_before=page["next_before"])
+
     def decision_files(
         self,
         review: TaskReview,

@@ -1,5 +1,4 @@
 import {
-  fixtureCliProject,
   projectWorkspace,
   fixtureProject,
   choose,
@@ -11,7 +10,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { expect } from "@playwright/test";
 
-test("CLI adoption updates the browser, task creation and initial connection recovery", async ({
+test("Project adoption updates the browser, task creation and initial connection recovery", async ({
   page,
   request,
 }) => {
@@ -25,9 +24,11 @@ test("CLI adoption updates the browser, task creation and initial connection rec
   await expect(
     page.getByRole("link", { name: "New workspace", exact: true }),
   ).toHaveCount(1);
-  const adopted = fixtureCliProject([
-    existingDirectory(join(state, "browser")),
-  ]);
+  const adopted = await (
+    await fixtureProject(page.request, {
+      data: { path: existingDirectory(join(state, "browser")) },
+    })
+  ).json();
   await page.getByLabel("Workspace", { exact: true }).click();
   await page.getByRole("option", { name: adopted.name, exact: true }).click();
   const workspace = await projectWorkspace(page.request, adopted.id);

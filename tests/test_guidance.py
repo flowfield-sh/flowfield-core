@@ -216,7 +216,7 @@ def test_http_preview_stale_writes_and_export(tmp_path: Path) -> None:
         assert client.post(endpoint, json=payload).json()["status"] == "installed"
         assert client.post(endpoint, json=payload).status_code == 409
         assert client.get(endpoint).json()["skill"] == template("flowfield-coordinator/SKILL.md")
-    output = CliRunner().invoke(app, ["project", "guidance", "export", "--part", "agents"])
+    output = CliRunner().invoke(app, ["integration", "guidance", "export", "--part", "agents"])
     assert output.exit_code == 0 and output.stdout == template("agents-section.md")
     assert CliRunner().invoke(app, ["project", "create", str(root)]).exit_code != 0
 

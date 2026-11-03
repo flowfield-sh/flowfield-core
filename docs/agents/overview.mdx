@@ -19,7 +19,9 @@ Models load from the harness when you open a selector. See each agent’s page f
 
 ## Flowfield tools
 
-Built-in agents receive scoped MCP connections automatically. They use the same workspace and task records as the browser and CLI.
+Built-in agents receive scoped MCP connections automatically. They use the same workspace and task records as the browser and external MCP clients.
+
+There is no separate account connection to remove: Flowfield uses the harness installed and authenticated on its host. To stop using a harness, change the workspace and task choices that select it. Clearing a path override restores automatic detection. Signing out is a native harness action and affects other clients using that account.
 
 Native instructions and extensions can still apply. Agree with the Coordinator which native conventions belong in workspace documents.
 
@@ -31,6 +33,6 @@ To use an agent in your own terminal or editor, follow [Connect an external agen
 
 Follow a failed turn's recovery message, check native sign-in/provider access on the service host and resend deliberately. Flowfield never automatically replays an interrupted prompt. See the harness pages above for account and provider-specific recovery.
 
-If model discovery is interrupted, stop remaining native discovery processes before confirming the hold in Harnesses settings or the [CLI](/cli#host-harness-settings), then refresh models.
+If model discovery is interrupted, stop remaining native discovery processes before confirming the hold in Harnesses settings or the [CLI](/cli#host-diagnostics-and-recovery), then refresh models.
 
 For an interrupted Coordinator session, see [Stop and continue later](/coordinator#stop-and-continue-later). For stopped Workers or Reviewers, follow [task recovery](/troubleshooting#a-worker-or-reviewer-stops).

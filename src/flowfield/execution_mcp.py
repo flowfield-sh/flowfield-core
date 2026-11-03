@@ -220,7 +220,17 @@ def add_execution_tools(
         review = supervisor().review_execution.reviews.latest(
             workspace_id, task_id, current_only=True
         )
-        return review.model_dump(exclude={"binding", "verdict"}) if review else None
+        return (
+            review.model_dump(
+                exclude={
+                    "binding": True,
+                    "verdict": True,
+                    "guidance": {"task_context", "result_context"},
+                }
+            )
+            if review
+            else None
+        )
 
     @mcp.tool(annotations=write)
     async def stop_review(workspace_id: str, review_id: str, request: RunAction) -> dict[str, Any]:

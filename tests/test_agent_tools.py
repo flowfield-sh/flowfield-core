@@ -132,7 +132,16 @@ def test_coordinator_captures_work_with_explicit_project(tmp_path):
         grant = await workspace_scope(Supervisor(execution.workspace), "harbor")
         canonical = create_mcp(lambda: execution.workspace, lambda: Supervisor(execution.workspace))
         names = {tool.name for tool in await canonical.list_tools()}
-        assert set(grant.tools) == names - {"list_projects", "list_workspaces", "create_workspace"}
+        assert set(grant.tools) == names - {
+            "list_projects",
+            "list_workspaces",
+            "create_workspace",
+            "send_coordinator_message",
+            "stop_coordinator",
+            "confirm_coordinator_stopped",
+            "reset_coordinator_session",
+            "discover_coordinator_commands",
+        }
         for tool in grant.tools.values():
             assert "workspace_id" not in tool.inputSchema["properties"]
         events = await journey(

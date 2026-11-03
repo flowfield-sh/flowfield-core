@@ -29,6 +29,7 @@ from pydantic import ValidationError
 from flowfield.context_measurements import ContextMeasurements
 from flowfield.errors import ApplicationError
 from flowfield.mcp import create_mcp
+from flowfield.settings_mcp import SERVICE_MUTATIONS
 from flowfield.worker_tools import WorkerBridge, worker_tools
 from flowfield.workspaces import Workspaces
 
@@ -224,7 +225,7 @@ async def workspace_scope(
                 "properties", {}
             ) and "project_id" not in schema.get("required", []):
                 optional_project_tools.add(tool.name)
-        elif tool.name not in workspace_tools and (
+        elif tool.name not in workspace_tools | SERVICE_MUTATIONS and (
             not tool.annotations or not tool.annotations.readOnlyHint
         ):
             raise RuntimeError("Coordinator mutation lacks a workspace or project binding")

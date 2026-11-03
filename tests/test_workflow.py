@@ -1,18 +1,14 @@
 """Board invariants, revision races, interface parity and state preservation."""
 
-import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from project_fixtures import adopt, existing_directory, task_request
-from service_fixtures import running_service
-from typer.testing import CliRunner
 
 from flowfield.api import create_app
 from flowfield.application import ProjectSetup, TaskEdit, TaskPriority, Workspace
-from flowfield.cli import app
 from flowfield.errors import ApplicationError
 
 
@@ -237,92 +233,6 @@ def test_concurrent_move_and_edit_have_one_winner(tmp_path: Path) -> None:
     with ThreadPoolExecutor(max_workers=2) as pool:
         assert sorted(pool.map(mutate, ["edit", "move"])) == ["revision_conflict", "saved"]
     assert len(workspace.task("harbor", "export").revisions) == 2
-
-
-def test_cli_board_and_readable_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    runner = CliRunner()
-    with running_service(tmp_path / "state") as base:
-        prefix = ["--port", base.rsplit(":", 1)[1]]
-
-        def command(args: list[str], success: bool = True) -> dict | list:
-            if args[0] in {"task", "status"}:
-                args = [*args, "--workspace", space["id"]]
-            result = runner.invoke(app, prefix + args + ["--json"])
-            assert result.exit_code == (0 if success else 1), result.output
-            assert (result.stderr if success else result.stdout) == ""
-            return json.loads(result.stdout if success else result.stderr)
-
-        choices = tmp_path / "agents.json"
-        choices.write_text(
-            json.dumps(
-                {
-                    role: {"harness": "codex", "model": "test-model"}
-                    for role in ("coordinator", "worker", "reviewer")
-                }
-            )
-        )
-        space = command(["workspace", "create", "Product", "--agents", str(choices)])
-        project = command(
-            [
-                "project",
-                "init",
-                existing_directory(str(tmp_path / "harbor")),
-                "--workspace",
-                space["id"],
-            ]
-        )
-        monkeypatch.chdir(tmp_path / "harbor")
-        assert command(["project", "init", "--workspace", space["id"]]) == project
-        command(["project", "edit", "--description", "CSV"])
-        assert command(["project", "show"])["description"] == "CSV"
-        task = command(
-            [
-                "task",
-                "create",
-                "--title",
-                "Serializer",
-                "--body",
-                "Quotes commas",
-            ]
-        )
-        identity = task["id"]
-        command(["task", "prioritize", identity, "up-next"])
-        command(["task", "edit", identity, "--body", "Keep filters"])
-        shown = command(["task", "show", identity])
-        assert shown["revision"] == 3
-        error = command(
-            ["task", "edit", identity, "--expected-revision", "1", "--title", "Stale"], False
-        )
-        assert error["error"]["code"] == "revision_conflict"
-        command(["task", "archive", identity])
-        assert command(["task", "list"]) == {"items": [], "next_cursor": None}
-        command(["task", "restore", identity])
-        assert command(["status"])["columns"][1]["tasks"][0]["id"] == identity
-        human = runner.invoke(app, prefix + ["status", "--workspace", space["id"]])
-        assert human.exit_code == 0 and "Up next (1)" in human.stdout and "Product" in human.stdout
-        human = runner.invoke(app, prefix + ["task", "list", "--workspace", space["id"]])
-        assert (
-            human.exit_code == 0
-            and "Serializer" in human.stdout
-            and not human.stdout.startswith("[")
-        )
-        missing = command(
-            ["task", "edit", identity, "--body-file", str(tmp_path / "missing")], False
-        )
-        assert missing["error"]["code"] == "file_error"
-        for retired in [
-            ["init"],
-            ["connect", "codex"],
-            ["task", "move", identity, "done"],
-            ["task", "progress", identity, "done"],
-            ["task", "approve", identity],
-            ["task", "revise", identity],
-            ["project", "register"],
-        ]:
-            assert runner.invoke(app, retired).exit_code == 2
-    result = runner.invoke(app, prefix + ["project", "list", "--json"])
-    assert result.exit_code == 1
-    assert json.loads(result.stderr)["error"]["code"] == "service_unavailable"
 
 
 def test_priority_cannot_change_progress_and_times_survive_edits(tmp_path):

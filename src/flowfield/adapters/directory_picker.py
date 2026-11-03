@@ -60,7 +60,7 @@ def picker_command() -> list[str]:
     raise ApplicationError(
         "directory_picker_unavailable",
         "No desktop folder chooser is available on the Flowfield service host. "
-        "Run flowfield project init from your project directory instead.",
+        "Ask the Coordinator to add the project using its full directory path.",
         409,
     )
 
@@ -82,8 +82,8 @@ def select_directory() -> DirectorySelection:
         except OSError as error:
             raise ApplicationError(
                 "directory_picker_unavailable",
-                "Could not open the host folder chooser. Run flowfield project init "
-                "from your project directory instead.",
+                "Could not open the host folder chooser. Ask the Coordinator to add "
+                "the project using its full directory path.",
                 409,
             ) from error
         # Linux dialog tools use exit 1 for Cancel; macOS/Windows return empty output.
@@ -92,7 +92,7 @@ def select_directory() -> DirectorySelection:
         if result.returncode != 0:
             raise ApplicationError(
                 "directory_picker_failed",
-                "Could not select a directory. Try again or use flowfield project init.",
+                "Could not select a directory. Try again or ask the Coordinator to add it.",
                 409,
             )
         value = result.stdout.removesuffix("\n").removesuffix("\r")

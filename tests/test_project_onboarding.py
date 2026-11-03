@@ -138,7 +138,7 @@ def test_picker_failure_timeout_busy_and_missing_directory(
     with pytest.raises(ApplicationError, match="timed out"):
         directory_picker.select_directory()
     run.side_effect = OSError("missing executable")
-    with pytest.raises(ApplicationError, match="project init"):
+    with pytest.raises(ApplicationError, match="Coordinator"):
         directory_picker.select_directory()
     run.side_effect = None
     run.return_value = subprocess.CompletedProcess([], 2, "", "private diagnostic")
@@ -176,7 +176,7 @@ def test_desktop_commands_and_headless_fallback(monkeypatch: pytest.MonkeyPatch)
     assert directory_picker.select_directory().path is None
     monkeypatch.delenv("DISPLAY")
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
-    with pytest.raises(ApplicationError, match="project init"):
+    with pytest.raises(ApplicationError, match="Coordinator"):
         directory_picker.picker_command()
 
 

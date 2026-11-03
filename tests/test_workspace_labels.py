@@ -174,55 +174,6 @@ def test_label_http_and_coordinator_tools_are_revision_guarded_and_bounded(tmp_p
         asyncio.run(check())
 
 
-def test_cli_repeated_labels_clear_and_discover(monkeypatch):
-    from typer.testing import CliRunner
-
-    from flowfield.cli import app
-
-    calls = []
-
-    def request(self, method, path, payload=None):
-        calls.append((method, path, payload))
-        return [] if method == "GET" else {"id": "task", "revision": 2}
-
-    monkeypatch.setattr("flowfield.client.Client.request", request)
-    runner = CliRunner()
-    for arguments in (
-        ["workspace", "labels", "workspace", "--json"],
-        [
-            "task",
-            "create",
-            "--workspace",
-            "core",
-            "--title",
-            "Task",
-            "--label",
-            "bug",
-            "--label",
-            "release",
-            "--json",
-        ],
-        [
-            "task",
-            "edit",
-            "T-1",
-            "--workspace",
-            "core",
-            "--expected-revision",
-            "1",
-            "--no-labels",
-            "--json",
-        ],
-        ["task", "list", "--workspace", "core", "--label", "bug", "--json"],
-    ):
-        result = runner.invoke(app, arguments)
-        assert result.exit_code == 0, result.output
-    assert calls[0][1] == "workspaces/workspace/labels"
-    assert calls[1][2]["labels"] == ["bug", "release"]
-    assert calls[2][2]["labels"] == []
-    assert "label_id=bug" in calls[3][1]
-
-
 def test_label_removal_preserves_exact_approved_delivery(tmp_path):
     from result_fixtures import approve, current
     from result_fixtures import fixture as result_fixture

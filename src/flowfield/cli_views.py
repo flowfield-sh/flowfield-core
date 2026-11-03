@@ -1,4 +1,4 @@
-"""Human CLI views for host diagnostics, source-linked search."""
+"""Human CLI views for host diagnostics."""
 
 import shlex
 from typing import Any
@@ -56,18 +56,3 @@ def harness_status(value: dict[str, Any], port: int) -> None:
                     ]
                 )
             )
-
-
-def search(value: dict[str, Any]) -> None:
-    if not value["items"]:
-        typer.echo("No matching evidence.")
-    for item in value["items"]:
-        state = "Current" if item["current"] else "Historical"
-        typer.echo(
-            f"{item['title'] or item['identity']} · {state} "
-            f"· {item['entity']} {item['identity']} · revision {item['revision']}"
-        )
-        typer.echo(item["snippet"])
-        typer.echo(f"Open: {item['url']}\n")
-    if value.get("next_cursor") is not None:
-        typer.echo(f"More available: --before {value['next_cursor']}")

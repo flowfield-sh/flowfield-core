@@ -19,6 +19,18 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
 
+async def call_mcp(base: str, name: str, arguments: dict) -> dict:
+    async with (
+        streamable_http_client(base + "/mcp/") as (read, write, _),
+        ClientSession(read, write) as session,
+    ):
+        await session.initialize()
+        result = await session.call_tool(name, arguments)
+        assert not result.isError, result
+        assert result.structuredContent is not None
+        return result.structuredContent
+
+
 def check_storage(executable: str, cwd: str, env: dict[str, str]) -> None:
     from flowfield.application import Workspace
     from flowfield.schema import SCHEMA_VERSION
@@ -204,14 +216,15 @@ def main() -> None:
         opener = build_opener(ProxyHandler({}))
 
         def command(*args: str) -> str:
-            if args and args[0] in {"task", "status"} and "--workspace" not in args:
-                args = (*args, "--workspace", space["id"])
             return subprocess.check_output([executable, *args], cwd=cwd, env=env, text=True).strip()
 
+        def agent(name: str, **arguments: object) -> dict:
+            return asyncio.run(call_mcp(base, name, arguments))
+
         command("--help")
-        for retired in ("ask", "follow-up", "retract-answer"):
+        for retired in ("workspace", "project", "task", "inbox"):
             rejected = subprocess.run(
-                [executable, "inbox", retired], cwd=cwd, env=env, capture_output=True
+                [executable, retired, "--help"], cwd=cwd, env=env, capture_output=True
             )
             assert rejected.returncode == 2
         version = command("--version")
@@ -313,97 +326,43 @@ def main() -> None:
                             else:
                                 raise AssertionError(f"Expected {status} for {path}")
                         assert json.loads(read("/api/workspaces")) == []
-                        agents = state / "agents.json"
-                        agents.write_text(
-                            json.dumps(
-                                {
+                        space = agent(
+                            "create_workspace",
+                            request={
+                                "name": "Installed workspace",
+                                **{
                                     role: {"harness": "codex", "model": "install-fixture"}
                                     for role in ("coordinator", "worker", "reviewer")
-                                }
-                            )
+                                },
+                            },
                         )
-                        space = json.loads(
-                            command(
-                                "workspace",
-                                "create",
-                                "Installed workspace",
-                                "--agents",
-                                str(agents),
-                                "--json",
-                            )
+                        scope = {"workspace_id": space["id"]}
+                        assert agent("get_coordinator_history", **scope)["items"] == []
+                        assert not agent("get_workspace_workers", **scope)["enabled"]
+                        task = agent(
+                            "create_task",
+                            **scope,
+                            task={"title": "Installed task", "body": "Shared outcome"},
                         )
+                        assert agent("list_tasks", **scope)["items"][0]["id"] == task["id"]
                         assert (
-                            json.loads(
-                                command(
-                                    "workspace",
-                                    "coordinator-history",
-                                    "--workspace",
-                                    space["id"],
-                                    "--json",
-                                )
-                            )["items"]
-                            == []
-                        )
-                        assert (
-                            json.loads(
-                                command(
-                                    "workspace",
-                                    "workers",
-                                    "show",
-                                    "--workspace",
-                                    space["id"],
-                                    "--json",
-                                )
-                            )["enabled"]
-                            is False
-                        )
-                        task = json.loads(
-                            command(
-                                "task",
-                                "create",
-                                "--workspace",
-                                space["id"],
-                                "--title",
-                                "Installed task",
-                                "--body",
-                                "Shared outcome",
-                                "--json",
-                            )
-                        )
-                        assert (
-                            json.loads(
-                                command("task", "list", "--workspace", space["id"], "--json")
-                            )["items"][0]["id"]
-                            == task["id"]
-                        )
-                        assert (
-                            json.loads(
-                                command(
-                                    "task",
-                                    "text",
-                                    task["key"],
-                                    "--workspace",
-                                    space["id"],
-                                    "--revision",
-                                    "1",
-                                    "--json",
-                                )
+                            agent(
+                                "get_text",
+                                **scope,
+                                resource="task",
+                                identity=task["key"],
+                                field="body",
+                                revision=1,
                             )["text"]
                             == "Shared outcome"
                         )
-                        initialized = command(
-                            "project",
-                            "init",
-                            "--workspace",
-                            space["id"],
-                            "--id",
-                            "harbor",
-                            "--name",
-                            "Harbor",
-                            "--json",
+                        initialized = agent(
+                            "adopt_workspace_project",
+                            **scope,
+                            project={"path": cwd, "id": "harbor", "name": "Harbor"},
                         )
                         assert (
-                            command("project", "init", "--workspace", space["id"], "--json")
+                            agent("adopt_workspace_project", **scope, project={"path": cwd})
                             == initialized
                         )
                         document_path = f"/api/workspaces/{space['id']}/documents/guidance"
@@ -423,106 +382,97 @@ def main() -> None:
                         )
                         assert restored["revision"] == 4 and restored["restored_from"] == 2
                         assert (Path(cwd) / ".flowfield/config.toml").is_file()
-                        section = command("project", "guidance", "export", "--part", "agents")
+                        section = command("integration", "guidance", "export", "--part", "agents")
                         assert ".agents/skills/flowfield-coordinator/SKILL.md" in section
                         original_text = original.read_text()
-                        preview = json.loads(command("project", "guidance", "preview", "--json"))
+                        preview = json.loads(
+                            command("integration", "guidance", "preview", "--json")
+                        )
                         assert preview["status"] == "available"
-                        command("project", "guidance", "install", "--json")
+                        command("integration", "guidance", "install", "--json")
                         installed = (Path(cwd) / "AGENTS.md").read_bytes()
-                        command("project", "guidance", "install", "--json")
+                        command("integration", "guidance", "install", "--json")
                         assert (Path(cwd) / "AGENTS.md").read_bytes() == installed
                         assert (
                             Path(cwd) / ".agents/skills/flowfield-coordinator/SKILL.md"
                         ).is_file()
-                        command("project", "guidance", "remove", "--json")
+                        command("integration", "guidance", "remove", "--json")
                         assert (Path(cwd) / "AGENTS.md").read_text() == original_text
                         assert not (
                             Path(cwd) / ".agents/skills/flowfield-coordinator/SKILL.md"
                         ).exists()
-                        created = json.loads(
-                            command(
-                                "task",
-                                "create",
-                                "--id",
-                                "export",
-                                "--title",
-                                "CSV export",
-                                "--body-file",
-                                str(plan),
-                                "--json",
-                            )
+                        created = agent(
+                            "create_task",
+                            **scope,
+                            task={"id": "export", "title": "CSV export", "body": plan.read_text()},
                         )
                         assert created["status"] == "backlog"
                         plan.write_text("Export filtered rows, preserving row order.\n")
-                        command(
-                            "task",
-                            "edit",
-                            "export",
-                            "--expected-revision",
-                            "1",
-                            "--title",
-                            "CSV export",
-                            "--body-file",
-                            str(plan),
-                            "--json",
+                        agent(
+                            "edit_task",
+                            **scope,
+                            task_id="export",
+                            changes={
+                                "expected_revision": 1,
+                                "title": "CSV export",
+                                "body": plan.read_text(),
+                            },
                         )
-                        command(
-                            "task",
-                            "prioritize",
-                            "export",
-                            "up-next",
-                            "--expected-revision",
-                            "2",
-                            "--json",
+                        agent(
+                            "prioritize_task",
+                            **scope,
+                            task_id="export",
+                            priority={"expected_revision": 2, "status": "up_next"},
                         )
-                        command("task", "note", "T-2", "--body", "Serializer verified.", "--json")
-                        command(
-                            "task",
-                            "handoff",
-                            "T-2",
-                            "--expected-revision",
-                            "3",
-                            "--supersedes",
-                            "none",
-                            "--id",
-                            "installed-handoff",
-                            "--body",
-                            "Package-check fixture; no code executed. Next: inspect task.",
-                            "--json",
+                        agent(
+                            "add_activity",
+                            **scope,
+                            entry={"task_id": "T-2", "body": "Serializer verified."},
                         )
-                    task = json.loads(command("task", "show", "T-2", "--json"))
+                        agent(
+                            "add_activity",
+                            **scope,
+                            entry={
+                                "task_id": "T-2",
+                                "kind": "handoff",
+                                "expected_task_revision": 3,
+                                "supersedes": None,
+                                "id": "installed-handoff",
+                                "body": (
+                                    "Package-check fixture; no code executed. Next: inspect task."
+                                ),
+                            },
+                        )
+                    task = agent("get_task", **scope, task_id="T-2")
                     assert task["key"] == "T-2"
                     assert task["handoff"]["id"] == "installed-handoff"
                     assert task["handoff"]["needs_recheck"] is False
-                    activity = json.loads(command("task", "activity", "T-2", "--current", "--json"))
+                    activity = agent("list_activity", **scope, task_id="T-2", current_only=True)
                     assert activity["items"][0]["id"] == "installed-handoff"
                     assert (
                         json.loads(read(f"/api/context/workspaces/{space['id']}/tasks/T-2")) == task
                     )
-                    assert task["revision"] == 3
-                    assert task["status"] == "up_next"
+                    assert task["revision"] == 3 and task["status"] == "up_next"
                     assert "revisions" not in task
-                    assert (
-                        len(json.loads(command("task", "revisions", "T-2", "--json"))["items"]) == 3
-                    )
-                    board = json.loads(command("status", "--json"))
+                    assert len(agent("list_task_revisions", **scope, task_id="T-2")["items"]) == 3
+                    board = agent("get_board", **scope)
                     assert board["columns"][1]["tasks"][0]["key"] == task["key"]
                     assert board["recommendation"]["action"] == "work"
                     assert task["readiness"] == "ready"
                     assert "publication_status" not in task
-                    workers = json.loads(
-                        command(
-                            "workspace", "workers", "show", "--workspace", space["id"], "--json"
-                        )
-                    )
+                    workers = agent("get_workspace_workers", **scope)
                     assert workers["selection"]["model"] == "install-fixture"
-                    assert workers["max_parallel"] == 5
-                    assert workers["enabled"] is False
-                    assert json.loads(command("task", "runs", "list", "--json"))["items"] == []
+                    assert workers["max_parallel"] == 5 and workers["enabled"] is False
+                    assert agent("get_runs", **scope)["items"] == []
+                    assert agent("get_reviewer_settings", **scope)["effective"]["enabled"]
+                    assert (
+                        agent("get_coordinator_settings", **scope)["selection"]["model"]
+                        == "install-fixture"
+                    )
+                    assert agent("get_worker_occupancy", **scope) == {"active": 0, "uncertain": 0}
                     assert board["observed_at"]
                     assert b"<html" in read(f"/workspaces/{space['id']}/tasks/T-2").lower()
-                    asyncio.run(check_mcp(base, task, json.loads(read("/api/workspaces"))[0]["id"]))
+                    asyncio.run(check_mcp(base, task, space["id"]))
                     assert original.read_text() == "Preserve existing instructions.\n"
                     assert (state / "workspace.sqlite3").is_file()
                     assert (state / "artifacts").is_dir()

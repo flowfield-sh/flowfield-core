@@ -2,14 +2,11 @@
 
 from pathlib import Path
 
-from click import unstyle
 from fastapi.testclient import TestClient
 from historical_questions import seed_question
-from typer.testing import CliRunner
 from workspace_fixtures import TEST_AGENTS
 
 from flowfield.api import create_app
-from flowfield.cli import app
 from flowfield.execution_models import ModelOption
 
 
@@ -186,12 +183,3 @@ def test_shared_role_settings_validate_in_managed_home_and_preserve_queue(
             == 409
         )
         assert len(calls) == 1
-
-
-def test_cli_adoption_requires_explicit_workspace_without_contacting_service(monkeypatch):
-    def unexpected(*args, **kwargs):
-        raise AssertionError("Missing workspace cannot contact the service")
-
-    monkeypatch.setattr("flowfield.client.Client.request", unexpected)
-    result = CliRunner().invoke(app, ["project", "init", "."])
-    assert result.exit_code == 2 and "--workspace" in unstyle(result.output)
