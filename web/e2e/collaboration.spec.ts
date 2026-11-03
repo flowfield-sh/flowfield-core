@@ -27,12 +27,12 @@ test("coordinator dependencies update blockers, links and reconciliation without
 }) => {
   const call = await connectMcp(request);
   const identity = { project_id: "dependencies" };
-  await fixtureMcpProject(call, {
+  const { workspace_id } = await fixtureMcpProject(call, {
     ...identity,
     path: existingDirectory(join(state, "dependencies")),
   });
   const one = await call("create_task", {
-    workspace_id: await projectWorkspace(request, identity.project_id),
+    workspace_id: workspace_id,
     task: {
       project_id: identity.project_id,
       id: "serializer",
@@ -42,7 +42,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
     },
   });
   const two = await call("create_task", {
-    workspace_id: await projectWorkspace(request, identity.project_id),
+    workspace_id: workspace_id,
     task: {
       project_id: identity.project_id,
       id: "download",
@@ -51,11 +51,9 @@ test("coordinator dependencies update blockers, links and reconciliation without
       status: "up_next",
     },
   });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, "dependencies")}/tasks/T-2`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/tasks/T-2`);
   const three = await call("create_task", {
-    workspace_id: await projectWorkspace(request, identity.project_id),
+    workspace_id: workspace_id,
     task: {
       project_id: identity.project_id,
       title: "Prepare export settings",
@@ -64,7 +62,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
     },
   });
   await call("edit_task", {
-    workspace_id: await projectWorkspace(request, identity.project_id),
+    workspace_id: workspace_id,
     task_id: two.id,
     changes: {
       expected_revision: two.revision,
@@ -91,9 +89,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(
     detail.getByRole("link", { name: "T-2", exact: true }),
   ).toBeVisible();
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, identity.project_id)}/tasks/T-2`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/tasks/T-2`);
   await fixtureProgress(request, {
     ...identity,
     task_id: one.id,
@@ -117,7 +113,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(
     card.getByText("Needs code from T-1", { exact: true }),
   ).toHaveCount(0);
-  const workspace = await projectWorkspace(request, identity.project_id);
+  const workspace = workspace_id;
   for (const taskId of [three.id, two.id]) {
     const task = await (
       await request.get(`/api/workspaces/${workspace}/tasks/${taskId}`)
@@ -190,21 +186,19 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
 }) => {
   const call = await connectMcp(request);
   const identity = { project_id: "activity-trial" };
-  await fixtureMcpProject(call, {
+  const { workspace_id } = await fixtureMcpProject(call, {
     ...identity,
     path: existingDirectory(join(state, "activity-trial")),
   });
   const task = await call("create_task", {
-    workspace_id: await projectWorkspace(request, identity.project_id),
+    workspace_id: workspace_id,
     task: {
       project_id: identity.project_id,
       title: "Download CSV",
       body: "Export filtered rows.\n\n## Done when\n\n- [ ] Preserve row order\n- [x] Quote commas",
     },
   });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, "activity-trial")}/tasks/T-1`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/tasks/T-1`);
   const editor = page.getByRole("region", {
     name: "Task details",
     exact: true,
@@ -220,7 +214,7 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
     editor.getByRole("button", { name: "Add decision", exact: true }),
   ).toHaveCount(0);
   await call("add_activity", {
-    workspace_id: await projectWorkspace(request, identity.project_id),
+    workspace_id: workspace_id,
     entry: {
       task_id: task.key,
       body: "## Finding\n\nReuse **serializer**.\n\n[Unsafe](javascript:alert(1))\n<script>window.evil = true</script>",
@@ -235,7 +229,7 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
   await expect(activity.locator('a[href^="javascript:"]')).toHaveCount(0);
   await expect(activity.locator("script")).toHaveCount(0);
   const old = await call("add_activity", {
-    workspace_id: await projectWorkspace(request, identity.project_id),
+    workspace_id: workspace_id,
     entry: {
       task_id: task.key,
       kind: "handoff",
@@ -245,7 +239,7 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
     },
   });
   await call("add_activity", {
-    workspace_id: await projectWorkspace(request, identity.project_id),
+    workspace_id: workspace_id,
     entry: {
       task_id: task.key,
       kind: "handoff",
@@ -260,7 +254,7 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
   expect(
     (
       await call("get_task", {
-        workspace_id: await projectWorkspace(request, identity.project_id),
+        workspace_id: workspace_id,
         task_id: task.key,
       })
     ).body,
@@ -271,10 +265,8 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
   await expect(
     page.getByRole("tab", { name: "Decisions", exact: true }),
   ).toHaveCount(0);
-  const note = await (
-    await connectMcp(page.request)
-  )("add_activity", {
-    workspace_id: await projectWorkspace(request, identity.project_id),
+  const note = await call("add_activity", {
+    workspace_id: workspace_id,
     entry: {
       kind: "note",
       task_id: "T-1",
@@ -283,17 +275,13 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
   });
   expect(
     (
-      await (
-        await connectMcp(page.request)
-      )("list_activity", {
-        workspace_id: await projectWorkspace(request, identity.project_id),
+      await call("list_activity", {
+        workspace_id: workspace_id,
         task_id: "T-1",
       })
     ).items[0].id,
   ).toBe(note.id);
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, "activity-trial")}/tasks/T-1/history`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/tasks/T-1/history`);
   await expect(activity).toContainText(
     "Serializer verified; download integration remains.",
   );
@@ -401,16 +389,16 @@ test("cards keep one state while project questions remain in Inbox", async ({
 }) => {
   const call = await connectMcp(request);
   const project_id = "compact-needs";
-  await fixtureMcpProject(call, {
+  const { workspace_id } = await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
   });
   await call("create_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task: { project_id: project_id, id: "one", title: "One task" },
   });
   await historicalQuestion({
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question: {
       id: "task-question",
       task_id: "T-1",
@@ -420,15 +408,13 @@ test("cards keep one state while project questions remain in Inbox", async ({
       blocking_scope: "Task outcome",
     },
   });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, project_id)}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/tasks`);
   const card = page.locator(".task-card");
   await expect(card.locator(".work-state")).toHaveText("Needs your answer");
   await expect(card.getByRole("link")).toHaveCount(1);
   await expect(card.locator(".task-notices")).toHaveCount(0);
   await historicalQuestion({
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question: {
       id: "project-question",
       affected_task_ids: ["T-1"],
@@ -453,12 +439,12 @@ test("Inbox carries a free-text answer from browser to coordinator application",
 }) => {
   const call = await connectMcp(request);
   const project_id = "inbox-trial";
-  await fixtureMcpProject(call, {
+  const { workspace_id } = await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
   });
   await call("create_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task: {
       project_id: project_id,
       id: "serializer",
@@ -467,7 +453,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     },
   });
   await call("create_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task: {
       project_id: project_id,
       id: "download",
@@ -478,7 +464,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     },
   });
   const question = await historicalQuestion({
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question: {
       id: "export-scope",
       task_id: "T-2",
@@ -491,16 +477,12 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   });
   expect(
     (
-      await (
-        await connectMcp(page.request)
-      )("list_questions", {
-        workspace_id: await projectWorkspace(request, project_id),
+      await call("list_questions", {
+        workspace_id: workspace_id,
       })
     ).needs_you_count,
   ).toBe(1);
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, project_id)}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/tasks`);
   // Hiding a repeated question must not leave an empty needs list on any card.
   await expect(
     page
@@ -522,9 +504,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await page
     .getByRole("link", { name: "T-2 Download CSV", exact: true })
     .click();
-  await expect(page).toHaveURL(
-    `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-2`,
-  );
+  await expect(page).toHaveURL(`/workspaces/${workspace_id}/tasks/T-2`);
   await expect(
     page.getByRole("button", { name: "Task settings", exact: true }),
   ).toBeVisible();
@@ -585,9 +565,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
       includeHidden: true,
     }),
   ).toHaveCount(0);
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, project_id)}/requests/question/export-scope`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/requests/question/export-scope`);
   await page.reload();
   const detail = page.getByRole("region", {
     name: "Request",
@@ -631,31 +609,28 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     0,
   );
   const answered = await call("get_question", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question_id: question.id,
   });
   expect(answered.status).toBe("answered");
   expect(
     (
       await call("get_task", {
-        workspace_id: await projectWorkspace(request, project_id),
+        workspace_id: workspace_id,
         task_id: "T-2",
       })
     ).body,
   ).toBe("Export CSV");
   expect(
     (
-      await request.post(
-        `/api/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-2/progress`,
-        {
-          data: { expected_revision: 1, status: "in_progress" },
-        },
-      )
+      await request.post(`/api/workspaces/${workspace_id}/tasks/T-2/progress`, {
+        data: { expected_revision: 1, status: "in_progress" },
+      })
     ).status(),
   ).toBe(404);
 
   await call("apply_answer", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question_id: question.id,
     application: {
       expected_revision: answered.revision,
@@ -676,7 +651,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     "10,000-row cap",
   );
   const applied = await call("get_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task_id: "T-2",
   });
   expect(applied.blocking_question_count).toBe(0);
@@ -697,7 +672,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
       .getByRole("link", { name: "Related question", exact: true }),
   ).toHaveAttribute(
     "href",
-    `/workspaces/${await projectWorkspace(request, project_id)}/requests/question/export-scope`,
+    `/workspaces/${workspace_id}/requests/question/export-scope`,
   );
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page.locator(".inbox-list .inbox-history-row")).toHaveCount(0);
@@ -709,16 +684,16 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
 }, testInfo) => {
   const call = await connectMcp(request);
   const project_id = "inbox-conflict";
-  await fixtureMcpProject(call, {
+  const { workspace_id } = await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
   });
   await call("create_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task: { project_id: project_id, id: "one", title: "Export" },
   });
   const q = historicalQuestion({
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question: {
       affected_task_ids: ["T-1"],
       question: "What cap?",
@@ -727,24 +702,18 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
       blocking_scope: "Export limit",
     },
   });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project_id)}/requests/question/${q.id}`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/requests/question/${q.id}`);
   const detail = page.getByRole("region", { name: "Request", exact: true });
   await detail
     .getByLabel("Your answer", { exact: true })
     .fill("My unsaved custom answer");
-  await (
-    await connectMcp(page.request)
-  )("answer_question", {
-    workspace_id: await projectWorkspace(request, project_id),
+  await call("answer_question", {
+    workspace_id: workspace_id,
     question_id: q.id,
     response: {
       expected_revision: (
-        await (
-          await connectMcp(page.request)
-        )("get_question", {
-          workspace_id: await projectWorkspace(request, project_id),
+        await call("get_question", {
+          workspace_id: workspace_id,
           question_id: q.id,
         })
       ).revision,
@@ -810,7 +779,7 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
     0,
   );
   await historicalQuestionFollowUp({
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question_id: q.id,
     follow_up: {
       expected_revision: 2,
@@ -841,28 +810,17 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   await expect(detail).toContainText(
     "Answer saved. Ask the coordinator to apply it.",
   );
-  const reply = await (
-    await connectMcp(page.request)
-  )("get_question", {
-    workspace_id: await projectWorkspace(request, project_id),
+  const reply = await call("get_question", {
+    workspace_id: workspace_id,
     question_id: q.id,
   });
   expect(reply.answer).toContain("narrowing filters");
   expect(reply.revision).toBe(4);
-  const withdrawal = await (
-    await connectMcp(page.request)
-  )("withdraw_question", {
-    workspace_id: await projectWorkspace(request, project_id),
+  const withdrawal = await call("withdraw_question", {
+    workspace_id: workspace_id,
     question_id: q.id,
     withdrawal: {
-      expected_revision: (
-        await (
-          await connectMcp(page.request)
-        )("get_question", {
-          workspace_id: await projectWorkspace(request, project_id),
-          question_id: q.id,
-        })
-      ).revision,
+      expected_revision: reply.revision,
       reason: "Export postponed.",
     },
   });
@@ -878,16 +836,16 @@ test("correcting answers preserves the original and links the replacement", asyn
 }) => {
   const call = await connectMcp(request);
   const project_id = "reversible";
-  await fixtureMcpProject(call, {
+  const { workspace_id } = await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
   });
   await call("create_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task: { project_id: project_id, id: "export", title: "Export" },
   });
   await historicalQuestion({
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question: {
       id: "scope",
       affected_task_ids: ["T-1"],
@@ -898,13 +856,11 @@ test("correcting answers preserves the original and links the replacement", asyn
     },
   });
   await call("answer_question", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question_id: "scope",
     response: { expected_revision: 1, answer: "Visible page" },
   });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project_id)}/requests/question/scope`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/requests/question/scope`);
   const detail = page.getByRole("region", { name: "Request", exact: true });
   await expect(
     detail.getByRole("heading", { name: "Which rows?", exact: true }),
@@ -946,12 +902,12 @@ test("project questions link affected tasks and reconcile through MCP", async ({
 }) => {
   const call = await connectMcp(request);
   const project_id = "project-input";
-  await fixtureMcpProject(call, {
+  const { workspace_id } = await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
   });
   await call("create_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task: {
       project_id: project_id,
       id: "first",
@@ -960,7 +916,7 @@ test("project questions link affected tasks and reconcile through MCP", async ({
     },
   });
   await call("create_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task: {
       project_id: project_id,
       id: "second",
@@ -970,7 +926,7 @@ test("project questions link affected tasks and reconcile through MCP", async ({
     },
   });
   const q = historicalQuestion({
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question: {
       affected_task_ids: ["T-2"],
       question: "Which output convention?",
@@ -983,22 +939,17 @@ test("project questions link affected tasks and reconcile through MCP", async ({
   expect(
     (
       await call("list_questions", {
-        workspace_id: await projectWorkspace(request, project_id),
+        workspace_id: workspace_id,
         task_id: "T-2",
       })
     ).items[0].id,
   ).toBe(q.id);
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project_id)}/requests/question/${q.id}`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/requests/question/${q.id}`);
   const detail = page.getByRole("region", { name: "Request", exact: true });
 
   await expect(
     detail.getByRole("link", { name: "T-2", exact: true }),
-  ).toHaveAttribute(
-    "href",
-    `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-2`,
-  );
+  ).toHaveAttribute("href", `/workspaces/${workspace_id}/tasks/T-2`);
   await detail.getByRole("link", { name: "T-2", exact: true }).hover();
   await expect(page.getByRole("tooltip")).toHaveText("Report");
   await detail
@@ -1012,13 +963,13 @@ test("project questions link affected tasks and reconcile through MCP", async ({
   );
   const resumed = await connectMcp(request);
   const briefing = await resumed("get_board", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
   });
   expect(briefing.recommendation.action).toBe("apply_answer");
   expect(briefing.recommendation.id).toBe(q.id);
   expect(briefing.attention.answered.items[0].id).toBe(q.id);
   const result = await resumed("apply_answer", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question_id: q.id,
     application: {
       expected_revision: 2,
@@ -1035,13 +986,13 @@ test("project questions link affected tasks and reconcile through MCP", async ({
     detail.getByRole("img", { name: "Applied", exact: true }),
   ).toBeVisible();
   const task = await call("get_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task_id: "T-2",
   });
   expect(task.blocking_question_count).toBe(0);
   expect(task.blocked_by[0].key).toBe("T-1");
   const advisory = await historicalQuestion({
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question: {
       question: "Audience?",
       context: "Choose the project audience.",
@@ -1049,12 +1000,12 @@ test("project questions link affected tasks and reconcile through MCP", async ({
     },
   });
   await call("answer_question", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question_id: advisory.id,
     response: { expected_revision: 1, answer: "Personal use" },
   });
   await call("apply_answer", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question_id: advisory.id,
     application: {
       expected_revision: 2,
@@ -1066,7 +1017,7 @@ test("project questions link affected tasks and reconcile through MCP", async ({
   expect(
     (
       await call("list_activity", {
-        workspace_id: await projectWorkspace(request, project_id),
+        workspace_id: workspace_id,
       })
     ).items.some(
       (item: { body: string }) => item.body === "Target personal use.",
@@ -1080,12 +1031,12 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
 }) => {
   const call = await connectMcp(request);
   const project_id = "handoff-trial";
-  await fixtureMcpProject(call, {
+  const { workspace_id } = await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
   });
   await call("create_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task: {
       project_id: project_id,
       id: "catalog",
@@ -1093,10 +1044,8 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
       status: "in_progress",
     },
   });
-  const checkpoint = await (
-    await connectMcp(page.request)
-  )("add_activity", {
-    workspace_id: await projectWorkspace(request, project_id),
+  const checkpoint = await call("add_activity", {
+    workspace_id: workspace_id,
     entry: {
       kind: "handoff",
       task_id: "T-1",
@@ -1107,7 +1056,7 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
     },
   });
   await call("add_activity", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     entry: {
       task_id: "T-1",
       body: "Later note, not a continuation checkpoint.",
@@ -1115,19 +1064,17 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
   });
   const fresh = await connectMcp(request);
   const task = await fresh("get_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task_id: "T-1",
   });
   expect(task.handoff.id).toBe(checkpoint.id);
   expect(task.handoff.needs_recheck).toBe(false);
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-1`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/tasks/T-1`);
   await expect(
     page.getByRole("img", { name: "Selected handoff", exact: true }),
   ).toBeVisible();
   await call("edit_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task_id: "T-1",
     changes: { expected_revision: 1, body: "Reject duplicate IDs." },
   });
@@ -1140,13 +1087,13 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
   expect(
     (
       await fresh("get_task", {
-        workspace_id: await projectWorkspace(request, project_id),
+        workspace_id: workspace_id,
         task_id: "T-1",
       })
     ).handoff.needs_recheck,
   ).toBe(true);
   await call("add_activity", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     entry: {
       task_id: "T-1",
       kind: "handoff",
@@ -1353,11 +1300,11 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     path: existingDirectory(join(state, project_id)),
   });
   await call("create_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task: { project_id: project_id, id: "one", title: "Validate CSV records" },
   });
   await call("create_task", {
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     task: {
       project_id: project_id,
       id: "two",
@@ -1365,7 +1312,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     },
   });
   await historicalQuestion({
-    workspace_id: await projectWorkspace(request, project_id),
+    workspace_id: workspace_id,
     question: {
       id: "scope",
       task_id: "T-2",
@@ -1739,9 +1686,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   const workerSettingsPath = `**/api/workspaces/${workspace_id}/workers`;
   await page.route(workerSettingsPath, (route) => route.abort());
   first = { ...first, status: "changes_requested" };
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, project_id)}/results/first`,
-  );
+  await page.goto(`/workspaces/${workspace_id}/results/first`);
   await expect(
     page.getByRole("region", { name: "Proposed result", exact: true }).first(),
   ).toContainText(
@@ -1884,18 +1829,15 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     .getByLabel("Feedback for this result")
     .fill("Include the source path in validation errors.");
   first = { ...first, revision: first.revision + 1 };
-  await request.post(
-    `/api/workspaces/${await projectWorkspace(request, project_id)}/activity`,
-    {
-      data: {
-        id: "refresh-review",
-        task_id: "one",
-        kind: "note",
-        body: "Refresh the review fixture.",
-        author: "fixture",
-      },
+  await request.post(`/api/workspaces/${workspace_id}/activity`, {
+    data: {
+      id: "refresh-review",
+      task_id: "one",
+      kind: "note",
+      body: "Refresh the review fixture.",
+      author: "fixture",
     },
-  );
+  });
   await expect(
     page.getByRole("button", { name: "Send feedback", exact: true }),
   ).toBeDisabled();
@@ -1967,9 +1909,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     "Task complete.",
   );
   await page.getByRole("tab", { name: /^Inbox/ }).click();
-  await expect(page).toHaveURL(
-    `/workspaces/${await projectWorkspace(request, project_id)}/inbox`,
-  );
+  await expect(page).toHaveURL(`/workspaces/${workspace_id}/inbox`);
   await expect(
     page.getByRole("tabpanel", { name: "Needs me", exact: true }),
   ).toBeVisible();

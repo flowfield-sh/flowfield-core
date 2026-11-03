@@ -165,12 +165,9 @@ test("task changes refresh their workspace without reloading the workspace catal
   );
   expect(
     (
-      await request.put(
-        `/api/workspaces/${await projectWorkspace(page.request, "scope-one")}/tasks/one`,
-        {
-          data: { expected_revision: 1, title: "Relevant change" },
-        },
-      )
+      await request.put(`/api/workspaces/${workspace}/tasks/one`, {
+        data: { expected_revision: 1, title: "Relevant change" },
+      })
     ).ok(),
   ).toBe(true);
   await expect(

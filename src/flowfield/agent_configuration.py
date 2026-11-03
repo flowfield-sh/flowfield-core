@@ -17,10 +17,13 @@ if TYPE_CHECKING:
 async def configure_worker(
     service: "Supervisor", workspace: str, task: str, request: AgentSettingsEdit
 ) -> AgentSettingsView:
+    owner = AgentSettings(service.workspace)
+    settings = owner.get(workspace, "worker", task)
+    service.workspace._current(settings.revision, request.expected_revision)
     if request.selection:
         current = service.workspace.task(workspace, task)
         await service.validate_agent_choice(request.selection, current.project_id)
-    return AgentSettings(service.workspace).edit(workspace, "worker", request, task)
+    return owner.edit(workspace, "worker", request, task)
 
 
 async def configure_reviewer(

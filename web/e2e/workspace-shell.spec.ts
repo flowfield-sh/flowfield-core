@@ -39,14 +39,11 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   for (let i = 0; i < 14; i++)
     expect(
       (
-        await request.post(
-          `/api/workspaces/${await projectWorkspace(request, "shell-tabs")}/tasks`,
-          {
-            data: {
-              title: `Standalone outcome ${i} with a long title that still stays compact`,
-            },
+        await request.post(`/api/workspaces/${workspace}/tasks`, {
+          data: {
+            title: `Standalone outcome ${i} with a long title that still stays compact`,
           },
-        )
+        })
       ).ok(),
     ).toBeTruthy();
   // Sidebar navigation contains actionable or running work, not planning cards.
@@ -137,14 +134,11 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   });
   expect(
     (
-      await request.post(
-        `/api/workspaces/${await projectWorkspace(request, "shell-tabs")}/tasks`,
-        {
-          data: {
-            title: "A live update while the document is open",
-          },
+      await request.post(`/api/workspaces/${workspace}/tasks`, {
+        data: {
+          title: "A live update while the document is open",
         },
-      )
+      })
     ).ok(),
   ).toBeTruthy();
   expect(

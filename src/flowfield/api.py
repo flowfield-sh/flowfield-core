@@ -38,7 +38,6 @@ from flowfield.application import (
 from flowfield.attachments import attachment_router
 from flowfield.browser import browser_router
 from flowfield.changes import Changes
-from flowfield.context_api import context_router, workspace_context_router
 from flowfield.conversation_api import conversation_router
 from flowfield.coordinator_api import coordinator_router
 from flowfield.errors import ApplicationError
@@ -244,8 +243,6 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     app.include_router(workspace_router(supervisor))
     app.include_router(output_router(workspace))
     app.include_router(browser_router(workspace))
-    app.include_router(context_router(workspace))
-    app.include_router(workspace_context_router(workspace))
     app.include_router(conversation_router(workspace))
     app.include_router(question_router(workspace))
     from flowfield.agent_api import agent_router

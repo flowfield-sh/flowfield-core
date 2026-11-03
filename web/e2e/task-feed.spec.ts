@@ -51,9 +51,7 @@ test("board failures use toasts and keep recovery beside retained work", async (
         })
       : route.continue(),
   );
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "board-recovery")}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks`);
   const alert = page
     .locator("[data-sonner-toast][data-type=error]")
     .filter({ hasText: "Temporary board failure" });
@@ -83,12 +81,9 @@ test("board failures use toasts and keep recovery beside retained work", async (
   fail = true;
   expect(
     (
-      await request.post(
-        `/api/workspaces/${await projectWorkspace(page.request, "board-recovery")}/tasks`,
-        {
-          data: { title: "New work after recovery" },
-        },
-      )
+      await request.post(`/api/workspaces/${workspace}/tasks`, {
+        data: { title: "New work after recovery" },
+      })
     ).ok(),
   ).toBe(true);
   await expect(alert).toContainText("Temporary board failure");
@@ -432,20 +427,19 @@ test("automatic readiness agrees across browser and MCP without a Draft state", 
       path: existingDirectory(join(state, "publication")),
     },
   });
-  await request.post(
-    `/api/workspaces/${await projectWorkspace(page.request, "publication")}/tasks`,
-    {
+  const workspace = await projectWorkspace(request, "publication");
+  const call = await connectMcp(request);
+  const created = await (
+    await request.post(`/api/workspaces/${workspace}/tasks`, {
       data: {
         id: "export",
         title: "Export JSON",
         status: "up_next",
         body: "Export filtered rows as offline JSON. Test Unicode and empty results.",
       },
-    },
-  );
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "publication")}/tasks/T-1`,
-  );
+    })
+  ).json();
+  await page.goto(`/workspaces/${workspace}/tasks/T-1`);
   const editor = page.getByRole("region", {
     name: "Task details",
     exact: true,
@@ -458,34 +452,21 @@ test("automatic readiness agrees across browser and MCP without a Draft state", 
   await expect(
     editor.getByRole("button", { name: /publish|prepare/i }),
   ).toHaveCount(0);
-  const first = await (
-    await connectMcp(page.request)
-  )("edit_task", {
-    workspace_id: await projectWorkspace(request, "publication"),
+  const first = await call("edit_task", {
+    workspace_id: workspace,
     task_id: "T-1",
-    changes: {
-      expected_revision: (
-        await (
-          await connectMcp(page.request)
-        )("get_task", {
-          workspace_id: await projectWorkspace(request, "publication"),
-          task_id: "T-1",
-        })
-      ).revision,
-      completion: "report",
-    },
+    changes: { expected_revision: created.revision, completion: "report" },
   });
   expect(first.readiness).toBe("ready");
   expect(first).not.toHaveProperty("publication_status");
   await expect(draft).toHaveCount(0);
-  const call = await connectMcp(request);
   await call("add_activity", {
-    workspace_id: await projectWorkspace(page.request, "publication"),
+    workspace_id: workspace,
     entry: { task_id: "T-1", body: "The sample has many Unicode titles." },
   });
   await expect(draft).toHaveCount(0);
-  await call("edit_task", {
-    workspace_id: await projectWorkspace(page.request, "publication"),
+  const revised = await call("edit_task", {
+    workspace_id: workspace,
     task_id: "T-1",
     changes: {
       expected_revision: first.revision,
@@ -494,46 +475,7 @@ test("automatic readiness agrees across browser and MCP without a Draft state", 
     },
   });
   await expect(draft).toHaveCount(0);
-  const fromAgent = await (
-    await connectMcp(page.request)
-  )("edit_task", {
-    workspace_id: await projectWorkspace(request, "publication"),
-    task_id: "T-1",
-    changes: {
-      expected_revision: (
-        await (
-          await connectMcp(page.request)
-        )("get_task", {
-          workspace_id: await projectWorkspace(request, "publication"),
-          task_id: "T-1",
-        })
-      ).revision,
-      completion: "report",
-    },
-  });
-  expect(fromAgent.readiness).toBe("ready");
-  await expect(draft).toHaveCount(0);
-  await call("edit_task", {
-    workspace_id: await projectWorkspace(page.request, "publication"),
-    task_id: "T-1",
-    changes: {
-      expected_revision: fromAgent.revision,
-      body: "Export filtered rows as JSON, capped at 500. Test Unicode, empty output and overflow. Use UTF-8.",
-    },
-  });
-  await expect(draft).toHaveCount(0);
-  const current = await call("get_task", {
-    workspace_id: await projectWorkspace(page.request, "publication"),
-    task_id: "T-1",
-  });
-  await call("edit_task", {
-    workspace_id: await projectWorkspace(page.request, "publication"),
-    task_id: "T-1",
-    changes: {
-      completion: "report",
-      expected_revision: current.revision,
-    },
-  });
+  expect(revised.readiness).toBe("ready");
   await page.reload();
   await expect(draft).toHaveCount(0);
   await expect(editor).toContainText("capped at 500");

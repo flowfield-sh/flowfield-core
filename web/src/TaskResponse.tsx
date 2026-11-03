@@ -66,16 +66,6 @@ export function TaskResponse({
   const tick = useMemo(() => ({ refresh, revision }), [refresh, revision]);
   const gate = useResource<Gate>(`${path}/input-eligibility`, tick);
   const currentAttemptId = gate.data?.run_id ?? gate.data?.latest_attempt?.id;
-  const currentAttempt = useResource<Message>(
-    currentAttemptId ? `${path}/thread/attempt:${currentAttemptId}` : null,
-    tick,
-  );
-  const currentResult = useResource<Message>(
-    gate.data?.result_id
-      ? `${path}/thread/result:${gate.data.result_id}`
-      : null,
-    tick,
-  );
   const executionId =
     requestTarget.kind === "integration"
       ? `validation:${requestTarget.id}`
@@ -94,6 +84,22 @@ export function TaskResponse({
     target ? `${path}/thread/${encodeURIComponent(target)}` : null,
     tick,
   );
+  const otherAttempt = useResource<Message>(
+    currentAttemptId && target !== `attempt:${currentAttemptId}`
+      ? `${path}/thread/attempt:${currentAttemptId}`
+      : null,
+    tick,
+  );
+  const otherResult = useResource<Message>(
+    gate.data?.result_id && target !== `result:${gate.data.result_id}`
+      ? `${path}/thread/result:${gate.data.result_id}`
+      : null,
+    tick,
+  );
+  const currentAttempt =
+    target === `attempt:${currentAttemptId}` ? selected : otherAttempt;
+  const currentResult =
+    target === `result:${gate.data?.result_id}` ? selected : otherResult;
   const [drafts, setDrafts] = useRetainedState<Record<string, Draft>>(
     `${path}:drafts`,
     {},
@@ -327,7 +333,7 @@ export function TaskResponse({
         data-announcement-source={`${projectId}:${requestTarget.kind}:${requestTarget.id}`}
       >
         <ResourceRetry
-          resources={[selected, gate, execution, currentAttempt, currentResult]}
+          resources={[selected, gate, execution, otherAttempt, otherResult]}
         />
         {requestTarget.kind === "result" ? (
           <Result

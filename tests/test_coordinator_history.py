@@ -43,9 +43,7 @@ def test_older_exchanges_and_exact_text_survive_paging_and_restart(tmp_path):
     )
     source = collected[-1]["text_sources"]["human"]
     assert source["identity"] == first.id
-    assert source["url"].startswith(
-        "http://localhost:8765/api/context/workspaces/harbor/coordinator-text?"
-    )
+    assert source["url"].startswith("http://localhost:8765/api/workspaces/harbor/coordinator/text?")
     assert collected[-1]["truncated_fields"]["human"]
     recovered, offset = "", 0
     while True:
@@ -130,13 +128,13 @@ def test_history_http_and_role_scopes(tmp_path):
     with TestClient(
         create_app(data_dir=execution.workspace.directory), base_url="http://localhost"
     ) as client:
-        response = client.get("/api/context/workspaces/harbor/coordinator-history")
-        assert response.status_code == 200
-        assert response.json()["items"][0]["id"] == turn.id
-        text = client.get(response.json()["items"][0]["text_sources"]["human"]["url"])
+        history = ContextReads(execution.workspace).coordinator_history("harbor")
+        text = client.get(history["items"][0]["text_sources"]["human"]["url"])
         assert text.status_code == 200 and text.json()["text"] == "Older intent"
         assert (
-            client.get("/api/context/workspaces/harbor/coordinator-history?limit=0").status_code
+            client.get(
+                f"/api/workspaces/harbor/coordinator/text?identity={turn.id}&field=human&limit=0"
+            ).status_code
             == 400
         )
 

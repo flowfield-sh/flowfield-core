@@ -22,14 +22,11 @@ test("overflowing tabs scroll by wheel with directional fades and even gutters",
   });
   const workspace = await projectWorkspace(request, project);
   for (let i = 0; i < 9; i++)
-    await request.post(
-      `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
-      {
-        data: {
-          title: `A long task title for overflow ${i}`,
-        },
+    await request.post(`/api/workspaces/${workspace}/tasks`, {
+      data: {
+        title: `A long task title for overflow ${i}`,
       },
-    );
+    });
   for (let i = 1; i <= 9; i++) {
     const asked = await historicalQuestionResponse(
       `/api/workspaces/${workspace}/questions`,

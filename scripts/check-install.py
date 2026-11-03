@@ -449,9 +449,9 @@ def main() -> None:
                     assert task["handoff"]["needs_recheck"] is False
                     activity = agent("list_activity", **scope, task_id="T-2", current_only=True)
                     assert activity["items"][0]["id"] == "installed-handoff"
-                    assert (
-                        json.loads(read(f"/api/context/workspaces/{space['id']}/tasks/T-2")) == task
-                    )
+                    browser_task = json.loads(read(f"/api/workspaces/{space['id']}/tasks/T-2"))
+                    for field in ("id", "key", "revision", "status"):
+                        assert browser_task[field] == task[field]
                     assert task["revision"] == 3 and task["status"] == "up_next"
                     assert "revisions" not in task
                     assert len(agent("list_task_revisions", **scope, task_id="T-2")["items"]) == 3

@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 from result_fixtures import current
 from result_recovery_fixtures import target_change
-from task_reviews_fixtures import configured, verdict
+from task_reviews_fixtures import configured, finish, verdict
 
 from flowfield.attention import attention_page
 from flowfield.browser import BrowserReads
@@ -17,10 +17,9 @@ def test_stale_review_reads_are_pure_with_a_concurrent_writer(tmp_path):
     result = current(service)
     review = reviews.prepare("harbor", result.id)
     claimed = reviews.claim("harbor", review.id, review.revision)
-    started = reviews.started("harbor", review.id, claimed.revision)
-    decided = reviews.conclude(
-        "harbor", review.id, started.revision, verdict(), cleanup_confirmed=True
-    )
+    claimed = reviews.begin_attempt("harbor", review.id)
+    reviews.started("harbor", review.id, claimed.revision)
+    decided = finish(reviews, review.id, verdict(), cleanup_confirmed=True)
     target_change(service, repo, run.base_commit, "other.txt", "advanced destination\n")
     before = reviews.get("harbor", review.id)
     assert before.status == "decided"
@@ -44,6 +43,7 @@ def test_stale_result_with_active_reviewer_is_not_a_human_recovery(tmp_path):
     result = current(service)
     review = reviews.prepare("harbor", result.id)
     claimed = reviews.claim("harbor", review.id, review.revision)
+    claimed = reviews.begin_attempt("harbor", review.id)
     running = reviews.started("harbor", review.id, claimed.revision)
     target_change(service, repo, run.base_commit, "other.txt", "advanced destination\n")
     service.integrations.refresh_availability("harbor")
@@ -54,7 +54,7 @@ def test_stale_result_with_active_reviewer_is_not_a_human_recovery(tmp_path):
     assert stale.next_action.action == "wait"
     assert attention_page(service.workspace, "harbor", "action").total == 0
     assert BrowserReads(service.workspace).workspace_board("harbor").needs_you_count == 0
-    reviews.conclude("harbor", review.id, running.revision, verdict(), cleanup_confirmed=True)
+    finish(reviews, review.id, verdict(), cleanup_confirmed=True)
     assert current(service).next_action.action == "prepare"
     refreshed = service.results.reprepare(
         "harbor", result.id, RunAction(expected_revision=current(service).revision)
@@ -139,8 +139,9 @@ def test_review_policy_changes_and_review_completion_persist_task_phases(tmp_pat
     review = reviews.prepare("harbor", result.id)
     assert service.workspace.task("harbor", "work").status == "in_progress"
     claimed = reviews.claim("harbor", review.id, review.revision)
-    running = reviews.started("harbor", review.id, claimed.revision)
-    reviews.conclude("harbor", review.id, running.revision, verdict(), cleanup_confirmed=True)
+    claimed = reviews.begin_attempt("harbor", review.id)
+    reviews.started("harbor", review.id, claimed.revision)
+    finish(reviews, review.id, verdict(), cleanup_confirmed=True)
     assert service.workspace.task("harbor", "work").status == "in_review"
     assert current(service).next_action.action == "review_result"
     # Policy changes have the same phase owner as initial preparation and rechecking.

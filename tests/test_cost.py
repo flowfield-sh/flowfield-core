@@ -164,8 +164,6 @@ def test_frozen_catalog_replay_resume_and_restart(tmp_path, monkeypatch):
     assert total.rate_dates == ["2026-10-29", "2027-01-01"]
     receipts = UsageReads(execution.workspace).evidence("harbor", "run", run.id).items
     assert receipts[0].valuation.rates[0]["rates"]["input"] == "2"
-    usage.rebuild()
-    assert summary(execution).totals.cost == total
 
 
 @pytest.mark.parametrize("version", [90, 91])

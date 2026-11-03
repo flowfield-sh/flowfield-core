@@ -13,12 +13,9 @@ test("review defaults and task reset preserve explicit inheritance and missing s
   expect((await fixtureProject(request, { data: { path } })).ok()).toBe(true);
   const workspace = await projectWorkspace(request, "review-settings");
   const task = await (
-    await request.post(
-      `/api/workspaces/${await projectWorkspace(request, "review-settings")}/tasks`,
-      {
-        data: { title: "Assess this contribution" },
-      },
-    )
+    await request.post(`/api/workspaces/${workspace}/tasks`, {
+      data: { title: "Assess this contribution" },
+    })
   ).json();
   await page.goto(`/workspaces/${workspace}/edit/reviewers`);
   const defaults = page.getByRole("region", { name: "Reviewer settings" });
@@ -37,9 +34,7 @@ test("review defaults and task reset preserve explicit inheritance and missing s
     await request.get(`/api/workspaces/${workspace}/reviewer`)
   ).json();
   expect(saved.enabled).toBe(false);
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "review-settings")}/tasks/${task.key}`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks/${task.key}`);
   await page
     .getByRole("button", { name: "Task settings", exact: true })
     .click();

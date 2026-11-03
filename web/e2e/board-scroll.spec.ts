@@ -54,9 +54,7 @@ test("board columns scroll independently with fixed headings and reachable cards
     });
   });
   await page.setViewportSize({ width: 1800, height: 800 });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks`);
   const board = page.locator(".board");
   const backlog = page.getByRole("region", {
     name: "Backlog tasks",
@@ -261,9 +259,7 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
     }),
   );
   await page.setViewportSize({ width: 1800, height: 800 });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project)}/inbox`,
-  );
+  await page.goto(`/workspaces/${workspace}/inbox`);
   const action = page.getByRole("tabpanel", { name: "Needs me", exact: true });
   await expect(action.locator(".inbox-history-row")).toHaveCount(14);
   await action.getByRole("button", { name: "Load more", exact: true }).click();

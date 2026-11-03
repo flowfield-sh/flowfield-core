@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import Literal
 
 from fastapi import APIRouter, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 
 from flowfield.adapters.git_review import changed_files, file_patch
 from flowfield.check_logs import download
@@ -56,7 +56,7 @@ def integration_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/workspaces/{workspace_id}/integrations/{identity}/logs/{phase}/{index}")
     def integration_log(
         workspace_id: str, identity: str, phase: Literal["setup", "checks"], index: int
-    ) -> FileResponse:
+    ) -> Response:
         return download(
             *command_receipts(supervisor(), workspace_id, "integration", identity, phase), index
         )
@@ -64,7 +64,7 @@ def integration_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/projects/{project_id}/setup-validation/{identity}/logs/{phase}/{index}")
     def setup_log(
         project_id: str, identity: str, phase: Literal["setup", "checks"], index: int
-    ) -> FileResponse:
+    ) -> Response:
         return download(*setup_receipts(supervisor(), project_id, identity, phase), index)
 
     @router.get("/workspaces/{workspace_id}/integrations/{identity}/diff")

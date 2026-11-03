@@ -6,7 +6,7 @@ import pytest
 from execution_fixtures import fixture as execution_fixture
 from pydantic import ValidationError
 from result_fixtures import current, fixture
-from task_reviews_fixtures import configured, verdict
+from task_reviews_fixtures import configured, finish, verdict
 
 from flowfield.adapters.git_workspace import git
 from flowfield.agent_models import AgentChoice
@@ -90,6 +90,7 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
     assert "test -f result.txt" in reviews.context("harbor", review.id, "validation")
     prepared = reviews.claim("harbor", review.id, review.revision)
     assert prepared.status == "preparing" and prepared.started_at is None
+    prepared = reviews.begin_attempt("harbor", prepared.id)
     running = reviews.started("harbor", prepared.id, prepared.revision)
     feed = ThreadView(service.workspace).page_view("harbor", run.task_id)
     result_event = next(item for item in feed.items if item.id == f"result:{result.id}")
@@ -101,12 +102,10 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
     assert sum(item.state.tone == "active" for item in feed.items) == 1
     with service.workspace.connection() as db:
         assert occupancy(db, workspace="harbor").active == 1
-    decided = reviews.conclude(
-        "harbor", review.id, running.revision, verdict(), cleanup_confirmed=True
-    )
+    decided = finish(reviews, review.id, verdict(), cleanup_confirmed=True)
     assert decided.status == "decided"
     assert (
-        reviews.conclude("harbor", review.id, running.revision, verdict(), cleanup_confirmed=True)
+        reviews.finish_attempt("harbor", review.id, running.attempt_id, cleanup_confirmed=True)
         == decided
     )
     service.results.process("harbor")
@@ -125,13 +124,7 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
     with service.workspace.connection() as db:
         assert occupancy(db, workspace="harbor").active == 0
     with pytest.raises(ApplicationError):
-        reviews.conclude(
-            "harbor",
-            review.id,
-            decided.revision,
-            verdict("request_changes"),
-            cleanup_confirmed=True,
-        )
+        finish(reviews, review.id, verdict("request_changes"), cleanup_confirmed=True)
 
 
 @pytest.mark.parametrize("change", ["policy", "disabled", "target", "settings", "result", "intent"])
@@ -140,7 +133,8 @@ def test_changed_bindings_cannot_produce_an_approval(tmp_path, change):
     result = current(service)
     queued = reviews.prepare("harbor", result.id)
     prepared = reviews.claim("harbor", queued.id, queued.revision)
-    running = reviews.started("harbor", prepared.id, prepared.revision)
+    prepared = reviews.begin_attempt("harbor", prepared.id)
+    reviews.started("harbor", prepared.id, prepared.revision)
     if change in ("policy", "disabled"):
         saved = reviewers.get("harbor")
         reviewers.configure(
@@ -189,15 +183,11 @@ def test_changed_bindings_cannot_produce_an_approval(tmp_path, change):
         assert (
             service.workspace.task("harbor", task.id).agreement_revision == task.agreement_revision
         )
-        decided = reviews.conclude(
-            "harbor", queued.id, running.revision, verdict(), cleanup_confirmed=True
-        )
+        decided = finish(reviews, queued.id, verdict(), cleanup_confirmed=True)
         assert decided.status == "decided"
         assert not current(service).approved_at
         return
-    stale = reviews.conclude(
-        "harbor", queued.id, running.revision, verdict(), cleanup_confirmed=True
-    )
+    stale = finish(reviews, queued.id, verdict(), cleanup_confirmed=True)
     assert stale.status == "stale" and stale.verdict is None
     assert not current(service).approved_at
 
@@ -222,10 +212,9 @@ def test_concurrent_claims_pause_and_unknown_cleanup_preserve_ownership(tmp_path
         values = list(pool.map(lambda _: claim(), range(2)))
     assert sum(value is not None for value in values) == 1
     prepared = next(value for value in values if value)
-    running = reviews.started("harbor", prepared.id, prepared.revision)
-    uncertain = reviews.conclude(
-        "harbor", queued.id, running.revision, verdict(), cleanup_confirmed=False
-    )
+    prepared = reviews.begin_attempt("harbor", prepared.id)
+    reviews.started("harbor", prepared.id, prepared.revision)
+    uncertain = finish(reviews, queued.id, verdict(), cleanup_confirmed=False)
     assert uncertain.status == "uncertain" and uncertain.verdict is None
     with service.workspace.connection() as db:
         assert occupancy(db, workspace="harbor").uncertain == 1
@@ -239,6 +228,7 @@ def test_restart_retains_uncertain_slot_and_frozen_reviewer(tmp_path):
     service, _, _, _, reviews = configured(tmp_path)
     queued = reviews.prepare("harbor", current(service).id)
     prepared = reviews.claim("harbor", queued.id, queued.revision)
+    prepared = reviews.begin_attempt("harbor", prepared.id)
     running = reviews.started("harbor", prepared.id, prepared.revision)
     reopened = TaskReviews(Workspace(service.workspace.directory))
     reopened.restart()

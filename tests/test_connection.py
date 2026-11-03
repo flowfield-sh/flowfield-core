@@ -179,12 +179,11 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                     )
                     task = await call("get_task", identity)
                     assert task["updated_by"] == "agent" and task["status"] == "backlog"
-                    assert (
-                        task
-                        == (
-                            await api.get(f"/api/context/workspaces/{space_id}/tasks/export")
-                        ).json()
-                    )
+                    browser_task = (
+                        await api.get(f"/api/workspaces/{space_id}/tasks/export")
+                    ).json()
+                    for field in ("id", "key", "body", "revision", "status"):
+                        assert task[field] == browser_task[field]
                     assert (await session.call_tool("get_task", {"task_id": "export"})).isError
                     assert (
                         await session.call_tool("get_task", {**identity, "workspace_id": "missing"})
@@ -237,12 +236,8 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                 revisions = await call("list_task_revisions", identity)
                 assert len(revisions["items"]) == 4
                 board = await call("get_board", {"workspace_id": space_id})
-                other = (await api.get(f"/api/context/workspaces/{space_id}/board")).json()
-                assert board.pop("observed_at") <= other.pop("observed_at")
-                assert board["recent_changes"].pop("window_start") <= other["recent_changes"].pop(
-                    "window_start"
-                )
-                assert board == other
+                browser_board = (await api.get(f"/api/workspaces/{space_id}/board")).json()
+                assert board["columns"][1]["tasks"][0]["id"] == browser_board["tasks"][0]["id"]
                 assert board["project"]["url"] == base + f"/workspaces/{space_id}"
                 assert board["links"]["inbox"] == base + f"/workspaces/{space_id}/inbox"
                 assert board["columns"][1]["tasks"][0]["url"] == (

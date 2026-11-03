@@ -1,15 +1,53 @@
 """Command transcripts retain terminal summaries and bounded, verified bytes."""
 
 import asyncio
+import hashlib
 import os
-from pathlib import Path
 
 import pytest
 
 from flowfield.adapters import local_checks
 from flowfield.adapters.local_execution import LocalHost
-from flowfield.check_logs import download, read, sections
+from flowfield.check_logs import download, page, read, sections
 from flowfield.errors import ApplicationError
+from flowfield.execution_models import CheckResult
+
+
+@pytest.mark.parametrize("data", ["α🦉\nlast line".encode(), b"invalid\xff\nlast line"])
+def test_log_pages_keep_decoded_identity_and_detect_changes_between_pages(tmp_path, data):
+    identity = "a" * 32
+    path = tmp_path / "logs" / identity
+    path.parent.mkdir()
+    path.write_bytes(data)
+    checks = [
+        CheckResult(
+            command="fixture",
+            exit_code=0,
+            output="",
+            log_id=identity,
+            log_size=len(data),
+            log_sha256=hashlib.sha256(data).hexdigest(),
+        )
+    ]
+    decoded = data.decode(errors="replace")
+    first = page((tmp_path, checks), 0, 0, 3)
+    assert first["sha256"] == hashlib.sha256(decoded.encode()).hexdigest()
+    recovered = first["text"]
+    following = first
+    while following["next_request"]:
+        following = page((tmp_path, checks), 0, **following["next_request"])
+        assert following["sha256"] == first["sha256"]
+        recovered += following["text"]
+    assert recovered == decoded
+    path.write_bytes(b"x" * len(data))
+    with pytest.raises(ApplicationError, match="missing or changed"):
+        page((tmp_path, checks), 0, **first["next_request"])
+    path.unlink()
+    target = tmp_path / "other"
+    target.write_bytes(data)
+    path.symlink_to(target)
+    with pytest.raises(ApplicationError, match="missing or changed"):
+        download(tmp_path, checks, 0)
 
 
 @pytest.mark.parametrize("cap", [256, 8 * 1024 * 1024])
@@ -26,8 +64,8 @@ def test_command_log_keeps_final_summary_and_marks_byte_limit(tmp_path, monkeypa
     assert check.started_at and check.elapsed_seconds > 0
     assert check.log_truncated == (cap == 256)
     response = download(environment.runtime, checks, 0)
-    path = Path(response.path)
-    data = path.read_bytes()
+    path = environment.runtime / "logs" / check.log_id
+    data = bytes(response.body)
     assert len(data) == check.log_size <= cap
     assert read(environment.runtime, checks, check.log_id) == data.decode(errors="replace")
     assert sections(checks)[0]["log_section"] == f"project_check_log:{check.log_id}"
@@ -37,6 +75,7 @@ def test_command_log_keeps_final_summary_and_marks_byte_limit(tmp_path, monkeypa
     if cap > 256:
         assert data.endswith(b"FINAL 26 passed\n")
     path.write_bytes(b"changed")
+    assert bytes(response.body) == data  # Downloads never reopen unverified replacement bytes.
     with pytest.raises(ApplicationError, match="missing or changed"):
         download(environment.runtime, checks, 0)
     with pytest.raises(ApplicationError, match="missing or changed"):

@@ -531,37 +531,23 @@ test("validated result approval delivers real Git code with the worker queue pau
       { encoding: "utf8" },
     ),
   );
-  const base = `/api/workspaces/${await projectWorkspace(page.request, seed.project)}`;
+  const workspace = await projectWorkspace(request, seed.project);
+  const base = `/api/workspaces/${workspace}`;
   const mcp = await connectMcp(request);
   const read = await mcp("get_result", {
-    workspace_id: await projectWorkspace(request, seed.project),
+    workspace_id: workspace,
     result_id: seed.result,
   });
   expect(read.status).toBe("ready");
-  expect(
-    (
-      await (
-        await connectMcp(page.request)
-      )("get_result", {
-        workspace_id: await projectWorkspace(request, seed.project),
-        result_id: seed.result,
-      })
-    ).candidate_commit,
-  ).toBe(seed.candidate);
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, seed.project)}/inbox`,
-  );
+  expect(read.candidate_commit).toBe(seed.candidate);
+  await page.goto(`/workspaces/${workspace}/inbox`);
   await page.locator(".inbox-history-row").filter({ hasText: "T-1" }).click();
   await page
     .locator(".entity-pane-title")
     .getByRole("link", { name: /T-1:/ })
     .click();
-  await expect(page).toHaveURL(
-    `/workspaces/${await projectWorkspace(page.request, seed.project)}/tasks/T-1`,
-  );
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, seed.project)}/results/${seed.result}`,
-  );
+  await expect(page).toHaveURL(`/workspaces/${workspace}/tasks/T-1`);
+  await page.goto(`/workspaces/${workspace}/results/${seed.result}`);
   const result = page.getByRole("region", { name: "Proposed result" });
   await expect(result).toContainText("project checks passed");
   await expect(result).toContainText("Passed");
@@ -647,7 +633,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   const task = await (await request.get(`${base}/tasks/T-1`)).json();
   expect(task.status).toBe("done");
   const replay = await mcp("review_result", {
-    workspace_id: await projectWorkspace(request, seed.project),
+    workspace_id: workspace,
     result_id: seed.result,
     review: {
       expected_revision: seed.result_revision,
@@ -700,7 +686,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   await page.setViewportSize({ width: 390, height: 844 });
   // Saved exact-execution URLs still reveal only the requested historical evidence.
   await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, seed.project)}/tasks/T-1/history/delivery:${seed.result}`,
+    `/workspaces/${workspace}/tasks/T-1/history/delivery:${seed.result}`,
   );
   await expect(
     history.getByRole("heading", { name: "Review 1 delivery", exact: true }),

@@ -6,9 +6,8 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from anyio import to_thread
-from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
 from flowfield.activity import ActivityCreate, EntryKind
 from flowfield.application import (
@@ -37,6 +36,7 @@ from flowfield.harness_models import HarnessKind
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import Inspection, InspectionConfig, InspectionPrepare
 from flowfield.labels import LabelCreate, LabelEdit, Labels
+from flowfield.mcp_errors import ApplicationMCP
 from flowfield.project_config import Identifier
 from flowfield.questions import (
     QuestionAnswer,
@@ -63,8 +63,8 @@ def create_mcp(
     *,
     origin: str | None = None,
     include_service_tools: bool = True,
-) -> FastMCP:
-    mcp = FastMCP(
+) -> ApplicationMCP:
+    mcp = ApplicationMCP(
         "Flowfield",
         instructions=template("mcp-instructions.md").strip(),
         host="127.0.0.1",
@@ -77,19 +77,10 @@ def create_mcp(
     add_conversation_tools(mcp, workspace)
 
     async def invoke(action: Callable[[], dict[str, Any]]) -> CallToolResult:
-        failed = False
-        try:
-            payload = await to_thread.run_sync(action)
-        except ApplicationError as error:
-            payload = {"error": {"code": error.code, "message": error.message}}
-            failed = True
-        except ValidationError as error:
-            payload = {"error": {"code": "invalid_request", "message": str(error)[:2000]}}
-            failed = True
+        payload = await to_thread.run_sync(action)
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps(payload, ensure_ascii=False))],
             structuredContent=payload,
-            isError=failed,
         )
 
     async def mutate(action: Callable[[], dict[str, Any]]) -> CallToolResult:
@@ -628,7 +619,7 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def search_context(
-        project_id: Identifier,
+        workspace_id: Identifier,
         query: str,
         entity: Entity | None = None,
         kind: str | None = None,
@@ -639,14 +630,14 @@ def create_mcp(
         before: int | None = None,
         limit: PageLimit = 20,
     ) -> CallToolResult:
-        """Search words in project evidence with bounded snippets and exact source references.
+        """Search words in workspace evidence with bounded snippets and exact source references.
         Defaults to current sources; history/all includes old task/question revisions and
         superseded handoffs/results, clearly labeled. kind filters note/handoff/
         event kind. Dates use YYYY-MM-DD. Follow sources before treating a hit as intent.
         """
         return await invoke(
             lambda: Search(workspace(), reads().browser_origin).page(
-                project_id,
+                workspace_id,
                 query,
                 entity=entity,
                 kind=kind,

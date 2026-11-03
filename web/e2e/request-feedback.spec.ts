@@ -132,9 +132,7 @@ test("worker and coordinator settings report failed saves with their own action 
   await expect(workers.getByLabel("Maximum parallel workers")).toHaveValue("3");
   await expect(workers).not.toContainText(/Load failed|Cannot reach Flowfield/);
   await errors(page).getByRole("button", { name: "Close toast" }).click();
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, id)}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks`);
   const settings = page.getByRole("dialog", {
     name: "Coordinator model settings",
   });

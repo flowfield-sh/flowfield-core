@@ -36,15 +36,12 @@ test("Project adoption updates the browser, task creation and initial connection
   await page.getByRole("link", { name: "Task Board", exact: true }).click();
   expect(
     (
-      await request.post(
-        `/api/workspaces/${await projectWorkspace(page.request, adopted.id)}/tasks`,
-        {
-          data: {
-            title: "Investigate large exports",
-            labels: ["investigation"],
-          },
+      await request.post(`/api/workspaces/${workspace}/tasks`, {
+        data: {
+          title: "Investigate large exports",
+          labels: ["investigation"],
         },
-      )
+      })
     ).ok(),
   ).toBeTruthy();
   await expect(

@@ -1125,14 +1125,3 @@ class Execution:
                     ),
                 )
                 self._save(db, run)
-
-    def integrated(self, workspace_id: str, run_id: str, available: bool) -> Run:
-        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
-            run = self._run(db, workspace_id, run_id)
-            if run.status != "accepted":
-                raise ApplicationError(
-                    "not_accepted", "Accept the result before checking code availability.", 409
-                )
-            run.code_available = available
-            self._save(db, run)
-            return run

@@ -163,12 +163,9 @@ for (const onlyClaude of [false, true]) {
     // It must not close/reopen discovery or clear the saved model.
     expect(
       (
-        await request.post(
-          `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
-          {
-            data: { title: "Refresh project settings" },
-          },
-        )
+        await request.post(`/api/workspaces/${workspace}/tasks`, {
+          data: { title: "Refresh project settings" },
+        })
       ).ok(),
     ).toBe(true);
     await expect.poll(() => savedReads).toBeGreaterThan(0);

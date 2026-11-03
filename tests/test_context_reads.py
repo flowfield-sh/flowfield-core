@@ -3,14 +3,11 @@
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 from historical_questions import seed_question
 from lifecycle_fixtures import run_report
-from project_fixtures import adopt, existing_directory, task_request
-from workspace_fixtures import TEST_AGENTS
+from project_fixtures import adopt, task_request
 
 from flowfield.activity import ActivityCreate
-from flowfield.api import create_app
 from flowfield.application import ProjectEdit, ProjectSetup, TaskEdit, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.questions import QuestionCreate, Questions
@@ -152,51 +149,39 @@ def test_context_readiness_matches_domain_and_invalid_input(tmp_path: Path) -> N
     assert ack["saved"] and ack["key"] == "T-1" and "revisions" not in ack and "body" not in ack
 
 
-def test_http_context_is_scoped_and_bounded(tmp_path: Path) -> None:
-    with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
-        space = client.post(
-            "/api/workspaces",
-            json={
-                **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
-                "name": "Fixture",
-            },
-        ).json()["id"]
-        client.post(
-            f"/api/workspaces/{space}/projects",
-            json={"path": existing_directory(str(tmp_path / "harbor"))},
-        )
-        client.post(
-            f"/api/workspaces/{space}/tasks",
-            json={
-                "title": "Export",
-                "body": "x" * 200000,
-            },
-        )
-        base = f"/api/context/workspaces/{space}"
-        assert "revisions" not in client.get(base + "/tasks/T-1").json()
-        assert len(client.get(base + "/tasks/T-1").content) < PAGE_BYTES
-        matches = client.get(base + "/search", params={"query": "Export", "entity": "task"})
-        assert matches.status_code == 200
-        assert matches.json()["items"][0]["current"]
-        assert matches.json()["items"][0]["source"]["resource"] == "task"
-        assert client.get(base + "/search", params={"query": "*"}).status_code == 400
-        assert (
-            client.get(base + "/search", params={"query": "Export", "limit": 0}).status_code == 400
-        )
-        assert client.get(base + "/tasks", params={"limit": 0}).status_code == 400
-        assert client.get("/api/context/projects/missing/tasks/T-1").status_code == 404
-        assert (
-            client.get(
-                base + "/text", params={"resource": "task", "identity": "T-1", "field": "invalid"}
-            ).status_code
-            == 400
-        )
-        assert (
-            client.get(
-                base + "/tasks/T-1/relationships", params={"relation": "invalid"}
-            ).status_code
-            == 422
-        )
+def test_mcp_context_is_scoped_and_bounded(tmp_path: Path) -> None:
+    import asyncio
+
+    from flowfield.mcp import create_mcp
+
+    workspace = Workspace(tmp_path / "state")
+    adopt(workspace, ProjectSetup(path=str(tmp_path / "harbor")))
+    workspace.create_task("harbor", task_request(title="Export", body="x" * 200000))
+    server = create_mcp(lambda: workspace, origin="")
+
+    async def exercise():
+        async def call(name, **args):
+            return await server.call_tool(name, {"workspace_id": "harbor", **args})
+
+        task = await call("get_task", task_id="T-1")
+        assert not task.isError and "revisions" not in task.structuredContent
+        assert size(task.structuredContent) < PAGE_BYTES
+        matches = await call("search_context", query="Export", entity="task")
+        assert not matches.isError, matches
+        assert matches.structuredContent["items"][0]["current"]
+        assert matches.structuredContent["items"][0]["source"]["resource"] == "task"
+        for name, args in [
+            ("search_context", {"query": "*"}),
+            ("search_context", {"query": "Export", "limit": 0}),
+            ("list_tasks", {"limit": 0}),
+            ("get_task", {"task_id": "missing"}),
+            ("get_text", {"resource": "task", "identity": "T-1", "field": "invalid"}),
+            ("list_task_relationships", {"task_id": "T-1", "relation": "invalid"}),
+        ]:
+            result = await call(name, **args)
+            assert result.isError and result.structuredContent["error"]["code"]
+
+    asyncio.run(exercise())
 
 
 def test_browser_links_and_question_pagination(tmp_path: Path) -> None:

@@ -86,13 +86,6 @@ export function retainDirty(key: string, dirty: boolean) {
     for (const listener of listeners) listener();
   });
 }
-export function useRetainedDraftKeys(prefix: string) {
-  const keys = useSyncExternalStore(
-    (listener) => subscribe(undefined, listener),
-    () => [...dirtyEntries].filter((key) => key.startsWith(prefix)).join("\n"),
-  );
-  return keys ? keys.split("\n") : [];
-}
 export function hasRetainedDrafts() {
   return dirtyEntries.size > 0;
 }

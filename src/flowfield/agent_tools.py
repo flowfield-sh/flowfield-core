@@ -7,12 +7,10 @@ workers have run-bound tools.
 
 import asyncio
 import copy
-import json
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
-from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.lowlevel import Server
 from mcp.types import (
     CallToolRequest,
@@ -28,7 +26,7 @@ from pydantic import ValidationError
 
 from flowfield.context_measurements import ContextMeasurements
 from flowfield.errors import ApplicationError
-from flowfield.mcp import create_mcp
+from flowfield.mcp_errors import failure, invalid_request
 from flowfield.settings_mcp import SERVICE_MUTATIONS
 from flowfield.worker_tools import WorkerBridge, worker_tools
 from flowfield.workspaces import Workspaces
@@ -149,25 +147,12 @@ class ScopedTools:
         except ApplicationError as error:
             return failure(error.code, error.message)
         except ValidationError as error:
-            details = "; ".join(
-                f"{'.'.join(map(str, item['loc'])) or 'request'}: {item['msg']}"
-                for item in error.errors(include_input=False, include_context=False)[:5]
-            )
-            return failure("invalid_request", details[:2000])
+            return invalid_request(error)
 
     def revoke(self) -> None:
         # Already-running operations remain owned by their executor; revoking access
         # does not claim to cancel a command or roll back an accepted mutation.
         self.revoked = True
-
-
-def failure(code: str, message: str) -> CallToolResult:
-    payload = {"error": {"code": code, "message": message}}
-    return CallToolResult(
-        content=[TextContent(type="text", text=json.dumps(payload))],
-        structuredContent=payload,
-        isError=True,
-    )
 
 
 def worker_scope(bridge: WorkerBridge) -> ScopedTools:
@@ -205,9 +190,7 @@ async def workspace_scope(
     """Bind workspace authority while keeping every repository destination explicit."""
     Workspaces(supervisor.workspace).get(workspace_id)
     workspace = supervisor.workspace
-    canonical = create_mcp(
-        lambda: workspace, lambda: supervisor, origin="", include_service_tools=False
-    )
+    canonical = supervisor.coordinator_tools
     scoped = []
     project_tools = set()
     optional_project_tools = set()
@@ -260,28 +243,6 @@ async def workspace_scope(
         for key in authored_arguments[name]:
             if isinstance(bound.get(key), dict):
                 bound[key]["author"] = author
-        # FastMCP's annotation omits its CallToolResult and structured tuple variants.
-        try:
-            result: Any = await canonical.call_tool(name, bound)
-        except ToolError as error:
-            # FastMCP wraps exceptions from execution tools. Preserve ordinary
-            # application/validation failures as tool results, not failed turns.
-            if isinstance(error.__cause__, (ApplicationError, ValidationError)):
-                raise error.__cause__ from error
-            raise
-        if isinstance(result, CallToolResult):
-            return result
-        if isinstance(result, tuple):
-            content, structured = result
-            return CallToolResult(content=content, structuredContent=structured)
-        if isinstance(result, dict):
-            # FastMCP preserves CallToolResult as its serialized protocol object.
-            if "content" in result:
-                return CallToolResult.model_validate(result)
-            return CallToolResult(
-                content=[TextContent(type="text", text=json.dumps(result))],
-                structuredContent=result,
-            )
-        return CallToolResult(content=list(result))
+        return await canonical.call_tool(name, bound)
 
     return ScopedTools(scoped, call, parallel_reads=True, check=check)

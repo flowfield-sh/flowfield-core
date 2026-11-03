@@ -25,12 +25,9 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   ).toBe(true);
   const workspace = await projectWorkspace(request, "agent-settings");
   const task = await (
-    await request.post(
-      `/api/workspaces/${await projectWorkspace(request, "agent-settings")}/tasks`,
-      {
-        data: { title: "Check project behavior" },
-      },
-    )
+    await request.post(`/api/workspaces/${workspace}/tasks`, {
+      data: { title: "Check project behavior" },
+    })
   ).json();
   const first = {
     harness: "codex",
@@ -257,12 +254,9 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await choose(picker.getByLabel("Model", { exact: true }), "first");
   await choose(picker.getByLabel("Reasoning effort"), "high");
   settings = { ...settings, revision: settings.revision + 1 };
-  await request.post(
-    `/api/workspaces/${await projectWorkspace(request, "agent-settings")}/tasks`,
-    {
-      data: { title: "Cause settings refresh" },
-    },
-  );
+  await request.post(`/api/workspaces/${workspace}/tasks`, {
+    data: { title: "Cause settings refresh" },
+  });
   await expect(
     picker.getByText(
       "Settings changed elsewhere. Load the latest settings before saving.",

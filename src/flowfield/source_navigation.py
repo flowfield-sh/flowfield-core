@@ -18,6 +18,7 @@ def navigate(
     query: str | None = None,
     end: int | None = None,
     page_limit: int = 6000,
+    sha256: str | None = None,
 ) -> dict[str, Any]:
     if offset < 0 or offset > len(text) or not 1 <= limit <= page_limit <= 6000:
         raise ApplicationError(
@@ -26,7 +27,7 @@ def navigate(
     if end is not None and not offset <= end <= len(text):
         raise ApplicationError("invalid_range", "End must lie between offset and source length.")
     identity = {
-        "sha256": hashlib.sha256(text.encode()).hexdigest(),
+        "sha256": sha256 or hashlib.sha256(text.encode()).hexdigest(),
         "total_chars": len(text),
         "page_limit": page_limit,
     }

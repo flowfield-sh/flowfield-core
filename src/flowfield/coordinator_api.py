@@ -1,6 +1,7 @@
 """Browser chat operations. Reading a project never starts a model turn."""
 
 from collections.abc import Callable
+from typing import Any, Literal
 
 from fastapi import APIRouter, Query
 
@@ -12,11 +13,25 @@ from flowfield.coordinator_models import (
     CoordinatorTurn,
 )
 from flowfield.coordinator_settings import CoordinatorSettings
+from flowfield.reads import ContextReads
 from flowfield.supervisor import Supervisor
 
 
 def coordinator_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     router = APIRouter(prefix="/api/workspaces/{workspace_id}/coordinator")
+
+    @router.get("/text")
+    def text(
+        workspace_id: str,
+        identity: str,
+        field: Literal["human", "coordinator"],
+        revision: int | None = None,
+        offset: int = 0,
+        limit: int = 4000,
+    ) -> dict[str, Any]:
+        return ContextReads(supervisor().workspace).text(
+            workspace_id, "coordinator", identity, field, revision, offset, limit
+        )
 
     @router.get("")
     def history(

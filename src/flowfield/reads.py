@@ -270,11 +270,10 @@ class ContextReads:
                         "identity": row["id"],
                         "field": field,
                         "revision": revision,
-                        "url": f"{self.browser_origin}/api/context/workspaces/"
-                        f"{quote(project_id, safe='')}/coordinator-text?"
+                        "url": f"{self.browser_origin}/api/workspaces/"
+                        f"{quote(project_id, safe='')}/coordinator/text?"
                         + urlencode(
                             {
-                                "resource": "coordinator",
                                 "identity": row["id"],
                                 "field": field,
                                 "revision": revision,

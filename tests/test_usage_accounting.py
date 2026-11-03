@@ -14,7 +14,7 @@ from flowfield.usage_models import Tokens, UsageFilter
 from flowfield.usage_reads import UsageReads, buckets
 
 
-def test_replay_reorder_restart_atomic_checkpoint_and_rebuild(tmp_path, monkeypatch):
+def test_replay_reorder_restart_atomic_checkpoint(tmp_path, monkeypatch):
     execution, usage, (run,) = accounting(tmp_path)
     first = event(run, order=1)
     usage.observe("harbor", "run", run.id, first)
@@ -26,7 +26,7 @@ def test_replay_reorder_restart_atomic_checkpoint_and_rebuild(tmp_path, monkeypa
         list(pool.map(lambda _: usage.observe("harbor", "run", run.id, first), range(8)))
     usage.observe("harbor", "run", run.id, event(run, 200, identity="result-3", order=3))
     usage.observe("harbor", "run", run.id, event(run, 150, identity="result-2", order=2))
-    usage.rebuild()
+    usage = Usage(Workspace(execution.workspace.directory))
     usage.observe("harbor", "run", run.id, event(run, 300, identity="result-4", order=4))
     detail = UsageReads(execution.workspace).evidence("harbor", "run", run.id)
     assert detail.items[0].received_at == receipt
@@ -281,7 +281,6 @@ def test_session_resume_requires_a_reconciled_owner_boundary(
     usage.end("harbor", "coordinator_turn", run.id, confirmed=confirmed)
     # A restart/native upgrade must preserve the original contract's checkpoint.
     usage = Usage(Workspace(execution.workspace.directory))
-    usage.rebuild()
     usage.start("harbor", "coordinator_turn", "next-turn", run.id)
     usage.observe(
         "harbor",
@@ -311,7 +310,7 @@ def test_reordered_without_source_order_is_explicit_gap(tmp_path):
     report = summary(execution)
     assert report.totals.tokens.total == 360
     assert report.totals.partial == 1
-    usage.rebuild()
+    usage = Usage(Workspace(execution.workspace.directory))
     usage.observe("harbor", "run", run.id, event(run, 500, identity="after-unknown-reset"))
     assert summary(execution).totals.tokens.total == 360
     assert "unknown-reset-or-regression" in report.items[0].reasons
@@ -355,14 +354,14 @@ def test_invalid_numeric_overflow_stays_evidence_instead_of_breaking_capture(tmp
     assert evidence.execution.tokens.total is None
 
 
-def test_deleted_scope_cannot_reenter_totals_after_rebuild_or_resume(tmp_path):
+def test_deleted_scope_cannot_reenter_totals_after_restart_or_resume(tmp_path):
     execution, usage, (old, new) = accounting(tmp_path, count=2)
     usage.observe("harbor", "run", old.id, event(old))
     with execution.workspace.connection(write=True) as db:
         db.execute("DELETE FROM runs WHERE id=?", (old.id,))
         # Existing Coordinator continuity can reference a deleted native scope.
         db.execute("UPDATE usage_executions SET session_id=? WHERE source_id=?", (old.id, new.id))
-    usage.rebuild()
+    usage = Usage(Workspace(execution.workspace.directory))
     usage.observe("harbor", "run", new.id, event(old, 200, identity="resume", baseline="resume"))
     detail = UsageReads(execution.workspace).evidence("harbor", "run", new.id)
     assert detail.execution.tokens.total is None

@@ -3,14 +3,16 @@
 import hashlib
 import re
 from pathlib import Path
+from typing import Any
 
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import CheckResult
+from flowfield.source_navigation import navigate
 
 
-def read(runtime: Path, checks: list[CheckResult], identity: str) -> str:
+def verified_bytes(runtime: Path, checks: list[CheckResult], identity: str) -> bytes:
     """Read only bytes matching a current receipt; never reopen after verification."""
     check = next((item for item in checks if item.log_id == identity), None)
     if check is None or not re.fullmatch("[a-f0-9]{32}", identity):
@@ -32,7 +34,33 @@ def read(runtime: Path, checks: list[CheckResult], identity: str) -> str:
         raise ApplicationError(
             "log_unavailable", "The retained command log is missing or changed.", 409
         ) from error
-    return data.decode("utf-8", errors="replace")
+    return data
+
+
+def read(runtime: Path, checks: list[CheckResult], identity: str) -> str:
+    return verified_bytes(runtime, checks, identity).decode("utf-8", errors="replace")
+
+
+def page(
+    receipts: tuple[Path, list[CheckResult]], index: int, offset: int, limit: int
+) -> dict[str, Any]:
+    runtime, checks = receipts
+    if index < 0 or index >= len(checks):
+        raise ApplicationError("not_found", "Command receipt not found.", 404)
+    check = checks[index]
+    if not check.log_id:
+        raise ApplicationError("not_found", "No retained log for this command.", 404)
+    data = verified_bytes(runtime, checks, check.log_id)
+    try:
+        text = data.decode("utf-8")
+        digest = check.log_sha256
+    except UnicodeDecodeError:
+        text = data.decode("utf-8", errors="replace")
+        digest = None  # Navigation identifies decoded text; receipt identifies original bytes.
+    result = navigate(text, offset=offset, limit=limit, sha256=digest)
+    if result["next_request"]:
+        result["next_request"] = {"offset": result["next_offset"], "limit": limit}
+    return result
 
 
 def sections(checks: list[CheckResult]) -> list[dict[str, object]]:
@@ -46,30 +74,18 @@ def sections(checks: list[CheckResult]) -> list[dict[str, object]]:
     ]
 
 
-def download(runtime: Path, checks: list[CheckResult], index: int) -> FileResponse:
+def download(runtime: Path, checks: list[CheckResult], index: int) -> Response:
     if index < 0 or index >= len(checks):
         raise ApplicationError("not_found", "Command receipt not found.", 404)
-    check = checks[index]
-    if not check.log_id or not re.fullmatch("[a-f0-9]{32}", check.log_id):
+    identity = checks[index].log_id
+    if not identity:
         raise ApplicationError("not_found", "No retained log for this command.", 404)
-    path = runtime / "logs" / check.log_id
-    try:
-        if any(parent.is_symlink() for parent in [path, *path.parents]):
-            raise ValueError("Linked log")
-        with path.open("rb") as stream:
-            if (
-                path.stat().st_size != check.log_size
-                or hashlib.file_digest(stream, "sha256").hexdigest() != check.log_sha256
-            ):
-                raise ValueError("Changed log")
-    except (OSError, ValueError) as error:
-        raise ApplicationError(
-            "log_unavailable", "The retained command log is missing or changed.", 409
-        ) from error
-    return FileResponse(
-        path,
-        filename="command.log",
+    return Response(
+        verified_bytes(runtime, checks, identity),
         media_type="text/plain",
-        content_disposition_type="attachment",
-        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"},
+        headers={
+            "Content-Disposition": 'attachment; filename="command.log"',
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
     )

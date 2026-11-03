@@ -432,44 +432,6 @@ class TaskReviews(ReviewRecords[TaskReview]):
             self._save(db, review)
             return review
 
-    def conclude(
-        self,
-        project: str,
-        identity: str,
-        expected_revision: int,
-        verdict: ReviewVerdict,
-        *,
-        cleanup_confirmed: bool,
-    ) -> TaskReview:
-        """Persist a structured assessment only; downstream application must revalidate it."""
-        with self.store.connection(write=True, workspace_id=project) as db:
-            review = self._get(db, project, identity)
-            if review.guidance:
-                raise ApplicationError(
-                    "guidance_review", "Submit the scoped guidance decision.", 409
-                )
-            assert review.result_id
-            if review.status == "decided" and review.verdict == verdict:
-                return review  # An exact replay cannot create another decision or delivery.
-            self.store._current(review.revision, expected_revision)
-            if review.status != "running":
-                raise ApplicationError(
-                    "review_closed", "This review no longer owns an active attempt.", 409
-                )
-            if not cleanup_confirmed:
-                review.status, review.problem = (
-                    "uncertain",
-                    "Review finished without confirmed process cleanup. No verdict was applied.",
-                )
-                self._save(db, review)
-                return review
-            if not self._fresh(db, review):
-                return review
-            review.status, review.verdict, review.completed_at = "decided", verdict, now()
-            self._save(db, review)
-            Results(self.store).ready(db, Results(self.store)._get(db, project, review.result_id))
-            return review
-
     def context(
         self, project: str, identity: str, section: Literal["assignment", "result", "validation"]
     ) -> str:

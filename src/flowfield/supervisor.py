@@ -6,10 +6,13 @@ import json
 import logging
 import os
 import subprocess
-from functools import partial
+from functools import cached_property, partial
 from pathlib import Path
 from time import monotonic
-from typing import Any, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO
+
+if TYPE_CHECKING:
+    from flowfield.mcp_errors import ApplicationMCP
 
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters import local_checks
@@ -63,6 +66,15 @@ def process_stamp(pid: int) -> str:
 
 
 class Supervisor:
+    @cached_property
+    def coordinator_tools(self) -> "ApplicationMCP":
+        """Service-owned operations; each turn separately binds and revokes authority."""
+        from flowfield.mcp import create_mcp
+
+        return create_mcp(
+            lambda: self.workspace, lambda: self, origin="", include_service_tools=False
+        )
+
     def __init__(self, workspace: Workspace):
         self.workspace, self.execution = workspace, Execution(workspace)
         self.updates = Updates(workspace)
@@ -157,11 +169,6 @@ class Supervisor:
             project_path=project_path,
             refresh=refresh,
         )
-
-    async def configure(self, project_id: str, request: SettingsEdit) -> WorkspaceWorkerSettings:
-        if request.selection:
-            await self.validate_agent_choice(request.selection, project_id)
-        return self.execution.configure(project_id, request)
 
     async def workspace_models(
         self, identity: str, *, harness: HarnessKind = "codex", refresh: bool = False

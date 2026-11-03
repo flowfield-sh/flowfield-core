@@ -618,31 +618,6 @@
     text-decoration: underline;
     text-underline-offset: 4px;
   }
-  .work-card-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    gap: 8px;
-  }
-  .compact-control {
-    font-size: 12px;
-    padding: 6px 10px;
-    border-radius: 6px;
-  }
-  .compact-control {
-    display: inline-flex;
-    align-items: center;
-    color: var(--foreground);
-    background: var(--background);
-    border: 1px solid var(--border);
-    text-decoration: none;
-    font-weight: 550;
-  }
-  .compact-control:hover {
-    border-color: var(--foreground);
-  }
-
   /* Routed entity surfaces. */
 
   .connection {

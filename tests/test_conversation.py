@@ -255,7 +255,7 @@ def test_input_context_distinguishes_stopped_followup_from_historical_result(tmp
     reply = asyncio.run(
         mcp.call_tool("get_task_input", {"workspace_id": "harbor", "task_id": "work"})
     )
-    assert reply[1] == context.model_dump()
+    assert not reply.isError and reply.structuredContent == context.model_dump()
     with pytest.raises(ApplicationError, match="newer result or attempt"):
         Replies(service.workspace).submit(
             "harbor", "work", message(service.workspace, "work", action="changes")

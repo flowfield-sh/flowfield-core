@@ -257,9 +257,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
       });
     },
   );
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "chat-browser")}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks`);
   await expect(
     page.getByRole("region", { name: "Coordinator conversation", exact: true }),
   ).toBeVisible();
@@ -443,12 +441,9 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   // notification. Exercise the real change stream for this scripted permission.
   expect(
     (
-      await request.post(
-        `/api/workspaces/${await projectWorkspace(request, "chat-browser")}/tasks`,
-        {
-          data: { title: "Record the follow-up" },
-        },
-      )
+      await request.post(`/api/workspaces/${workspace}/tasks`, {
+        data: { title: "Record the follow-up" },
+      })
     ).ok(),
   ).toBe(true);
   await expect(
@@ -883,9 +878,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
       });
     },
   );
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "chat-settings")}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks`);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(
     page.getByRole("dialog", { name: "Coordinator model settings" }),
@@ -1136,19 +1129,14 @@ test("long project chat preserves loaded history while live pages advance", asyn
       },
     });
   });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "long-chat-project")}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks`);
   await page.getByRole("button", { name: "Load earlier messages" }).click();
   const messages = page.locator(".coordinator-turn");
   await expect(messages).toHaveCount(40);
   count = 41;
-  await request.post(
-    `/api/workspaces/${await projectWorkspace(request, "long-chat-project")}/tasks`,
-    {
-      data: { title: "Refresh project state" },
-    },
-  );
+  await request.post(`/api/workspaces/${workspace}/tasks`, {
+    data: { title: "Refresh project state" },
+  });
   await expect(
     page.getByText("Planning exchange 41", { exact: true }),
   ).toBeAttached();
@@ -1160,12 +1148,9 @@ test("long project chat preserves loaded history while live pages advance", asyn
     page.getByRole("button", { name: "Load earlier messages" }),
   ).toHaveCount(0);
   count = 100; // More than a page arrived while this browser was disconnected.
-  await request.post(
-    `/api/workspaces/${await projectWorkspace(request, "long-chat-project")}/tasks`,
-    {
-      data: { title: "Reconnect with newer work" },
-    },
-  );
+  await request.post(`/api/workspaces/${workspace}/tasks`, {
+    data: { title: "Reconnect with newer work" },
+  });
   await expect(messages).toHaveCount(100);
   const scroll = page.locator(".coordinator-scroll");
   await scroll.hover();
@@ -1590,9 +1575,7 @@ test("coordinator final replies render directly despite abridged tool activity",
     preview: "",
     abridged: false,
   });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks`);
   await expect(
     page.getByText(/Opening. Saved middle of the explanation. Final decision:/),
   ).toBeVisible();
@@ -1715,9 +1698,7 @@ test("workspace board loading preserves the selected mobile coordinator", async 
       await route.continue();
     },
   );
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "chat-alias")}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks`);
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await expect(
     page.getByRole("tab", { name: "Coordinator", exact: true }),

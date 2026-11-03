@@ -7,7 +7,9 @@ from historical_questions import seed_question
 from workspace_fixtures import TEST_AGENTS
 
 from flowfield.api import create_app
+from flowfield.application import Workspace
 from flowfield.execution_models import ModelOption
+from flowfield.reads import ContextReads
 
 
 def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, monkeypatch):
@@ -37,9 +39,7 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
         space = created.json()["id"]
         base = f"/api/workspaces/{space}"
         assert client.get(base + "/projects").json() == []
-        assert (
-            client.get(f"/api/context/workspaces/{space}/coordinator-history").json()["items"] == []
-        )
+        assert ContextReads(Workspace(state)).coordinator_history(space)["items"] == []
         paths = client.get("/openapi.json").json()["paths"]
         assert "/api/projects/initialize" not in paths
         for suffix in (
@@ -51,25 +51,18 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
             "tasks/{task_id}",
         ):
             assert f"/api/projects/{{project_id}}/{suffix}" not in paths
-        assert "/api/context/projects/{project_id}/coordinator-history" not in paths
+        assert not any(path.startswith("/api/context") for path in paths)
         task = client.post(base + "/tasks", json={"title": "Launch", "body": "Shared intent"})
         assert task.status_code == 201
         assert task.json()["workspace_id"] == space
-        assert (
-            client.get(
-                f"/api/context/workspaces/{space}/text?resource=task&identity=T-1&field=body"
-            ).json()["text"]
-            == "Shared intent"
-        )
+        reads = ContextReads(Workspace(state))
+        assert reads.text(space, "task", "T-1", "body")["text"] == "Shared intent"
         changed = client.put(
             base + "/tasks/T-1", json={"expected_revision": 1, "title": "Launch together"}
         )
         assert changed.status_code == 200
         assert client.get(base + "/tasks").json() == [changed.json()]
-        retained = client.get(
-            f"/api/context/workspaces/{space}/text?resource=task&identity=T-1&field=body&revision=1"
-        )
-        assert retained.status_code == 200 and retained.json()["text"] == "Shared intent"
+        assert reads.text(space, "task", "T-1", "body", revision=1)["text"] == "Shared intent"
         assert (
             client.get(base + "/coordinator-settings").json()["selection"]["model"] == "test-model"
         )
@@ -99,7 +92,6 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
             },
         ).json()["id"]
         # Retained pre-retirement requests still contribute to attention counts.
-        from flowfield.application import Workspace
         from flowfield.questions import QuestionCreate, Questions
 
         for _name in ("core", "site"):

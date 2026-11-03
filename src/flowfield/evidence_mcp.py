@@ -2,7 +2,6 @@
 
 import asyncio
 from collections.abc import Callable
-from pathlib import Path
 from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
@@ -10,8 +9,7 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from flowfield.adapters.git_review import changed_files, file_patch
-from flowfield.check_logs import read as read_log
-from flowfield.errors import ApplicationError
+from flowfield.check_logs import page as log_page
 from flowfield.execution_evidence import (
     CheckPhase,
     EvidenceSource,
@@ -20,9 +18,7 @@ from flowfield.execution_evidence import (
     setup_receipts,
 )
 from flowfield.execution_history import ExecutionHistory
-from flowfield.execution_models import CheckResult
 from flowfield.run_activity import RunActivity
-from flowfield.source_navigation import navigate
 from flowfield.supervisor import Supervisor
 
 Offset = Annotated[int, Field(ge=0)]
@@ -79,20 +75,6 @@ def add_evidence_tools(mcp: FastMCP, supervisor: Callable[[], Supervisor]) -> No
                 file_patch, *comparison(supervisor(), workspace_id, source, identity), file_id
             )
         ).model_dump()
-
-    def log_page(
-        receipts: tuple[Path, list[CheckResult]], index: int, offset: int, limit: int
-    ) -> dict[str, Any]:
-        runtime, checks = receipts
-        if index >= len(checks):
-            raise ApplicationError("not_found", "Command receipt not found.", 404)
-        identity = checks[index].log_id
-        if not identity:
-            raise ApplicationError("not_found", "No retained log for this command.", 404)
-        page = navigate(read_log(runtime, checks, identity), offset=offset, limit=limit)
-        if page["next_request"]:
-            page["next_request"] = {"offset": page["next_offset"], "limit": limit}
-        return page
 
     @mcp.tool(annotations=read)
     async def get_execution_log(

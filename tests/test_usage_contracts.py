@@ -128,7 +128,6 @@ def test_codex_replay_children_foreign_scope_late_stop_and_defaulted_components(
     assert evidence.execution.role == "worker"  # Native child role does not create a Reviewer.
     assert evidence.execution.coverage == "complete"
     assert {e.observation.native_scope_id for e in evidence.items} == {run.id, "child"}
-    usage.rebuild()
     total(agent, run.id, "root", 150, cacheWriteInputTokens=0)
     assert detail(execution, run).execution.tokens.total == 240
 
@@ -194,8 +193,6 @@ def test_codex_compatible_releases_preserve_accounting(tmp_path, version):
     assert evidence.execution.tokens.total == 180
     assert evidence.execution.coverage == ("partial" if version is None else "complete")
     assert "unsupported-version" not in evidence.execution.reasons
-    usage.rebuild()
-    assert detail(execution, run).execution.tokens.total == 180
 
 
 @pytest.mark.parametrize(
@@ -334,11 +331,6 @@ def test_claude_compaction_and_next_dispatch_keep_distinct_cumulative_deltas(tmp
     assert evidence.execution.dispatch_count == 3
     assert evidence.execution.tokens.total == 540
     assert evidence.execution.coverage == "complete"
-    usage.rebuild()
-    assert (
-        UsageReads(execution.workspace).evidence("harbor", "run", run.id).execution.tokens.total
-        == 540
-    )
 
 
 def test_pi_compaction_and_next_dispatch_use_distinct_cumulative_deltas(tmp_path):

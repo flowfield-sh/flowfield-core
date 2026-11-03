@@ -845,16 +845,17 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(
     reviews = TaskReviews(store)
     review = reviews.prepare(owner, result.id)
     review = reviews.claim(owner, review.id, review.revision)
+    review = reviews.begin_attempt(owner, review.id)
     review = reviews.started(owner, review.id, review.revision)
-    review = reviews.conclude(
+    reviews.save_decision(
         owner,
         review.id,
-        review.revision,
+        review.attempt_id,
         ReviewVerdict(
             action="approve", summary="Feature passes", evidence="Inspected both exact files"
-        ),
-        cleanup_confirmed=True,
+        ).model_dump(),
     )
+    review = reviews.finish_attempt(owner, review.id, review.attempt_id, cleanup_confirmed=True)
     assert baseline(repo) == original
     Results(store).review(owner, result.id, approval)
     assert reviews.check(owner, review.id).status == "decided"

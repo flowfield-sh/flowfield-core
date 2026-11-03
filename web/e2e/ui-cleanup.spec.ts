@@ -140,12 +140,9 @@ test("boards pan from empty space while cards keep navigation", async ({
     data: { path: existingDirectory(join(state, id)) },
   });
   const workspace = await projectWorkspace(request, id);
-  await request.post(
-    `/api/workspaces/${await projectWorkspace(request, id)}/tasks`,
-    {
-      data: { title: "Open this task" },
-    },
-  );
+  await request.post(`/api/workspaces/${workspace}/tasks`, {
+    data: { title: "Open this task" },
+  });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/workspaces/${workspace}/tasks`);
   const board = page.locator(".board");

@@ -6,7 +6,7 @@ import pytest
 from execution_fixtures import BASE
 from execution_fixtures import fixture as execution_fixture
 from result_fixtures import current
-from task_reviews_fixtures import configured, verdict
+from task_reviews_fixtures import configured, finish, verdict
 
 from flowfield.agent_tools import worker_scope, workspace_scope
 from flowfield.application import TaskEdit, TaskReconcile
@@ -22,6 +22,7 @@ def test_task_stop_revokes_reviewer_before_cleanup_and_keeps_result(tmp_path):
     result = current(service)
     review = reviews.prepare("harbor", result.id)
     review = reviews.claim("harbor", review.id, review.revision)
+    review = reviews.begin_attempt("harbor", review.id)
     review = reviews.started("harbor", review.id, review.revision)
     task = service.workspace.task("harbor", review.task_id)
     assert BrowserReads(service.workspace).task("harbor", task.id).can_stop
@@ -38,9 +39,7 @@ def test_task_stop_revokes_reviewer_before_cleanup_and_keeps_result(tmp_path):
             assert service.workspace.task("harbor", task.id).status == "backlog"
             assert reviews.get("harbor", review.id).status == "uncertain"
             with pytest.raises(ApplicationError):
-                reviews.conclude(
-                    "harbor", review.id, review.revision, verdict(), cleanup_confirmed=True
-                )
+                finish(reviews, review.id, verdict(), cleanup_confirmed=True)
             return True
 
     service.clients[review.id] = Client()

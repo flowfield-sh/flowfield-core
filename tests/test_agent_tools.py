@@ -411,7 +411,7 @@ def test_coordinator_configures_and_validates_only_its_project(tmp_path, monkeyp
 
 
 def test_new_project_tools_are_available_without_changing_workspace_scope(tmp_path, monkeypatch):
-    import flowfield.agent_tools as tools
+    import flowfield.mcp as tools
 
     execution = fixture(tmp_path)
 

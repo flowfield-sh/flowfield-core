@@ -28,29 +28,23 @@ test("individual requests retain answers and drafts across Inbox and reused tabs
   const workspace = await projectWorkspace(request, project);
   const base = `/workspaces/${workspace}`;
   const task = await (
-    await request.post(
-      `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
-      {
-        data: {
-          title: "Export rates",
-          body: "Export the agreed rates as CSV.",
-          status: "in_progress",
-        },
+    await request.post(`/api/workspaces/${workspace}/tasks`, {
+      data: {
+        title: "Export rates",
+        body: "Export the agreed rates as CSV.",
+        status: "in_progress",
       },
-    )
+    })
   ).json();
   const question = await (
-    await historicalQuestionResponse(
-      `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
-      {
-        data: {
-          task_id: task.id,
-          question: "Which columns?",
-          context: "Choose the export columns",
-          recommendation: "Name and rate",
-        },
+    await historicalQuestionResponse(`/api/workspaces/${workspace}/questions`, {
+      data: {
+        task_id: task.id,
+        question: "Which columns?",
+        context: "Choose the export columns",
+        recommendation: "Name and rate",
       },
-    )
+    })
   ).json();
   const href = `${base}/requests/question/${question.id}`;
   await page.goto(base + "/inbox");
@@ -204,9 +198,7 @@ test("individual requests retain answers and drafts across Inbox and reused tabs
       },
     });
   });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project)}/tasks/${task.key}`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks/${task.key}`);
   await page
     .getByRole("region", { name: "Coordinator conversation" })
     .getByRole("link", { name: "Review this request", exact: true })
@@ -257,28 +249,22 @@ test("Needs attention opens exact requests and collection navigation stays disti
   const workspace = await projectWorkspace(request, project);
   const base = `/workspaces/${workspace}`;
   const task = await (
-    await request.post(
-      `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
-      {
-        data: {
-          title: "Build the export",
-        },
+    await request.post(`/api/workspaces/${workspace}/tasks`, {
+      data: {
+        title: "Build the export",
       },
-    )
+    })
   ).json();
   for (const id of ["earlier", "newer"])
-    await historicalQuestionResponse(
-      `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
-      {
-        data: {
-          id,
-          task_id: task.id,
-          question: `${id} choice`,
-          context: "Choose the format",
-          recommendation: "JSON",
-        },
+    await historicalQuestionResponse(`/api/workspaces/${workspace}/questions`, {
+      data: {
+        id,
+        task_id: task.id,
+        question: `${id} choice`,
+        context: "Choose the format",
+        recommendation: "JSON",
       },
-    );
+    });
   await page.goto(base + "/inbox");
   const work = page.getByRole("navigation", {
     name: "Recent Work",

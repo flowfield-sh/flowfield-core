@@ -76,9 +76,7 @@ test("Pi shares automatic discovery and preserves provider-qualified model choic
       });
     },
   );
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
-  );
+  await page.goto(`/workspaces/${workspace}/tasks`);
   const picker = page.getByRole("dialog", {
     name: "Coordinator model settings",
     exact: true,

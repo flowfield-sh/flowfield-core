@@ -399,7 +399,7 @@ test("visible exact question suppresses its announcement; work stays pending", a
   await expect(alertFor(page, "Choose visible-choice")).toHaveCount(0);
   expect(
     (await (await request.get("/api/workspaces/attention-counts")).json())[
-      await projectWorkspace(request, "notify-vis")
+      workspace
     ],
   ).toBe(1);
 });

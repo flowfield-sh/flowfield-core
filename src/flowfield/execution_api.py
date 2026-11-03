@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import Literal
 
 from fastapi import APIRouter, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 
 from flowfield.adapters.git_review import changed_files, file_patch
 from flowfield.check_logs import download
@@ -75,7 +75,7 @@ def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/workspaces/{workspace_id}/runs/{run_id}/logs/{phase}/{index}")
     def command_log(
         workspace_id: str, run_id: str, phase: Literal["setup", "checks"], index: int
-    ) -> FileResponse:
+    ) -> Response:
         return download(*command_receipts(supervisor(), workspace_id, "run", run_id, phase), index)
 
     @router.get("/workspaces/{workspace_id}/runs/{run_id}/activity")

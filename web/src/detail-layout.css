@@ -670,14 +670,6 @@
   display: none;
 }
 
-.delivery-branches {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
-  overflow-wrap: anywhere;
-}
-
 .work-identity {
   display: inline-flex;
   align-items: center;

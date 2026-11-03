@@ -4,6 +4,7 @@ import asyncio
 import base64
 
 import httpx
+import pytest
 from execution_fixtures import BASE, fixture
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
@@ -11,9 +12,151 @@ from permissions_fixtures import OPTIONS, pending
 from service_fixtures import running_service
 
 from flowfield.agent_tools import worker_scope, workspace_scope
+from flowfield.application import Workspace
 from flowfield.document_settings import DocumentSettingsService
 from flowfield.documents import DocumentCreate, Documents
 from flowfield.supervisor import Supervisor, WorkerBridge
+
+
+def test_service_registry_reuse_keeps_workspace_authorship_and_revocation_separate(tmp_path):
+    from flowfield.mcp import create_mcp
+    from flowfield.workspaces import WorkspaceCreate, Workspaces
+
+    execution = fixture(tmp_path)
+    service = Supervisor(execution.workspace)
+    from workspace_fixtures import TEST_AGENTS
+
+    other = Workspaces(execution.workspace).create(
+        WorkspaceCreate(name="Projectless", **TEST_AGENTS)
+    )
+
+    async def exercise():
+        first = await workspace_scope(service, "harbor", author="coordinator:first")
+        second = await workspace_scope(service, other.id, author="coordinator:second")
+        public = create_mcp(lambda: execution.workspace, lambda: service, origin="")
+        assert (
+            "workspace_id"
+            in (await service.coordinator_tools.list_tools())[0].inputSchema["properties"]
+        )
+        assert "workspace_id" not in second.tools["create_task"].inputSchema["properties"]
+        first.revoke()
+        blocked = await first.call("create_task", {"task": {"title": "Blocked"}})
+        assert blocked.structuredContent["error"]["code"] == "scope_closed"
+        created = await second.call("create_task", {"task": {"title": "Unique search evidence"}})
+        assert not created.isError
+        assert execution.workspace.task(other.id, "T-1").updated_by == "coordinator:second"
+        found = await second.call("search_context", {"query": "Unique"})
+        assert (
+            not found.isError
+            and found.structuredContent["items"][0]["identity"] == created.structuredContent["id"]
+        )
+        external = await public.call_tool(
+            "search_context", {"workspace_id": other.id, "query": "Unique"}
+        )
+        assert external.structuredContent == found.structuredContent
+        empty = await public.call_tool(
+            "search_context", {"workspace_id": "harbor", "query": "Unique"}
+        )
+        assert empty.structuredContent["items"] == []
+        second.revoke()
+
+    asyncio.run(exercise())
+
+
+def test_mcp_failed_setup_retains_paged_log_across_retry(tmp_path, monkeypatch):
+    from setup_validation_fixtures import configured
+
+    from flowfield.mcp import create_mcp
+
+    _, setup, settings = configured(
+        tmp_path, monkeypatch, setup_commands=["printf 'first line\\nsecond line\\n'; exit 1"]
+    )
+    service = Supervisor(setup.workspace)
+    server = create_mcp(lambda: setup.workspace, lambda: service, origin="")
+
+    async def exercise():
+        async def call(name, **args):
+            result = await server.call_tool(name, {"project_id": "project", **args})
+            assert not result.isError, result
+            return result.structuredContent
+
+        failed = await call(
+            "validate_project_setup", request={"expected_revision": settings.revision}
+        )
+        assert failed["status"] == "failed" and not failed["checks"]
+        args = {"check_id": failed["id"], "phase": "setup", "index": 0, "limit": 7}
+        page = await call("get_setup_log", **args)
+        text = page["text"]
+        digest = page["sha256"]
+        while page["next_request"]:
+            args.update(page["next_request"])
+            page = await call("get_setup_log", **args)
+            assert page["sha256"] == digest
+            text += page["text"]
+        assert "first line\nsecond line\n" in text
+        retried = await call(
+            "validate_project_setup", request={"expected_revision": settings.revision}
+        )
+        assert retried["id"] != failed["id"]
+        retained = await call("get_setup_log", **{**args, "offset": 0, "limit": 6000})
+        assert retained["text"] == text
+        assert not service.execution.settings("project").enabled
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("scenario", ["wait", "cleanup-uncertain", "resume-missing"])
+def test_external_coordinator_control_and_exact_recovery_use_mcp(tmp_path, monkeypatch, scenario):
+    from coordinator_fixtures import message, settled, setup
+
+    from flowfield.mcp import create_mcp
+
+    service, _ = setup(
+        tmp_path,
+        monkeypatch,
+        scenario="wait" if scenario == "wait" else "normal",
+        flags=() if scenario == "wait" else (scenario,),
+    )
+    server = create_mcp(lambda: service.workspace, lambda: service, origin="")
+
+    async def call(name, **args):
+        result = await server.call_tool(name, {"workspace_id": "harbor", **args})
+        assert not result.isError, result
+        return result.structuredContent
+
+    async def exercise():
+        try:
+            sent = await call("send_coordinator_message", request=message().model_dump())
+            turn = service.coordinator.store.get("harbor", sent["id"])
+            if scenario == "wait":
+                stopped = await call("stop_coordinator", turn_id=turn.id)
+                assert stopped["status"] == "stopped"
+            elif scenario == "cleanup-uncertain":
+                assert (await settled(service, turn)).status == "uncertain"
+                denied = await server.call_tool(
+                    "confirm_coordinator_stopped",
+                    {
+                        "workspace_id": "harbor",
+                        "turn_id": "wrong",
+                    },
+                )
+                assert denied.isError
+                recovered = await call("confirm_coordinator_stopped", turn_id=turn.id)
+                assert recovered["status"] == "interrupted"
+            else:
+                assert (await settled(service, turn)).status == "completed"
+                sent = await call(
+                    "send_coordinator_message", request=message("Continue").model_dump()
+                )
+                failed = await settled(service, service.coordinator.store.get("harbor", sent["id"]))
+                assert failed.status == "failed"
+                reset = await call("reset_coordinator_session", turn_id=failed.id)
+                assert reset["saved"]
+            assert service.coordinator.store.page("harbor").items
+        finally:
+            await service.close()
+
+    asyncio.run(exercise())
 
 
 def test_external_mcp_creates_projectless_work_and_matches_browser_settings(tmp_path):
@@ -121,7 +264,21 @@ def test_external_mcp_creates_projectless_work_and_matches_browser_settings(tmp_
             bad = await session.call_tool(
                 "configure_harness", {"harness": "pi", "request": {"expected_revision": 1}}
             )
-            assert bad.isError
+            assert bad.isError and bad.structuredContent["error"]["code"] == "revision_conflict"
+            grant = await workspace_scope(Supervisor(Workspace(tmp_path / "state")), first["id"])
+            for args in (
+                {"harness": "pi", "request": {"expected_revision": 1}},
+                {"harness": "pi", "request": {"expected_revision": "invalid"}},
+            ):
+                public = await session.call_tool("configure_harness", args)
+                scoped = await grant.call("configure_harness", args)
+                assert public.isError and scoped.isError
+                assert public.structuredContent == scoped.structuredContent
+            recovered = await call(
+                "configure_harness", harness="pi", request={"expected_revision": 2}
+            )
+            assert recovered["revision"] == 3
+            grant.revoke()
 
     with running_service(tmp_path / "state") as base:
         asyncio.run(exercise(base))
@@ -262,6 +419,41 @@ def test_scoped_configuration_keeps_attribution_atomicity_and_role_boundaries(
     asyncio.run(exercise())
 
 
+def test_task_worker_settings_reject_stale_before_discovery_and_recheck_after_it(
+    tmp_path, monkeypatch
+):
+    from flowfield.agent_configuration import configure_worker
+    from flowfield.agent_models import AgentChoice, AgentSettingsEdit
+    from flowfield.agent_settings import AgentSettings
+    from flowfield.errors import ApplicationError
+
+    execution = fixture(tmp_path)
+    service = Supervisor(execution.workspace)
+    owner = AgentSettings(execution.workspace)
+    request = AgentSettingsEdit(expected_revision=1, selection=AgentChoice(model="new"))
+    owner.edit("harbor", "worker", request, "T-1")
+    calls = []
+
+    async def validate(*args, **kwargs):
+        calls.append(args)
+        owner.edit("harbor", "worker", request.model_copy(update={"expected_revision": 2}), "T-1")
+
+    monkeypatch.setattr(service, "validate_agent_choice", validate)
+
+    async def exercise():
+        with pytest.raises(ApplicationError) as stale:
+            await configure_worker(service, "harbor", "T-1", request)
+        assert stale.value.code == "revision_conflict" and not calls
+        with pytest.raises(ApplicationError) as raced:
+            await configure_worker(
+                service, "harbor", "T-1", request.model_copy(update={"expected_revision": 2})
+            )
+        assert raced.value.code == "revision_conflict" and len(calls) == 1
+        assert owner.get("harbor", "worker", "T-1").revision == 3
+
+    asyncio.run(exercise())
+
+
 def test_scoped_permission_relay_keeps_exact_live_binding(tmp_path):
     execution = fixture(tmp_path)
     run = execution.claim("harbor", BASE, {BASE: set()})
@@ -356,7 +548,8 @@ def test_scoped_evidence_reads_exact_logs_diffs_and_review_recovery(tmp_path):
         patch = await call(
             "get_execution_patch", source="integration", identity=result.integration_id, file_id=0
         )
-        assert patch
+        assert patch["file"]["new_path"] == "result.txt"
+        assert "+implemented" in patch["text"] and not patch["omitted_reason"]
         foreign = await grant.call(
             "get_execution_log",
             {
@@ -394,14 +587,38 @@ def test_scoped_evidence_reads_exact_logs_diffs_and_review_recovery(tmp_path):
             },
         )
         assert changed.isError
-        stopped = reviews.stop("harbor", review.id, review.revision, cleanup_confirmed=True)
+        review = reviews.claim("harbor", review.id, review.revision)
+        review = reviews.begin_attempt("harbor", review.id)
+        review = reviews.started("harbor", review.id, review.revision)
+        stopped = reviews.finish_attempt(
+            "harbor",
+            review.id,
+            review.attempt_id,
+            cleanup_confirmed=True,
+            problem="Scripted reviewer failed",
+        )
         state = await call("get_review", review_id=review.id)
-        assert state["status"] == "stopped" and "binding" not in state
-        assert (await call("get_review_attempts", review_id=review.id))["items"] == []
+        assert state["status"] == "failed" and "binding" not in state
+        attempts = await call("get_review_attempts", review_id=review.id)
+        assert len(attempts["items"]) == 1
+        assert attempts["items"][0]["id"] == review.attempt_id
+        assert attempts["items"][0]["status"] == "failed"
         retried = await call(
             "retry_review", review_id=review.id, request={"expected_revision": stopped.revision}
         )
         assert retried["status"] == "queued"
+        retried_review = reviews.claim("harbor", review.id, retried["revision"])
+        second = reviews.begin_attempt("harbor", retried_review.id)
+        history = (await call("get_review_attempts", review_id=review.id))["items"]
+        assert [item["id"] for item in history] == [second.attempt_id, review.attempt_id]
+        assert history[1]["status"] == "failed"
+        reviews.finish_attempt(
+            "harbor",
+            review.id,
+            second.attempt_id,
+            cleanup_confirmed=True,
+            problem="Stopped fixture",
+        )
         stale = await grant.call(
             "retry_review",
             {"review_id": review.id, "request": {"expected_revision": stopped.revision}},

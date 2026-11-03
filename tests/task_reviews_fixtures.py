@@ -32,3 +32,11 @@ def verdict(action="approve"):
         evidence="Candidate checks passed; diff matches the requested result.",
         request="" if action == "approve" else "Explain the error-handling case.",
     )
+
+
+def finish(reviews, identity, decision, *, cleanup_confirmed=True):
+    review = reviews.get("harbor", identity)
+    reviews.save_decision("harbor", identity, review.attempt_id, decision.model_dump())
+    return reviews.finish_attempt(
+        "harbor", identity, review.attempt_id, cleanup_confirmed=cleanup_confirmed
+    )

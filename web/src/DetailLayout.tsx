@@ -142,24 +142,3 @@ export function Disclosure({
     </details>
   );
 }
-
-/** A bounded group of related evidence inside a detail/feed entry. */
-export function DetailGroup({
-  title,
-  children,
-  className = "",
-  ...props
-}: Omit<ComponentProps<"section">, "title"> & { title: string }) {
-  return (
-    <section
-      {...props}
-      className={`detail-group ${className}`}
-      aria-label={title}
-    >
-      <header className="detail-group-header">
-        <h4>{title}</h4>
-      </header>
-      <ContentStack className="detail-group-body">{children}</ContentStack>
-    </section>
-  );
-}
