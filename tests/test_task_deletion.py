@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from historical_questions import seed_question
 from project_fixtures import task_request
 from result_fixtures import approve, current, fixture
 
@@ -42,7 +43,8 @@ def test_delete_delivered_task_removes_records_and_dirty_inspections_not_deliver
     for copy in copies:
         (Path(copy.workspace) / "untracked.txt").write_text("preview edits")
     questions = Questions(service.workspace)
-    question = questions.ask(
+    question = seed_question(
+        questions,
         "harbor",
         QuestionCreate(
             task_id="work",

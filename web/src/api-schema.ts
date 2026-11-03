@@ -1293,8 +1293,7 @@ export interface paths {
     /** Questions */
     get: operations["questions_api_workspaces__workspace_id__questions_get"];
     put?: never;
-    /** Ask */
-    post: operations["ask_api_workspaces__workspace_id__questions_post"];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1380,23 +1379,6 @@ export interface paths {
     put?: never;
     /** Correct */
     post: operations["correct_api_workspaces__workspace_id__questions__identity__correction_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/questions/{identity}/follow-up": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Follow Up */
-    post: operations["follow_up_api_workspaces__workspace_id__questions__identity__follow_up_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -5141,51 +5123,6 @@ export interface components {
       body?: string | null;
       /** Decision */
       decision: string;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-    };
-    /** QuestionCreate */
-    QuestionCreate: {
-      /** Id */
-      id?: string;
-      /** Task Id */
-      task_id?: string | null;
-      /** Affected Task Ids */
-      affected_task_ids?: string[];
-      /**
-       * Question
-       * @description Short question title (at most 200 characters); put details in context.
-       */
-      question: string;
-      /** Context */
-      context: string;
-      /** Recommendation */
-      recommendation: string;
-      /** Choices */
-      choices?: string[];
-      /** Blocking Scope */
-      blocking_scope?: string | null;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-    };
-    /** QuestionFollowUp */
-    QuestionFollowUp: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Question */
-      question: string;
-      /** Context */
-      context: string;
-      /** Recommendation */
-      recommendation: string;
-      /** Choices */
-      choices?: string[];
       /**
        * Author
        * @default human
@@ -10567,41 +10504,6 @@ export interface operations {
       };
     };
   };
-  ask_api_workspaces__workspace_id__questions_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["QuestionCreate"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Question"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
   question_api_workspaces__workspace_id__questions__identity__get: {
     parameters: {
       query?: {
@@ -10758,42 +10660,6 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["QuestionAnswer"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Question"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  follow_up_api_workspaces__workspace_id__questions__identity__follow_up_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["QuestionFollowUp"];
       };
     };
     responses: {

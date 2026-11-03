@@ -1,3 +1,4 @@
+import { historicalQuestionResponse } from "./historical-questions";
 import { projectWorkspace } from "./support";
 import { openResource } from "./shell-navigation";
 import { mkdirSync } from "node:fs";
@@ -54,7 +55,7 @@ test("shared workspace board, project filters, Inbox and settings", async ({
     ).toBeTruthy();
     expect(
       (
-        await request.post(
+        await historicalQuestionResponse(
           `/api/workspaces/${await projectWorkspace(request, id)}/questions`,
           {
             data: {

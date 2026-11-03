@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from historical_questions import seed_question
 from lifecycle_fixtures import run_report
 from project_fixtures import adopt, task_request
 
@@ -63,7 +64,8 @@ def test_recent_activity_tracks_notes_and_answers_without_editing_task(tmp_path)
     assert reads.task("harbor", "task-0").activity_at == note.created_at
     assert reads.task("harbor", "task-0").activity_at > reads.task("harbor", "task-1").activity_at
     questions = Questions(store)
-    question = questions.ask(
+    question = seed_question(
+        questions,
         "harbor",
         QuestionCreate(
             task_id="task-1", question="Format?", context="Report", recommendation="PDF"
@@ -87,7 +89,8 @@ def test_batched_cards_preserve_question_scope_state_and_refresh(tmp_path):
     run = execution.claim("harbor", BASE, {BASE: set()}, task_id="task-0")
     execution.started("harbor", run.id)
     questions = Questions(store)
-    shared = questions.ask(
+    shared = seed_question(
+        questions,
         "harbor",
         QuestionCreate(
             affected_task_ids=["task-1", "task-2"],
@@ -97,7 +100,8 @@ def test_batched_cards_preserve_question_scope_state_and_refresh(tmp_path):
             recommendation="Use CSV",
         ),
     )
-    direct = questions.ask(
+    direct = seed_question(
+        questions,
         "harbor",
         QuestionCreate(
             task_id="task-1",
@@ -109,7 +113,8 @@ def test_batched_cards_preserve_question_scope_state_and_refresh(tmp_path):
     )
     other = adopt(store, ProjectSetup(path=str(tmp_path / "other")))
     store.create_task(other.id, task_request(id="task-1", title="Unrelated task"))
-    questions.ask(
+    seed_question(
+        questions,
         other.id,
         QuestionCreate(
             task_id="task-1",
@@ -253,7 +258,8 @@ def test_archive_availability_shares_write_policy_and_rechecks_races(tmp_path: P
     reads = BrowserReads(workspace)
     assert reads.task(project.id, task.id).archive_blocker is None
     # Even a nonblocking project question affecting this task prevents archiving.
-    Questions(workspace).ask(
+    seed_question(
+        Questions(workspace),
         project.id,
         QuestionCreate(
             question="Keep the finding?",
@@ -295,7 +301,8 @@ def test_stopped_task_can_archive_without_completion_and_retains_history(tmp_pat
     execution.started("harbor", run.id)
     execution.finish("harbor", run.id, "stopped")
     task = store.task("harbor", run.task_id)
-    question = Questions(store).ask(
+    question = seed_question(
+        Questions(store),
         "harbor",
         QuestionCreate(
             task_id=task.id,

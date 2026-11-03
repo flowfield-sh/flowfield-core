@@ -6,6 +6,7 @@ import threading
 
 import pytest
 from execution_fixtures import BASE, fixture
+from historical_questions import seed_question
 from input_continuation_fixtures import question
 
 from flowfield.application import Workspace
@@ -183,7 +184,8 @@ def test_shared_state_matches_question_attention_and_static_pause(tmp_path):
     # Announcements open the actionable request; task state retains its feed context.
     assert notice[0] == f"/workspaces/harbor/requests/question/{item.id}"
     assert state.href == f"/workspaces/harbor/requests/question/{item.id}"
-    second = Questions(execution.workspace).ask(
+    second = seed_question(
+        Questions(execution.workspace),
         "harbor",
         QuestionCreate(
             task_id="task-0",

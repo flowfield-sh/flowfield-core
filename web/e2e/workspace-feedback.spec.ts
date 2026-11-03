@@ -1,3 +1,4 @@
+import { historicalQuestionResponse } from "./historical-questions";
 import { expect } from "@playwright/test";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -51,7 +52,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
     exact: true,
   });
   await expect(work.getByRole("link")).toHaveCount(0);
-  await request.post(
+  await historicalQuestionResponse(
     `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
     {
       data: {
@@ -63,6 +64,8 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
       },
     },
   );
+  // Historical fixture import is observed on the next read, not a live creation API.
+  await page.reload();
   await expect(work.getByRole("link").first()).toHaveAttribute(
     "href",
     `/workspaces/${await projectWorkspace(request, project)}/requests/question/attention`,

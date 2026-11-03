@@ -7,6 +7,7 @@ import pytest
 from coordinator_generations_fixtures import start_coordinator
 from execution_fixtures import fixture
 from fastapi.testclient import TestClient
+from historical_questions import seed_question
 from permissions_fixtures import OPTIONS
 from project_fixtures import task_request
 from workspace_dependencies_fixtures import shared
@@ -31,7 +32,8 @@ def test_shared_board_and_attention_keep_owner_scope_and_same_local_ids(tmp_path
             owner,
             task_request(project_id=project, id=project, title=project, body="private body" * 100),
         )
-        Questions(store).ask(
+        seed_question(
+            Questions(store),
             owner,
             QuestionCreate(
                 id=project,
@@ -76,7 +78,8 @@ def test_shared_board_and_attention_keep_owner_scope_and_same_local_ids(tmp_path
     )
     assert BrowserReads(store).workspace_board(space).attention_work_keys == ["T-2"]
     assert set(BrowserReads(store).workspace_board(space).attention_requests) == {"T-2"}
-    Questions(store).ask(
+    seed_question(
+        Questions(store),
         space,
         QuestionCreate(
             id="newer",

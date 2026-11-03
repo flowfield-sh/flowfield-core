@@ -1,3 +1,4 @@
+import { historicalQuestionResponse } from "./historical-questions";
 import { execFileSync } from "node:child_process";
 import { resolve, join } from "node:path";
 import { expect } from "@playwright/test";
@@ -162,7 +163,7 @@ test("compact Inbox opens independent question tabs and preserves their drafts",
     ["task", "T-1", "Which records should be exported?"],
     ["project", null, "Which format should we prioritize?"],
   ]) {
-    const response = await request.post(`/api${base}/questions`, {
+    const response = await historicalQuestionResponse(`/api${base}/questions`, {
       data: {
         id,
         task_id,
@@ -344,7 +345,7 @@ test("paged compact Inbox keeps independent failed-answer drafts in resource tab
   const workspace = await projectWorkspace(request, project),
     base = `/workspaces/${workspace}`;
   for (let index = 0; index < 23; index++) {
-    const r = await request.post(`/api${base}/questions`, {
+    const r = await historicalQuestionResponse(`/api${base}/questions`, {
       data: {
         id: `q-${index}`,
         question: `Paged decision ${index}`,

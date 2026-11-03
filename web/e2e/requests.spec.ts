@@ -1,3 +1,4 @@
+import { historicalQuestionResponse } from "./historical-questions";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
 import {
@@ -39,7 +40,7 @@ test("individual requests retain answers and drafts across Inbox and reused tabs
     )
   ).json();
   const question = await (
-    await request.post(
+    await historicalQuestionResponse(
       `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
       {
         data: {
@@ -266,7 +267,7 @@ test("Needs attention opens exact requests and collection navigation stays disti
     )
   ).json();
   for (const id of ["earlier", "newer"])
-    await request.post(
+    await historicalQuestionResponse(
       `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
       {
         data: {

@@ -41,8 +41,6 @@ from flowfield.questions import (
     AnswerRetract,
     QuestionAnswer,
     QuestionApply,
-    QuestionCreate,
-    QuestionFollowUp,
     Questions,
     QuestionWithdraw,
 )
@@ -1188,16 +1186,6 @@ def create_mcp(
         return await invoke(lambda: reads().question(workspace_id, question_id, revision))
 
     @mcp.tool(annotations=write)
-    async def ask_question(workspace_id: Identifier, question: QuestionCreate) -> CallToolResult:
-        """Ask a human question with context/recommendation. Set task_id for one task, or omit
-        it for project input with optional affected_task_ids. blocking_scope requires named
-        targets and gates only those tasks until application; omit for advisory input. No launch.
-        """
-        return await mutate(
-            lambda: Questions(workspace()).ask(workspace_id, attributed(question)).model_dump()
-        )
-
-    @mcp.tool(annotations=write)
     async def answer_question(
         workspace_id: Identifier, question_id: Identifier, response: QuestionAnswer
     ) -> CallToolResult:
@@ -1248,19 +1236,6 @@ def create_mcp(
             lambda: (
                 Questions(workspace())
                 .apply(workspace_id, question_id, attributed(application))
-                .model_dump()
-            )
-        )
-
-    @mcp.tool(annotations=write)
-    async def follow_up_question(
-        workspace_id: Identifier, question_id: Identifier, follow_up: QuestionFollowUp
-    ) -> CallToolResult:
-        """Ask a focused clarification of a saved answer, keeping prior answers on this request."""
-        return await mutate(
-            lambda: (
-                Questions(workspace())
-                .follow_up(workspace_id, question_id, attributed(follow_up))
                 .model_dump()
             )
         )

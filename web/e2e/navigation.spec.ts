@@ -1,3 +1,5 @@
+import { historicalQuestionResponse } from "./historical-questions";
+import { historicalQuestion } from "./historical-questions";
 import { openResource } from "./shell-navigation";
 import {
   fixtureCliProject,
@@ -229,8 +231,7 @@ test("closing entity panes returns through history without duplicate collections
       data: { id: "one", title: "History task" },
     },
   );
-  const call = await connectMcp(request);
-  await call("ask_question", {
+  await historicalQuestion({
     workspace_id: await projectWorkspace(page.request, id),
     question: {
       id: "scope",
@@ -491,7 +492,7 @@ test("workspace selector names remain accessible and idle input opens deliberate
       body: "Useful intent",
     },
   });
-  const question = await request.post(path + "/questions", {
+  const question = await historicalQuestionResponse(path + "/questions", {
     data: {
       question: "Which outcome matters most?",
       context: "Choose the next project priority.",

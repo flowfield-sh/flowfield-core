@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from historical_questions import seed_follow_up, seed_question
 from lifecycle_fixtures import run_report
 from project_fixtures import adopt, task_request
 from questions_fixtures import ask, setup
@@ -16,7 +17,6 @@ from flowfield.questions import (
     QuestionAnswer,
     QuestionApply,
     QuestionCreate,
-    QuestionFollowUp,
     Questions,
     QuestionWithdraw,
 )
@@ -128,10 +128,11 @@ def test_followup_retains_answers_and_scope_without_duplicate_requests(tmp_path:
     workspace, questions = setup(tmp_path)
     original = ask(questions)
     questions.answer("harbor", original.id, QuestionAnswer(expected_revision=1, answer="Cap it."))
-    followup = questions.follow_up(
+    followup = seed_follow_up(
+        questions,
         "harbor",
         original.id,
-        QuestionFollowUp(
+        dict(
             expected_revision=2,
             question="What should happen above the cap?",
             context="The previous answer leaves truncation ambiguous.",
@@ -188,7 +189,8 @@ def test_nonblocking_input_and_question_only_readiness_are_consistent(tmp_path: 
 def test_scope_pagination_limits_and_http_validation(tmp_path: Path) -> None:
     workspace, questions = setup(tmp_path)
     for number in range(24):
-        questions.ask(
+        seed_question(
+            questions,
             "harbor",
             QuestionCreate(
                 id=f"q{number}",
@@ -232,7 +234,14 @@ def test_scope_pagination_limits_and_http_validation(tmp_path: Path) -> None:
                     "recommendation": "Recommendation",
                 },
             ).status_code
-            == 201
+            == 404
+        )
+        assert (
+            client.post(
+                "/api/workspaces/harbor/questions/q0/follow-up",
+                json={"expected_revision": 1, "question": "Another question?"},
+            ).status_code
+            == 404
         )
 
 
@@ -280,7 +289,8 @@ def test_retract_answer_preserves_history_and_gates_application(tmp_path: Path) 
 
 
 def project_question(questions: Questions, targets: list[str] | None = None):
-    return questions.ask(
+    return seed_question(
+        questions,
         "harbor",
         QuestionCreate(
             id="project-scope",
@@ -426,4 +436,4 @@ def test_project_question_rejects_ambiguous_scope_and_incomplete_application(
     workspace.edit_task("harbor", "T-2", TaskEdit(expected_revision=1, dependencies=[]))
     workspace.edit_task("harbor", "T-1", TaskEdit(expected_revision=1, archived=True))
     with pytest.raises(ApplicationError, match="active tasks"):
-        questions.ask("harbor", QuestionCreate(**fields, affected_task_ids=["T-1"]))
+        seed_question(questions, "harbor", QuestionCreate(**fields, affected_task_ids=["T-1"]))

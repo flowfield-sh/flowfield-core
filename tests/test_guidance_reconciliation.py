@@ -5,6 +5,7 @@ import json
 
 import pytest
 from execution_fixtures import fixture as execution_fixture
+from historical_questions import seed_question
 from result_fixtures import approve, current
 from review_execution_fixtures import Reviewer, install, round_trip
 from task_reviews_fixtures import configured
@@ -113,7 +114,8 @@ def test_backlog_guidance_stays_idle_until_scheduled_and_preserves_real_blockers
         assert card.document_updates
         assert prepare(reviews, "harbor", task.id) is None
         assert reads.task("harbor", task.id).state == card.state
-    question = Questions(store).ask(
+    question = seed_question(
+        Questions(store),
         "harbor",
         QuestionCreate(
             task_id=task.id, question="Which labels?", context="Choose scope", recommendation="All"

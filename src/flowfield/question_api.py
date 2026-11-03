@@ -11,8 +11,6 @@ from flowfield.questions import (
     Question,
     QuestionAnswer,
     QuestionApply,
-    QuestionCreate,
-    QuestionFollowUp,
     Questions,
     QuestionWithdraw,
 )
@@ -32,10 +30,6 @@ def question_router(workspace: Callable[[], Workspace]) -> APIRouter:
         return Questions(workspace()).list(
             workspace_id, status=status, task_id=task_id, after=after, limit=limit
         )
-
-    @router.post("", status_code=201)
-    def ask(workspace_id: str, request: QuestionCreate) -> Question:
-        return Questions(workspace()).ask(workspace_id, request)
 
     @router.get("/{identity}")
     def question(workspace_id: str, identity: str, revision: int | None = None) -> Question:
@@ -58,10 +52,6 @@ def question_router(workspace: Callable[[], Workspace]) -> APIRouter:
     @router.post("/{identity}/correction")
     def correct(workspace_id: str, identity: str, request: QuestionAnswer) -> Question:
         return Questions(workspace()).correct(workspace_id, identity, request)
-
-    @router.post("/{identity}/follow-up")
-    def follow_up(workspace_id: str, identity: str, request: QuestionFollowUp) -> Question:
-        return Questions(workspace()).follow_up(workspace_id, identity, request)
 
     @router.post("/{identity}/retract-answer")
     def retract_answer(workspace_id: str, identity: str, request: AnswerRetract) -> Question:

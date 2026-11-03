@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from historical_questions import seed_question
 from project_fixtures import adopt, task_request
 
 from flowfield.application import ProjectSetup, Workspace
@@ -31,7 +32,8 @@ def setup(tmp_path: Path):
 
 
 def ask(questions: Questions, identity: str = "scope", blocking: bool = True):
-    return questions.ask(
+    return seed_question(
+        questions,
         "harbor",
         QuestionCreate(
             id=identity,

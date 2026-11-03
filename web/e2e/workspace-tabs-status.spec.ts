@@ -1,3 +1,4 @@
+import { historicalQuestionResponse } from "./historical-questions";
 import { expect } from "@playwright/test";
 import { join } from "node:path";
 import {
@@ -30,14 +31,17 @@ test("overflowing tabs scroll by wheel with directional fades and even gutters",
       },
     );
   for (let i = 1; i <= 9; i++) {
-    const asked = await request.post(`/api/workspaces/${workspace}/questions`, {
-      data: {
-        task_id: `T-${i}`,
-        question: `Confirm scope ${i}?`,
-        context: "Choose the output scope.",
-        recommendation: "Use the current definition.",
+    const asked = await historicalQuestionResponse(
+      `/api/workspaces/${workspace}/questions`,
+      {
+        data: {
+          task_id: `T-${i}`,
+          question: `Confirm scope ${i}?`,
+          context: "Choose the output scope.",
+          recommendation: "Use the current definition.",
+        },
       },
-    });
+    );
     expect(asked.ok()).toBe(true);
   }
   await page.setViewportSize({ width: 1440, height: 1000 });

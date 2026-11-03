@@ -1518,39 +1518,6 @@ def inbox_text(
     )
 
 
-@inbox_app.command("ask")
-def inbox_ask(
-    ctx: typer.Context,
-    question: Annotated[str, typer.Option()],
-    context: Annotated[str, typer.Option()],
-    recommendation: Annotated[str, typer.Option()],
-    task: Annotated[str | None, typer.Argument(help="Omit for a workspace question.")] = None,
-    affects: Annotated[list[str] | None, typer.Option("--affects")] = None,
-    blocking_scope: str | None = None,
-    choice: Annotated[list[str] | None, typer.Option("--choice")] = None,
-    id: str | None = None,
-    workspace: str = typer.Option(..., "--workspace"),
-    author: Author = "human",
-    json_output: Json = False,
-) -> None:
-    data = {
-        "task_id": task,
-        "affected_task_ids": affects or [],
-        "question": question,
-        "context": context,
-        "recommendation": recommendation,
-        "blocking_scope": blocking_scope,
-        "choices": choice or [],
-        "author": author,
-    }
-    if id is not None:
-        data["id"] = id
-    output(
-        lambda: ctx.obj.request("POST", workspace_item_path(workspace, "questions"), data),
-        json_output,
-    )
-
-
 @inbox_app.command("answer")
 def inbox_answer(
     ctx: typer.Context,
@@ -1569,37 +1536,6 @@ def inbox_answer(
             expected_revision,
             author,
             operation="answer",
-        ),
-        json_output,
-    )
-
-
-@inbox_app.command("follow-up")
-def inbox_follow_up(
-    ctx: typer.Context,
-    identity: str,
-    question: Annotated[str, typer.Option()],
-    context: Annotated[str, typer.Option()],
-    recommendation: Annotated[str, typer.Option()],
-    choice: Annotated[list[str] | None, typer.Option("--choice")] = None,
-    workspace: str = typer.Option(..., "--workspace"),
-    expected_revision: Expected = None,
-    author: Author = "human",
-    json_output: Json = False,
-) -> None:
-    output(
-        lambda: update(
-            ctx.obj,
-            workspace_item_path(workspace, "questions", identity),
-            {
-                "question": question,
-                "context": context,
-                "recommendation": recommendation,
-                "choices": choice or [],
-            },
-            expected_revision,
-            author,
-            operation="follow-up",
         ),
         json_output,
     )

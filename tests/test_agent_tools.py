@@ -643,3 +643,23 @@ def test_coordinator_stops_exact_review_without_changing_queue_or_candidate(tmp_
     assert service.execution.settings("harbor") == queue
     assert current(service).candidate_commit == candidate
     assert Questions(service.workspace).get("harbor", review.question_id).status == "withdrawn"
+
+
+def test_coordinator_cannot_create_or_follow_up_inbox_questions(tmp_path):
+    execution = fixture(tmp_path)
+
+    async def exercise():
+        public = create_mcp(lambda: execution.workspace, origin="")
+        names = {tool.name for tool in await public.list_tools()}
+        grant = await workspace_scope(Supervisor(execution.workspace), "harbor")
+        for name in ("ask_question", "follow_up_question"):
+            assert name not in names
+            assert name not in grant.tools
+            denied = await grant.call(name, {})
+            assert denied.isError
+            assert denied.structuredContent["error"]["code"] == "operation_denied"
+        # Existing questions and consumed-answer corrections remain resolvable.
+        assert {"answer_question", "apply_answer", "withdraw_question"} <= names
+        grant.revoke()
+
+    asyncio.run(exercise())

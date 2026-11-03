@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from execution_fixtures import BASE, RESULT, fixture
+from historical_questions import seed_question
 from input_continuation_fixtures import answer, question, queue
 
 from flowfield.application import TaskEdit
@@ -152,7 +153,8 @@ def test_capacity_and_coordinator_questions_remain_real_gates(tmp_path):
     execution.finish("harbor", run.id, "waiting_for_input", input_checkpoint=RESULT)
     queue(execution, False)
     # Another blocking input must prevent continuation even when the managed answer exists.
-    Questions(execution.workspace).ask(
+    seed_question(
+        Questions(execution.workspace),
         "harbor",
         QuestionCreate(
             task_id=run.task_id,

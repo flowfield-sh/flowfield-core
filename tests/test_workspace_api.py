@@ -4,6 +4,7 @@ from pathlib import Path
 
 from click import unstyle
 from fastapi.testclient import TestClient
+from historical_questions import seed_question
 from typer.testing import CliRunner
 from workspace_fixtures import TEST_AGENTS
 
@@ -100,12 +101,16 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
                 "name": "Other",
             },
         ).json()["id"]
+        # Retained pre-retirement requests still contribute to attention counts.
+        from flowfield.application import Workspace
+        from flowfield.questions import QuestionCreate, Questions
+
         for _name in ("core", "site"):
-            asked = client.post(
-                base + "/questions",
-                json={"question": "Which scope?", "context": "Scope", "recommendation": "Local"},
+            seed_question(
+                Questions(Workspace(state)),
+                space,
+                QuestionCreate(question="Which scope?", context="Scope", recommendation="Local"),
             )
-            assert asked.status_code == 201, asked.text
         assert client.get("/api/workspaces/attention-counts").json() == {space: 2, second: 0}
         stolen = client.post(
             f"/api/workspaces/{second}/projects", json={"path": str(tmp_path / "core")}

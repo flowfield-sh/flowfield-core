@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from historical_questions import seed_question
 from lifecycle_fixtures import run_report
 from project_fixtures import adopt, existing_directory, task_request
 from workspace_fixtures import TEST_AGENTS
@@ -206,7 +207,8 @@ def test_browser_links_and_question_pagination(tmp_path: Path) -> None:
     adopt(service, ProjectSetup(path=str(tmp_path / "harbor")))
     service.create_task("harbor", task_request(id="catalog", title="Catalog", status="up_next"))
     for i in range(20):
-        Questions(service).ask(
+        seed_question(
+            Questions(service),
             "harbor",
             QuestionCreate(
                 id=f"q{i}",

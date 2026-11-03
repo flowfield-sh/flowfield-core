@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from fastapi.testclient import TestClient
+from historical_questions import seed_question
 from project_fixtures import adopt, task_request
 
 from flowfield.announcements import (
@@ -41,7 +42,8 @@ def client(identity="active", active=True, **kw):
 
 
 def ask(workspace, identity="choice", project="project", task="task"):
-    return Questions(workspace).ask(
+    return seed_question(
+        Questions(workspace),
         project,
         QuestionCreate(
             id=identity,

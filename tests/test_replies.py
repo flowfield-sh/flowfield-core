@@ -5,6 +5,7 @@ import json
 
 import pytest
 from execution_fixtures import BASE, fixture, result
+from historical_questions import seed_question
 from input_continuation_fixtures import question
 from project_fixtures import task_request
 from replies_fixtures import historical_note, message
@@ -34,7 +35,8 @@ def test_exact_question_reply_preserves_scope_and_revision_checks(tmp_path):
     workspace = execution.workspace
     questions = Questions(workspace)
     earlier, newer = [
-        questions.ask(
+        seed_question(
+            questions,
             "harbor",
             QuestionCreate(
                 task_id="task-0", question=title, context="Export", recommendation="CSV"

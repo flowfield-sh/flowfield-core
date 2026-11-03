@@ -1,3 +1,4 @@
+import { historicalQuestionResponse } from "./historical-questions";
 import { expect } from "@playwright/test";
 import { join } from "node:path";
 import {
@@ -85,14 +86,17 @@ test("outer navigation reuses exact views and project overview explains its envi
   ).json();
   expect(
     (
-      await request.post(`/api/workspaces/${workspace}/questions`, {
-        data: {
-          task_id: task.id,
-          question: "Which scope?",
-          context: "Choose scope",
-          recommendation: "Small",
+      await historicalQuestionResponse(
+        `/api/workspaces/${workspace}/questions`,
+        {
+          data: {
+            task_id: task.id,
+            question: "Which scope?",
+            context: "Choose scope",
+            recommendation: "Small",
+          },
         },
-      })
+      )
     ).ok(),
   ).toBe(true);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();

@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from historical_questions import seed_question
 from project_fixtures import adopt, task_request
 from pydantic import ValidationError
 
@@ -100,7 +101,8 @@ def test_briefing_prioritizes_answers_and_exposes_omissions(tmp_path: Path) -> N
     assert reads.overview("harbor")["recommendation"]["task_key"] == "T-5"
     questions = Questions(service)
     for number in range(5):
-        questions.ask(
+        seed_question(
+            questions,
             "harbor",
             QuestionCreate(
                 id=f"q{number}",
@@ -117,7 +119,8 @@ def test_briefing_prioritizes_answers_and_exposes_omissions(tmp_path: Path) -> N
     assert board["columns"][1]["omitted_count"] == 2
     assert board["observed_at"] and board["execution"] == "managed_local"
     assert size(board) < PAGE_BYTES
-    questions.ask(
+    seed_question(
+        questions,
         "harbor",
         QuestionCreate(
             id="shared",

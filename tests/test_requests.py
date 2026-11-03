@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from execution_fixtures import fixture, result
+from historical_questions import seed_question
 from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_tools import workspace_scope
@@ -23,7 +24,8 @@ def test_exact_request_survives_answer_and_absence_from_action_page(tmp_path):
     execution = fixture(tmp_path)
     ws = execution.workspace
     questions = Questions(ws)
-    q = questions.ask(
+    q = seed_question(
+        questions,
         "harbor",
         QuestionCreate(id="ask", question="Which format?", context="Export", recommendation="CSV"),
     )
@@ -44,7 +46,8 @@ def test_exact_request_survives_answer_and_absence_from_action_page(tmp_path):
 
 def test_scope_and_exact_source_family_are_checked(tmp_path):
     ws = fixture(tmp_path).workspace
-    q = Questions(ws).ask(
+    q = seed_question(
+        Questions(ws),
         "harbor",
         QuestionCreate(id="ask", question="Which format?", context="Export", recommendation="CSV"),
     )
@@ -83,7 +86,8 @@ def test_result_and_attempt_links_survive_result_creation(tmp_path):
 
 def test_scoped_coordinator_can_reference_requests_without_extra_authority(tmp_path):
     ws = fixture(tmp_path).workspace
-    q = Questions(ws).ask(
+    q = seed_question(
+        Questions(ws),
         "harbor",
         QuestionCreate(
             id=uuid4().hex, question="Which format?", context="Export", recommendation="CSV"
@@ -114,7 +118,8 @@ def test_request_pages_bound_bytes_without_skipping_records(tmp_path):
     ws = fixture(tmp_path).workspace
     questions = Questions(ws)
     for number in range(50):
-        questions.ask(
+        seed_question(
+            questions,
             "harbor",
             QuestionCreate(
                 id=f"ask-{number}", question="界" * 200, context="Export", recommendation="CSV"

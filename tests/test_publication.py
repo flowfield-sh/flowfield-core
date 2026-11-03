@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from historical_questions import seed_question
 from lifecycle_fixtures import run_report
 from project_fixtures import adopt, task_request
 
@@ -90,7 +91,8 @@ def test_assignment_is_separate_from_dependencies_priority_and_notes(tmp_path: P
 def test_questions_must_be_applied_and_definition_edits_are_atomic(tmp_path: Path) -> None:
     workspace = setup(tmp_path)
     questions = Questions(workspace)
-    q = questions.ask(
+    q = seed_question(
+        questions,
         "harbor",
         QuestionCreate(
             task_id="export",
@@ -189,7 +191,8 @@ def test_project_answer_updates_a_completed_dependency_chain_atomically(tmp_path
     workspace = setup(tmp_path)
     workspace.edit_task("harbor", "export", TaskEdit(expected_revision=1, dependencies=["catalog"]))
     questions = Questions(workspace)
-    question = questions.ask(
+    question = seed_question(
+        questions,
         "harbor",
         QuestionCreate(
             affected_task_ids=["catalog", "export"],

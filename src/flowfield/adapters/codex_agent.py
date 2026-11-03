@@ -709,8 +709,8 @@ class CodexAgent(Agent):
             ):
                 raise NativeRequestUnavailable(
                     "Flowfield did not display these native questions and no human answered. "
-                    "Ask planning questions in your conversation reply, or use Flowfield's "
-                    "question tool for an Inbox response. Workers must use ask_question."
+                    "Coordinators must ask their own questions in the conversation reply. "
+                    "Workers must use ask_question for durable Inbox input."
                 )
             if (
                 not eligible()

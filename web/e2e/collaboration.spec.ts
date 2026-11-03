@@ -1,3 +1,7 @@
+import {
+  historicalQuestion,
+  historicalQuestionFollowUp,
+} from "./historical-questions";
 import { dialogViews } from "./dialog-evidence";
 import { resultRequest } from "./support";
 import {
@@ -402,7 +406,7 @@ test("cards keep one state while project questions remain in Inbox", async ({
     workspace_id: await projectWorkspace(request, project_id),
     task: { project_id: project_id, id: "one", title: "One task" },
   });
-  await call("ask_question", {
+  await historicalQuestion({
     workspace_id: await projectWorkspace(request, project_id),
     question: {
       id: "task-question",
@@ -420,7 +424,7 @@ test("cards keep one state while project questions remain in Inbox", async ({
   await expect(card.locator(".work-state")).toHaveText("Needs your answer");
   await expect(card.getByRole("link")).toHaveCount(1);
   await expect(card.locator(".task-notices")).toHaveCount(0);
-  await call("ask_question", {
+  await historicalQuestion({
     workspace_id: await projectWorkspace(request, project_id),
     question: {
       id: "project-question",
@@ -470,7 +474,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
       dependencies: ["T-1"],
     },
   });
-  const question = await call("ask_question", {
+  const question = await historicalQuestion({
     workspace_id: await projectWorkspace(request, project_id),
     question: {
       id: "export-scope",
@@ -709,22 +713,16 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
     workspace_id: await projectWorkspace(request, project_id),
     task: { project_id: project_id, id: "one", title: "Export" },
   });
-  const q = cli([
-    "inbox",
-    "ask",
-    "--affects",
-    "T-1",
-    "--workspace",
-    await projectWorkspace(request, project_id),
-    "--question",
-    "What cap?",
-    "--context",
-    "Large exports need a limit.",
-    "--recommendation",
-    "Use 10,000 rows.",
-    "--blocking-scope",
-    "Export limit",
-  ]);
+  const q = historicalQuestion({
+    workspace_id: await projectWorkspace(request, project_id),
+    question: {
+      affected_task_ids: ["T-1"],
+      question: "What cap?",
+      context: "Large exports need a limit.",
+      recommendation: "Use 10,000 rows.",
+      blocking_scope: "Export limit",
+    },
+  });
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, project_id)}/requests/question/${q.id}`,
   );
@@ -799,7 +797,7 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   await expect(detail.getByLabel("Your answer", { exact: true })).toHaveCount(
     0,
   );
-  await call("follow_up_question", {
+  await historicalQuestionFollowUp({
     workspace_id: await projectWorkspace(request, project_id),
     question_id: q.id,
     follow_up: {
@@ -809,6 +807,8 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
       recommendation: "Reject and explain the limit.",
     },
   });
+  // The follow-up is retained fixture history, not a supported live mutation.
+  await page.reload();
   await expect(
     detail.getByRole("heading", {
       name: "What happens above the cap?",
@@ -867,7 +867,7 @@ test("retracting answers reopens questions and preserves earlier responses", asy
     workspace_id: await projectWorkspace(request, project_id),
     task: { project_id: project_id, id: "export", title: "Export" },
   });
-  await call("ask_question", {
+  await historicalQuestion({
     workspace_id: await projectWorkspace(request, project_id),
     question: {
       id: "scope",
@@ -967,22 +967,16 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
       dependencies: ["T-1"],
     },
   });
-  const q = cli([
-    "inbox",
-    "ask",
-    "--workspace",
-    await projectWorkspace(request, project_id),
-    "--question",
-    "Which output convention?",
-    "--context",
-    "Both exports should agree.",
-    "--recommendation",
-    "UTF-8",
-    "--affects",
-    "T-2",
-    "--blocking-scope",
-    "Output contract",
-  ]);
+  const q = historicalQuestion({
+    workspace_id: await projectWorkspace(request, project_id),
+    question: {
+      affected_task_ids: ["T-2"],
+      question: "Which output convention?",
+      context: "Both exports should agree.",
+      recommendation: "UTF-8",
+      blocking_scope: "Output contract",
+    },
+  });
   expect(q.task_id).toBeNull();
   expect(
     (
@@ -1068,7 +1062,7 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
   });
   expect(task.blocking_question_count).toBe(0);
   expect(task.blocked_by[0].key).toBe("T-1");
-  const advisory = await call("ask_question", {
+  const advisory = await historicalQuestion({
     workspace_id: await projectWorkspace(request, project_id),
     question: {
       question: "Audience?",
@@ -1235,7 +1229,7 @@ test("related questions preserve the page, drafts, focus and router history", as
       status: "up_next",
     },
   });
-  const question = await call("ask_question", {
+  const question = await historicalQuestion({
     workspace_id: await projectWorkspace(request, project_id),
     question: {
       id: "scope",
@@ -1394,7 +1388,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
       title: "Document import options",
     },
   });
-  await call("ask_question", {
+  await historicalQuestion({
     workspace_id: await projectWorkspace(request, project_id),
     question: {
       id: "scope",

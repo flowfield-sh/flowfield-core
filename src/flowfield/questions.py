@@ -58,16 +58,6 @@ class AnswerRetract(BaseModel):
     author: Title = "human"
 
 
-class QuestionFollowUp(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    expected_revision: int = Field(ge=1)
-    question: Title
-    context: Text
-    recommendation: Text
-    choices: list[Title] = Field(default_factory=list, max_length=5)
-    author: Title = "human"
-
-
 class QuestionTaskUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     task_id: TaskKey
@@ -360,10 +350,6 @@ class Questions:
             }
         )
 
-    def ask(self, workspace_id: str, request: QuestionCreate) -> Question:
-        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
-            return self._ask(db, workspace_id, request)
-
     def _ask(
         self,
         db: sqlite3.Connection,
@@ -530,25 +516,6 @@ class Questions:
                 current, request.expected_revision, request.author, status="open", answer=None
             )
             return self._save(db, question, "Answer retracted; question reopened.")
-
-    def follow_up(self, workspace_id: str, identity: str, request: QuestionFollowUp) -> Question:
-        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
-            current = self._get(db, workspace_id, identity)
-            if current.origin_run_id or current.origin_review_id:
-                raise ApplicationError(
-                    "managed_answer", "Ask a new question; preserve managed input history.", 409
-                )
-            if current.status != "answered":
-                raise ApplicationError("question_state", "Follow up on a saved answer.", 409)
-            question = self._change(
-                current,
-                request.expected_revision,
-                request.author,
-                **request.model_dump(exclude={"expected_revision", "author"}),
-                status="open",
-                answer=None,
-            )
-            return self._save(db, question, "Follow-up requested: " + question.question)
 
     def apply(self, workspace_id: str, identity: str, request: QuestionApply) -> Question:
         from flowfield.application import TaskEdit, TaskRevision

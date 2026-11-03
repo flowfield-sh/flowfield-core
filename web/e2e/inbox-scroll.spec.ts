@@ -1,3 +1,4 @@
+import { historicalQuestionResponse } from "./historical-questions";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
@@ -110,19 +111,22 @@ for (const width of [1440, 390]) {
     const workspace = await projectWorkspace(request, project),
       base = `/workspaces/${workspace}`;
     for (let index = 0; index < 25; index++) {
-      const response = await request.post(`/api${base}/questions`, {
-        data: {
-          id: `scope-${index}`,
-          question: `Decision ${index}: which records should be exported?`,
-          context: Array.from(
-            { length: 12 },
-            (_, i) =>
-              `Context paragraph ${i}: preserve records and supporting evidence. ${"long-reference-".repeat(6)}`,
-          ).join("\n\n"),
-          recommendation: "Keep all records.",
-          choices: ["All records", "Visible records"],
+      const response = await historicalQuestionResponse(
+        `/api${base}/questions`,
+        {
+          data: {
+            id: `scope-${index}`,
+            question: `Decision ${index}: which records should be exported?`,
+            context: Array.from(
+              { length: 12 },
+              (_, i) =>
+                `Context paragraph ${i}: preserve records and supporting evidence. ${"long-reference-".repeat(6)}`,
+            ).join("\n\n"),
+            recommendation: "Keep all records.",
+            choices: ["All records", "Visible records"],
+          },
         },
-      });
+      );
       expect(response.ok(), await response.text()).toBe(true);
     }
     await page.setViewportSize({ width, height: 800 });

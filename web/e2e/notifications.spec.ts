@@ -1,3 +1,4 @@
+import { historicalQuestionResponse } from "./historical-questions";
 import {
   fixtureProject,
   hostStatus,
@@ -47,7 +48,7 @@ async function setup(request: APIRequestContext, project: string) {
   ).toBe(true);
 }
 async function ask(request: APIRequestContext, project: string, id: string) {
-  const response = await request.post(
+  const response = await historicalQuestionResponse(
     `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
     {
       data: {

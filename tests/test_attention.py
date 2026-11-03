@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from execution_fixtures import BASE, RESULT, fixture, result, validate_report
+from historical_questions import seed_question
 
 from flowfield.application import TaskEdit
 from flowfield.attention import attention_page
@@ -32,7 +33,8 @@ def test_mixed_attention_lifecycle_and_bounded_history(tmp_path: Path) -> None:
     questions = Questions(workspace)
     first = result(execution, partial=True)
     first_version = Results(workspace).page("harbor", first.task_id).items[0]
-    question = questions.ask(
+    question = seed_question(
+        questions,
         "harbor",
         QuestionCreate(
             id="scope", question="Which scope?", context="x" * 8000, recommendation="Local only"
@@ -129,7 +131,8 @@ def test_attention_http_limits_and_project_scope(tmp_path: Path, monkeypatch) ->
     execution = fixture(tmp_path)
     questions = Questions(execution.workspace)
     for index in range(3):
-        questions.ask(
+        seed_question(
+            questions,
             "harbor",
             QuestionCreate(
                 id=f"q-{index}",
