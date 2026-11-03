@@ -208,6 +208,7 @@ test("a saved correction is not offered for resubmission when the following read
     answer: "All records",
     answer_count: 1,
     origin_run_id: null,
+    can_correct: true,
     continuation_run_id: "fixture-run",
     consumed_answer_revision: 2,
     correction_question_id: null,
@@ -273,7 +274,7 @@ test("a saved correction is not offered for resubmission when the following read
     "Correction saved; could not refresh question",
   );
   await expect(
-    detail.getByRole("link", { name: "Open the new input" }),
+    detail.getByRole("link", { name: "View correction" }),
   ).toHaveAttribute(
     "href",
     `/workspaces/${await projectWorkspace(page.request, id)}/requests/question/corrected`,

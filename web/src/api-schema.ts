@@ -1385,23 +1385,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{workspace_id}/questions/{identity}/retract-answer": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Retract Answer */
-    post: operations["retract_answer_api_workspaces__workspace_id__questions__identity__retract_answer_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/workspaces/{workspace_id}/questions/{identity}/withdraw": {
     parameters: {
       query?: never;
@@ -2840,16 +2823,6 @@ export interface components {
        */
       updates_enabled: boolean;
     };
-    /** AnswerRetract */
-    AnswerRetract: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-    };
     /** Attachment */
     Attachment: {
       /** Id */
@@ -4183,13 +4156,11 @@ export interface components {
     InputDelivery: {
       /** State */
       state: string;
-      /** Message */
-      message: string;
       /**
-       * Can Edit
-       * @default false
+       * Message
+       * @default
        */
-      can_edit: boolean;
+      message: string;
       /**
        * Can Stop
        * @default false
@@ -4295,6 +4266,11 @@ export interface components {
       expected_revision: number;
       /** Run Command */
       run_command: string;
+      /**
+       * No Preview Reason
+       * @default
+       */
+      no_preview_reason: string;
     };
     /** InspectionPrepare */
     InspectionPrepare: {
@@ -4322,6 +4298,11 @@ export interface components {
        * @default
        */
       run_command: string;
+      /**
+       * No Preview Reason
+       * @default
+       */
+      no_preview_reason: string;
     };
     /** IntegrationConfig */
     IntegrationConfig: {
@@ -5077,6 +5058,13 @@ export interface components {
       consumed_answer_revision: number | null;
       /** Correction Question Id */
       correction_question_id: string | null;
+      /** Previous Question Id */
+      previous_question_id: string | null;
+      /**
+       * Can Correct
+       * @default false
+       */
+      can_correct: boolean;
       delivery: components["schemas"]["InputDelivery"] | null;
       /** Decision */
       decision: string | null;
@@ -7081,7 +7069,7 @@ export interface components {
       /** Href */
       href?: string | null;
       /** Reason */
-      reason?: ("prerequisites" | "scheduling") | null;
+      reason?: ("prerequisites" | "scheduling" | "preview_setup") | null;
     };
     /** WorkerOccupancy */
     WorkerOccupancy: {
@@ -10660,42 +10648,6 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["QuestionAnswer"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Question"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  retract_answer_api_workspaces__workspace_id__questions__identity__retract_answer_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["AnswerRetract"];
       };
     };
     responses: {

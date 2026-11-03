@@ -137,6 +137,15 @@ def test_foreign_code_is_frozen_evidence_without_local_ancestry_or_worker_scope(
     assert current(service).status == "delivered"
     repo = tmp_path / "site"
     Workspaces(store).adopt("harbor", ProjectSetup(path=existing_directory(repo)))
+    from flowfield.inspection import Inspections
+    from flowfield.inspection_models import InspectionConfig
+
+    Inspections(store).configure(
+        "site",
+        InspectionConfig(
+            expected_revision=1, run_command="", no_preview_reason="Evidence-only fixture."
+        ),
+    )
     git(repo, "init", "-b", "main")
     (repo / "README.md").write_text("Independent website repository\n")
     git(repo, "add", ".")

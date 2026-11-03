@@ -199,7 +199,7 @@ def test_task_delete_confirms_then_sends_exact_revision(monkeypatch):
 
 
 def test_inbox_cannot_create_coordinator_questions():
-    for command in ("ask", "follow-up"):
+    for command in ("ask", "follow-up", "retract-answer"):
         result = runner.invoke(app, ["inbox", command])
         assert result.exit_code == 2
         assert "No such command" in result.output

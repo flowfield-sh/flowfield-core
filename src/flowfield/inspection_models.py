@@ -1,8 +1,8 @@
 """Saved, independent local inspection copies. No execution or approval authority."""
 
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from flowfield.execution_models import Record
 
@@ -11,11 +11,19 @@ class InspectionSettings(Record):
     project_id: str
     revision: int = 1
     run_command: str = ""
+    no_preview_reason: str = ""
 
 
 class InspectionConfig(Record):
     expected_revision: int = Field(ge=1)
     run_command: str = Field(max_length=4000)
+    no_preview_reason: str = Field(default="", max_length=500)
+
+    @model_validator(mode="after")
+    def preview_choice(self) -> Self:
+        if self.run_command.strip() and self.no_preview_reason.strip():
+            raise ValueError("Choose a run command or explain why no runnable preview applies.")
+        return self
 
 
 class InspectionPrepare(Record):

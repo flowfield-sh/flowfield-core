@@ -20,16 +20,40 @@ export function TaskNeeds({
   return (
     <>
       {task.execution_issue &&
+        task.state?.reason !== "scheduling" &&
         (!task.blocking_questions.length ||
           task.readiness === "needs_reconciliation") && (
-          <StatusNotice title="Work needs attention" tone="attention">
+          <StatusNotice
+            title={
+              task.state?.reason === "preview_setup"
+                ? "Preview setup needed"
+                : "Work needs attention"
+            }
+            tone="attention"
+            actions={
+              task.state?.reason === "preview_setup" &&
+              task.project_id && (
+                <Button variant="outline" size="sm" asChild>
+                  <WorkspaceLink
+                    to={`/projects/${task.project_id}/edit/integration`}
+                  >
+                    Configure preview
+                  </WorkspaceLink>
+                </Button>
+              )
+            }
+          >
             <p>{task.execution_issue}</p>
           </StatusNotice>
         )}
       {task.blocking_questions.map((q) => (
         <StatusNotice
           key={q.id}
-          title={q.status === "open" ? "Your answer is needed" : "Answer saved"}
+          title={
+            q.status === "open"
+              ? "Your answer is needed"
+              : (q.delivery?.state ?? "Answer saved")
+          }
           tone={q.status === "open" ? "attention" : "neutral"}
           actions={
             <Button variant="outline" size="sm" asChild>
@@ -40,40 +64,58 @@ export function TaskNeeds({
           }
         >
           <p>{q.question}</p>
-          {q.delivery ? (
-            <p>{q.delivery.message}</p>
-          ) : q.status === "answered" ? (
-            <p>The Coordinator needs to apply your saved answer.</p>
-          ) : null}
         </StatusNotice>
       ))}
-      {pendingCode.map((prerequisite) => (
+      {pendingCode.length > 0 && (
         <StatusNotice
-          key={prerequisite.key}
           title={
-            prerequisite.reuse_action?.action === "revalidate"
+            pendingCode.every(
+              (item) => item.reuse_action?.action === "revalidate",
+            )
               ? "Prerequisite code needs checking"
-              : "Prerequisite code is unavailable"
+              : pendingCode.every(
+                    (item) => item.reuse_action?.action !== "revalidate",
+                  )
+                ? "Prerequisite code is unavailable"
+                : "Prerequisite code needs attention"
           }
           tone="attention"
-          actions={
-            prerequisite.result_href && (
-              <Button variant="outline" size="sm" asChild>
-                <WorkspaceLink to={prerequisite.result_href}>
-                  View prerequisite result
-                </WorkspaceLink>
-              </Button>
-            )
-          }
         >
-          <p>
-            <TaskLink projectId={projectId} task={prerequisite} open={open} />
-          </p>
-          {prerequisite.reuse_action?.action === "revalidate" && (
-            <p>{prerequisite.reuse_action.reason}</p>
-          )}
+          {pendingCode.map((prerequisite) => (
+            <div className="content-stack" key={prerequisite.key}>
+              <p>
+                <TaskLink
+                  projectId={projectId}
+                  task={prerequisite}
+                  open={open}
+                />{" "}
+                {prerequisite.title}
+              </p>
+              {pendingCode.some(
+                (item) => item.reuse_action?.action === "revalidate",
+              ) &&
+                pendingCode.some(
+                  (item) => item.reuse_action?.action !== "revalidate",
+                ) && (
+                  <p>
+                    {prerequisite.reuse_action?.action === "revalidate"
+                      ? "Needs checking"
+                      : "Code unavailable"}
+                  </p>
+                )}
+              {prerequisite.result_href && (
+                <div className="actions">
+                  <Button variant="outline" size="sm" asChild>
+                    <WorkspaceLink to={prerequisite.result_href}>
+                      View prerequisite result
+                    </WorkspaceLink>
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
         </StatusNotice>
-      ))}
+      )}
     </>
   );
 }

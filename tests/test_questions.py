@@ -110,15 +110,15 @@ def test_stale_application_and_competing_answers_do_not_lose_work(tmp_path: Path
         )
     assert workspace.activity("harbor", task_id="T-2") == prior
     assert questions.get("harbor", question.id).status == "answered"
-    questions.answer(
+    corrected = questions.correct(
         "harbor", question.id, QuestionAnswer(expected_revision=2, answer="New conclusion")
     )
     with pytest.raises(ApplicationError, match="stale"):
         questions.apply(
             "harbor",
-            question.id,
+            corrected.id,
             QuestionApply(
-                expected_revision=2, expected_task_revision=2, body="Lost update", decision="Choice"
+                expected_revision=1, expected_task_revision=2, body="Lost update", decision="Choice"
             ),
         )
     assert workspace.task("harbor", "T-2").body == "Concurrent requirement"
@@ -243,49 +243,51 @@ def test_scope_pagination_limits_and_http_validation(tmp_path: Path) -> None:
             ).status_code
             == 404
         )
+        assert (
+            client.post(
+                "/api/workspaces/harbor/questions/q0/retract", json={"expected_revision": 1}
+            ).status_code
+            == 404
+        )
 
 
-def test_retract_answer_preserves_history_and_gates_application(tmp_path: Path) -> None:
-    from flowfield.questions import AnswerRetract
-
+def test_recorded_answer_correction_preserves_original_and_blocks_old_application(
+    tmp_path: Path,
+) -> None:
     workspace, questions = setup(tmp_path)
-    ask(questions)
+    original = ask(questions)
     saved = questions.answer(
-        "harbor", "scope", QuestionAnswer(expected_revision=1, answer="Visible page")
+        "harbor", original.id, QuestionAnswer(expected_revision=1, answer="Visible page")
     )
-    reopened = questions.retract_answer(
-        "harbor", "scope", AnswerRetract(expected_revision=saved.revision)
+    with pytest.raises(ApplicationError, match="recorded"):
+        questions.answer(
+            "harbor", original.id, QuestionAnswer(expected_revision=2, answer="All rows")
+        )
+    corrected = questions.correct(
+        "harbor", original.id, QuestionAnswer(expected_revision=saved.revision, answer="All rows")
     )
-    assert reopened.status == "open" and reopened.answer is None
-    assert reopened.answer_count == 1
-    assert questions.get("harbor", "scope", saved.revision).answer == "Visible page"
-    assert workspace.task("harbor", "T-2").blocking_questions[0].status == "open"
-    with pytest.raises(ApplicationError):
+    retained = questions.get("harbor", original.id)
+    assert retained.answer == "Visible page" and retained.status == "withdrawn"
+    assert retained.correction_question_id == corrected.id and not retained.can_correct
+    assert corrected.answer == "All rows" and corrected.can_correct
+    assert questions.get("harbor", original.id, saved.revision).answer == "Visible page"
+    assert [q.id for q in workspace.task("harbor", "T-2").blocking_questions] == [corrected.id]
+    with pytest.raises(ApplicationError, match="Save an answer"):
         questions.apply(
             "harbor",
-            "scope",
+            original.id,
             QuestionApply(
-                expected_revision=saved.revision, expected_task_revision=1, decision="Stale answer"
+                expected_revision=retained.revision, expected_task_revision=1, decision="Old input"
             ),
         )
-    with pytest.raises(ApplicationError):
-        questions.retract_answer("harbor", "scope", AnswerRetract(expected_revision=saved.revision))
-    again = questions.answer(
-        "harbor",
-        "scope",
-        QuestionAnswer(expected_revision=reopened.revision, answer="All filtered rows"),
+    assert (
+        questions.correct(
+            "harbor",
+            original.id,
+            QuestionAnswer(expected_revision=saved.revision, answer="All rows"),
+        ).id
+        == corrected.id
     )
-    questions.apply(
-        "harbor",
-        "scope",
-        QuestionApply(
-            expected_revision=again.revision, expected_task_revision=1, decision="All rows"
-        ),
-    )
-    with pytest.raises(ApplicationError, match="unapplied"):
-        questions.retract_answer(
-            "harbor", "scope", AnswerRetract(expected_revision=again.revision + 1)
-        )
 
 
 def project_question(questions: Questions, targets: list[str] | None = None):

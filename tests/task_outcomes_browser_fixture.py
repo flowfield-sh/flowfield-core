@@ -166,6 +166,12 @@ def seed(state: Path, assets: Path, agents=None):
             checks=["test -f api.js && test -f index.html"],
         ),
     )
+    from flowfield.inspection import Inspections
+    from flowfield.inspection_models import InspectionConfig
+
+    Inspections(store).configure(
+        project.id, InspectionConfig(expected_revision=1, run_command="node api.js")
+    )
     feature = store.create_task(
         owner,
         TaskCreate(

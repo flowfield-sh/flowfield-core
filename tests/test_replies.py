@@ -16,7 +16,7 @@ from flowfield.application import TaskEdit, Workspace
 from flowfield.conversation import Conversation
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, SettingsEdit
-from flowfield.questions import QuestionCreate, Questions, QuestionWithdraw
+from flowfield.questions import QuestionAnswer, QuestionCreate, Questions, QuestionWithdraw
 from flowfield.replies import Replies
 from flowfield.reply_models import ReplyBinding, ReplyCreate
 from flowfield.results import Results
@@ -61,7 +61,7 @@ def test_exact_question_reply_preserves_scope_and_revision_checks(tmp_path):
     assert replies.submit("harbor", "task-0", request).status == "recorded"
     assert replies.submit("harbor", "task-0", request).status == "recorded"
     assert conversation.eligibility("harbor", "task-0").question_id == earlier.id
-    with pytest.raises(ApplicationError, match="changed"):
+    with pytest.raises(ApplicationError, match="recorded"):
         replies.submit("harbor", "task-0", request.model_copy(update={"id": "stale"}))
     closed = message(workspace, action="answer", body="All fields")
     questions.withdraw(
@@ -81,14 +81,24 @@ def test_bound_answer_is_one_atomic_receipt_and_continues_once(tmp_path):
     assert answer.status == "recorded"
     assert replies.submit("harbor", "task-0", request) == answer
     gate = Conversation(execution.workspace).eligibility("harbor", "task-0")
-    assert gate.enabled and gate.reason == "answer_editable"
+    assert not gate.enabled and gate.reason == "answer_recorded"
     revision = message(
         execution.workspace, action="answer", body="Keep offline support for all data"
     )
-    replies.submit("harbor", "task-0", revision)
+    with pytest.raises(ApplicationError, match="recorded"):
+        replies.submit("harbor", "task-0", revision)
+    questions = Questions(execution.workspace)
+    saved = questions.get("harbor", question_record.id)
+    corrected = questions.correct(
+        "harbor",
+        question_record.id,
+        QuestionAnswer(
+            expected_revision=saved.revision, answer="Keep offline support for all data"
+        ),
+    )
     late_edit = message(execution.workspace, action="answer", body="A correction after consumption")
     continuation = execution.claim("harbor", BASE, {BASE: set()})
-    assert continuation.input_question_id == question_record.id
+    assert continuation.input_question_id == corrected.id
     assert (
         "Keep offline support for all data"
         in execution.assignment("harbor", continuation.id)["input"]
@@ -100,7 +110,7 @@ def test_bound_answer_is_one_atomic_receipt_and_continues_once(tmp_path):
     assert len([m for m in thread.items if m.kind == "answer"]) == 2
     assert not any(m.kind == "reply" for m in thread.items)
     latest = ThreadView(execution.workspace).item_view(
-        "harbor", "task-0", f"question:{question_record.id}"
+        "harbor", "task-0", f"question:{corrected.id}"
     )
     assert latest.kind == "answer" and latest.body == "Keep offline support for all data"
 

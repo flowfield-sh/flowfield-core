@@ -201,3 +201,67 @@ def test_scheduler_revision_race_is_retried_without_persistent_error(tmp_path, m
     from flowfield.browser import BrowserReads
 
     assert BrowserReads(execution.workspace).task("harbor", "task-0").scheduling_problem is None
+
+
+def test_preview_choice_blocks_only_new_code_and_survives_restart(tmp_path):
+    from result_fixtures import fixture as code_fixture
+
+    from flowfield.application import TaskCreate, Workspace
+    from flowfield.inspection import Inspections
+    from flowfield.inspection_models import InspectionConfig
+
+    service, _, original = code_fixture(tmp_path)
+    execution = service.execution
+    base = original.base_commit
+    task = execution.workspace.create_task(
+        "harbor",
+        TaskCreate(
+            id="preview-code",
+            project_id="harbor",
+            title="Preview code",
+            body="Implement the next change",
+            status="up_next",
+            completion="code",
+        ),
+    )
+    report = execution.workspace.create_task(
+        "harbor",
+        TaskCreate(
+            id="preview-report",
+            project_id="harbor",
+            title="Report",
+            body="Inspect the source",
+            completion="report",
+        ),
+    )
+    previews = Inspections(execution.workspace)
+    saved = previews.settings("harbor")
+    previews.configure("harbor", InspectionConfig(expected_revision=saved.revision, run_command=""))
+    task = execution.workspace.task("harbor", "preview-code")
+    assert task.readiness == "blocked" and "run command" in task.execution_issue
+    assert execution.workspace.task("harbor", report.id).execution_issue is None
+    assert execution.claim("harbor", base, {base: set()}, task_id="preview-code") is None
+    with pytest.raises(ValueError):
+        InspectionConfig(expected_revision=1, run_command="npm start", no_preview_reason="No app")
+    previews.configure(
+        "harbor",
+        InspectionConfig(
+            expected_revision=previews.settings("harbor").revision,
+            run_command="",
+            no_preview_reason="Library verified through tests.",
+        ),
+    )
+    restarted = Workspace(execution.workspace.directory)
+    assert (
+        Inspections(restarted).settings("harbor").no_preview_reason
+        == "Library verified through tests."
+    )
+    assert restarted.task("harbor", "preview-code").readiness == "ready"
+    from flowfield.execution_models import QueueEdit
+
+    execution.queue(
+        "harbor", QueueEdit(expected_revision=execution.settings("harbor").revision, enabled=True)
+    )
+    run = execution.claim("harbor", base, {base: set()}, task_id="preview-code")
+    assert run
+    assert "Library verified through tests." in execution.assignment("harbor", run.id)["preview"]

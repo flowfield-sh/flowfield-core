@@ -494,6 +494,15 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(
         "Base",
     )
     project = Workspaces(store).adopt(owner, ProjectSetup(path=str(repo)))
+    from flowfield.inspection import Inspections
+    from flowfield.inspection_models import InspectionConfig
+
+    Inspections(store).configure(
+        project.id,
+        InspectionConfig(
+            expected_revision=1, run_command="", no_preview_reason="Fixture verified through tests."
+        ),
+    )
     git(repo, "add", ".flowfield/config.toml")
     git(
         repo,

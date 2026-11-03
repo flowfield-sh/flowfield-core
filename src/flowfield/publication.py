@@ -79,14 +79,35 @@ def execution_issue(
                 (task.project_id,),
             ).fetchone()
             target_branch = row[0] if row else None
-    return execution_requirement(bool(has_description), task.completion, target_branch)
+    preview_configured = True
+    if task.completion == "code":
+        preview_configured = (
+            bool(facts.row["preview_configured"])
+            if facts
+            else bool(
+                db.execute(
+                    "SELECT 1 FROM inspection_settings WHERE project_id=? AND "
+                    "(length(trim(json_extract(data,'$.run_command')))>0 OR "
+                    "length(trim(json_extract(data,'$.no_preview_reason')))>0)",
+                    (task.project_id,),
+                ).fetchone()
+            )
+        )
+    return execution_requirement(
+        bool(has_description), task.completion, target_branch, preview_configured
+    )
 
 
 def execution_requirement(
-    has_description: bool, completion: str, target_branch: str | None
+    has_description: bool,
+    completion: str,
+    target_branch: str | None,
+    preview_configured: bool = True,
 ) -> str | None:
     if not has_description:
         return "Add a task description before execution."
     if completion == "code" and not target_branch:
         return "Configure the project's delivery target before execution."
+    if completion == "code" and not preview_configured:
+        return "Save a run command or specify why this project has no runnable preview."
     return None

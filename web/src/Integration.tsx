@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useResource } from "./useResource";
 import { request, label } from "./workspace";
 import { useInspectionSettings } from "./useInspectionSettings";
+import { SettingsCheckbox } from "./SettingsCheckbox";
 import type { components } from "./api-schema";
 import type { DiffViewState } from "./CodeDiff";
 const CodeDiff = lazy(() => import("./CodeDiff"));
@@ -204,21 +205,48 @@ export function IntegrationSettings({
             </ContentStack>
           </DetailSection>
           <ContentStack space="tight">
-            <Label className="field block">
-              Run command
-              <Textarea
-                aria-label="Run command"
-                aria-describedby={`${id}-run-help`}
-                rows={2}
-                value={inspection.command}
-                disabled={!inspection.loaded}
-                placeholder="For example: npm run dev"
-                onChange={(event) => inspection.change(event.target.value)}
-              />
-            </Label>
-            <p id={`${id}-run-help`} className="detail-metadata">
-              Used by Run result after setup; you run it in the prepared copy.
-            </p>
+            <SettingsCheckbox
+              checked={inspection.noPreview}
+              onChange={(event) =>
+                inspection.chooseNoPreview(event.target.checked)
+              }
+              disabled={!inspection.loaded || busy}
+            >
+              No runnable preview
+            </SettingsCheckbox>
+            {inspection.noPreview ? (
+              <Label className="field block">
+                Reason
+                <Textarea
+                  aria-label="No preview reason"
+                  rows={2}
+                  value={inspection.reason}
+                  placeholder="For example: a library verified through its tests"
+                  onChange={(event) =>
+                    inspection.changeReason(event.target.value)
+                  }
+                />
+              </Label>
+            ) : (
+              <>
+                <Label className="field block">
+                  Run command
+                  <Textarea
+                    aria-label="Run command"
+                    aria-describedby={`${id}-run-help`}
+                    rows={2}
+                    value={inspection.command}
+                    disabled={!inspection.loaded}
+                    placeholder="For example: npm run dev"
+                    onChange={(event) => inspection.change(event.target.value)}
+                  />
+                </Label>
+                <p id={`${id}-run-help`} className="detail-metadata">
+                  Configure before code work starts. Run result uses this
+                  command after setup.
+                </p>
+              </>
+            )}
             {inspection.stale && (
               <p>
                 Run settings changed. Your draft is preserved.{" "}
@@ -273,7 +301,10 @@ export function IntegrationSettings({
           <Button
             size="sm"
             disabled={
-              (!dirty && !inspection.dirty) || !target || !inspection.loaded
+              (!dirty && !inspection.dirty) ||
+              !target ||
+              !inspection.loaded ||
+              !inspection.valid
             }
           >
             Save integration settings

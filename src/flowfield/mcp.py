@@ -38,7 +38,6 @@ from flowfield.inspection_models import Inspection, InspectionConfig, Inspection
 from flowfield.labels import LabelCreate, LabelEdit, Labels
 from flowfield.project_config import Identifier
 from flowfield.questions import (
-    AnswerRetract,
     QuestionAnswer,
     QuestionApply,
     Questions,
@@ -414,14 +413,15 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def get_inspection_settings(project_id: Identifier) -> CallToolResult:
-        """Read the project run command. Setup comes from integration settings."""
+        """Read the project preview choice. Setup comes from integration settings."""
         return await invoke(lambda: Inspections(workspace()).settings(project_id).model_dump())
 
     @mcp.tool(annotations=write)
     async def configure_inspection(
         project_id: Identifier, settings: InspectionConfig
     ) -> CallToolResult:
-        """Save the agreed local run command. Does not execute it or invalidate code approval."""
+        """Save a run command or no_preview_reason before code work starts.
+        Does not execute commands or invalidate code approval."""
         return await invoke(
             lambda: Inspections(workspace()).configure(project_id, settings).model_dump()
         )
@@ -1190,8 +1190,8 @@ def create_mcp(
         workspace_id: Identifier, question_id: Identifier, response: QuestionAnswer
     ) -> CallToolResult:
         """Send the user's answer. Managed task input automatically continues eligible work;
-        queue pause/ownership/scope still gate it. Project/coordinator input needs application.
-        A pending answer may be edited; once assigned, use correct_answer for new input.
+        queue pause/ownership/scope still gate it. Historical Coordinator input needs application.
+        Sent answers are immutable; use correct_answer to record a correction.
         """
         return await mutate(
             lambda: (
@@ -1205,10 +1205,10 @@ def create_mcp(
     async def correct_answer(
         workspace_id: Identifier, question_id: Identifier, response: QuestionAnswer
     ) -> CallToolResult:
-        """Record a correction to consumed input without rewriting its evidence.
+        """Record a correction while retaining the original answer.
 
-        Creates an answered task question owned by the coordinator for reconciliation with
-        current work. Does not inject text into a running worker or silently revise its scope.
+        Before reservation, the new answer replaces pending Worker/Reviewer input atomically.
+        After reservation, it requires Coordinator reconciliation. Never injects into running work.
         """
         return await mutate(
             lambda: (
@@ -1249,22 +1249,6 @@ def create_mcp(
             lambda: (
                 Questions(workspace())
                 .withdraw(workspace_id, question_id, attributed(withdrawal))
-                .model_dump()
-            )
-        )
-
-    @mcp.tool(annotations=write)
-    async def retract_answer(
-        workspace_id: Identifier, question_id: Identifier, retraction: AnswerRetract
-    ) -> CallToolResult:
-        """Retract an unapplied answer and reopen the same question.
-
-        Preserve prior responses and blocking scope.
-        """
-        return await mutate(
-            lambda: (
-                Questions(workspace())
-                .retract_answer(workspace_id, question_id, attributed(retraction))
                 .model_dump()
             )
         )

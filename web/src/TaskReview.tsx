@@ -67,6 +67,13 @@ export function TaskReview({
   if (guidanceOnly && !review?.guidance && !resource.error) return null;
   if (review && ["decided", "stale"].includes(review.status)) return null;
   if (!review && !resource.error) return null;
+  if (
+    notice &&
+    !resource.error &&
+    review &&
+    !["failed", "stopped", "uncertain"].includes(review.status)
+  )
+    return null;
   const Frame = notice ? StatusNotice : DetailSection;
   return (
     <Frame
@@ -117,7 +124,6 @@ export function TaskReview({
               review={review}
               path={`workspaces/${projectId}/reviews/${review.id}`}
               saved={resource.setData}
-              stoppable={!!review.guidance}
             />
             {!guidanceOnly &&
               ["uncertain", "failed", "stopped"].includes(review.status) && (
@@ -252,15 +258,13 @@ function ReviewControls<R extends { revision: number; status: string }>({
   review,
   path,
   saved: onSaved,
-  stoppable = false,
 }: {
   review: R;
   path: string;
   saved: (value: R) => void;
-  stoppable?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
-  async function act(action: "retry" | "confirm-stopped" | "stop") {
+  async function act(action: "retry" | "confirm-stopped") {
     if (!review) return;
     setBusy(true);
     try {
@@ -276,22 +280,10 @@ function ReviewControls<R extends { revision: number; status: string }>({
   }
   return (
     <div className="actions">
-      {stoppable &&
-        ["queued", "preparing", "running", "waiting"].includes(
-          review.status,
-        ) && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busy}
-            onClick={() => void act("stop")}
-          >
-            Stop review
-          </Button>
-        )}
       {review.status === "uncertain" && (
         <ConfirmButton
           size="sm"
+          variant="outline"
           disabled={busy}
           binding={`${path}:${review.revision}`}
           title="Confirm all review processes stopped?"
@@ -302,7 +294,12 @@ function ReviewControls<R extends { revision: number; status: string }>({
         </ConfirmButton>
       )}
       {["failed", "stopped"].includes(review.status) && (
-        <Button size="sm" disabled={busy} onClick={() => void act("retry")}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => void act("retry")}
+        >
           Retry review
         </Button>
       )}

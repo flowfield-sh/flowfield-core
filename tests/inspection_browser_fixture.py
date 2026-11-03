@@ -58,7 +58,7 @@ if sys.argv[2] == "create":
         SettingsEdit(expected_revision=1, selection=AgentChoice(model="fake", effort="low")),
     )
     Inspections(workspace).configure(
-        project, InspectionConfig(expected_revision=1, run_command="python app.py")
+        project, InspectionConfig(expected_revision=2, run_command="python app.py")
     )
     workspace.create_task(
         project,

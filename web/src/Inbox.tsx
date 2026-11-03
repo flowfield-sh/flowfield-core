@@ -9,7 +9,12 @@ import { ScopedAnchor } from "./WorkspaceLink";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { authorLabel } from "./workspace";
-import { Disclosure, DetailSection, DetailHeading } from "./DetailLayout";
+import {
+  ContentStack,
+  Disclosure,
+  DetailSection,
+  DetailHeading,
+} from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
@@ -156,7 +161,6 @@ export function QuestionDetail({
   );
   const [incoming, setIncoming] = useState<Question | null>(null);
   const [draft, setDraft] = useRetainedState(`${path}:draft`, "");
-  const [editing, setEditing] = useRetainedState(`${path}:editing`, false);
   const [correcting, setCorrecting] = useRetainedState(
     `${path}:correcting`,
     false,
@@ -166,15 +170,20 @@ export function QuestionDetail({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
-  const dirty =
-    !!loaded &&
-    (loaded.status === "open" || correcting
-      ? !!draft
-      : editing && draft !== loaded.answer);
+  const dirty = !!loaded && (loaded.status === "open" || correcting) && !!draft;
   const dirtyRef = useRef(dirty);
   useEffect(() => {
     dirtyRef.current = dirty || busy || uploading;
   }, [dirty, busy, uploading]);
+  const input = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const focused = document.activeElement;
+    const initial =
+      focused === document.body ||
+      focused?.classList.contains("entity-pane-body");
+    if ((loaded?.status === "open" || correcting) && (initial || correcting))
+      input.current?.focus({ preventScroll: true });
+  }, [loaded?.status, correcting, identity]);
   const generation = useRef(0);
   useLayoutEffect(() => {
     retainDirty(`${path}:draft`, dirty);
@@ -189,7 +198,6 @@ export function QuestionDetail({
         setIncoming(q);
         if (!dirtyRef.current) {
           setLoaded((old) => (!old || q.revision >= old.revision ? q : old));
-          setEditing(false);
           setDraft("");
         }
         if (!dirtyRef.current) setError("");
@@ -203,7 +211,7 @@ export function QuestionDetail({
     return () => {
       generation.current += 1;
     };
-  }, [path, refresh, retry, setDraft, setEditing, setLoaded]);
+  }, [path, refresh, retry, setDraft, setLoaded]);
   async function answer() {
     if (
       !loaded ||
@@ -227,10 +235,8 @@ export function QuestionDetail({
       );
       generation.current += 1;
       setDraft("");
-      setEditing(false);
       if (correcting) {
         setCorrecting(false);
-        setCorrectionLink(questionHref(projectId, saved.id));
         try {
           const current = await request<Question>(path);
           setLoaded(current);
@@ -239,6 +245,7 @@ export function QuestionDetail({
           setError((error as Error).message);
           reportError(error, "Correction saved; could not refresh question");
         }
+        setCorrectionLink(questionHref(projectId, saved.id));
       } else {
         setLoaded(saved);
         setIncoming(saved);
@@ -249,24 +256,12 @@ export function QuestionDetail({
       setBusy(false);
     }
   }
-  async function stopContinuation() {
-    if (!loaded?.delivery?.run_id) return;
-    setBusy(true);
-    setError("");
-    try {
-      const runPath = `workspaces/${projectId}/runs/${loaded.delivery.run_id}`;
-      const run = await request<components["schemas"]["Run"]>(runPath);
-      await request(runPath + "/stop", "POST", {
-        expected_revision: run.revision,
-      });
-      setRetry((value) => value + 1);
-    } catch (e) {
-      reportError(e, "Could not stop continuation");
-    } finally {
-      setBusy(false);
-    }
-  }
   const newer = loaded && incoming && incoming.revision > loaded.revision;
+  const correctionHref =
+    correctionLink ??
+    (loaded?.correction_question_id
+      ? questionHref(projectId, loaded.correction_question_id)
+      : null);
   return (
     <section
       data-announcement-source={
@@ -300,6 +295,7 @@ export function QuestionDetail({
               <p>This question changed while you were answering.</p>
               <ConfirmButton
                 size="sm"
+                variant="outline"
                 disabled={busy || uploading}
                 requiresConfirmation={dirty}
                 binding={JSON.stringify([
@@ -313,7 +309,6 @@ export function QuestionDetail({
                 action={() => {
                   setLoaded(incoming);
                   setDraft("");
-                  setEditing(false);
                   setError("");
                 }}
               >
@@ -321,32 +316,48 @@ export function QuestionDetail({
               </ConfirmButton>
             </div>
           )}
-          {correctionLink && (
+          {correctionHref && (
             <p>
               Correction saved.{" "}
               <ScopedAnchor
-                href={correctionLink}
+                href={correctionHref}
                 onClick={(event) =>
-                  followLink(event, () => open(correctionLink))
+                  followLink(event, () => open(correctionHref))
                 }
               >
-                Open the new input
-              </ScopedAnchor>{" "}
-              and ask the coordinator to apply it.
+                View correction
+              </ScopedAnchor>
+              .
             </p>
           )}
           {loaded.delivery && loaded.status !== "open" && (
-            <p>{loaded.delivery.message}</p>
+            <ContentStack>
+              <p role="status">{loaded.delivery.state}</p>
+              {loaded.delivery.message && <p>{loaded.delivery.message}</p>}
+            </ContentStack>
+          )}
+          {loaded.previous_question_id && (
+            <ScopedAnchor
+              href={questionHref(projectId, loaded.previous_question_id)}
+              onClick={(event) =>
+                followLink(event, () =>
+                  open(questionHref(projectId, loaded.previous_question_id!)),
+                )
+              }
+            >
+              View earlier answer
+            </ScopedAnchor>
           )}
           {!loaded.delivery && loaded.status === "answered" && (
             <p>Answer saved. Ask the coordinator to apply it.</p>
           )}
-          {correcting && (
-            <p>
-              Ask the coordinator to apply this correction to ongoing work. The
-              earlier answer stays unchanged.
-            </p>
-          )}
+          {correcting &&
+            (loaded.continuation_run_id || loaded.consumed_answer_revision) && (
+              <p>
+                Work already has the earlier answer. The Coordinator will need
+                to reconcile this correction.
+              </p>
+            )}
           {loaded.affected_task_keys.length > 0 && (
             <DetailSection
               className="question-section"
@@ -371,10 +382,6 @@ export function QuestionDetail({
               </div>
             </DetailSection>
           )}
-          {loaded.blocking_scope &&
-            (loaded.status === "open" || loaded.status === "answered") && (
-              <p className="question-scope">Blocks: {loaded.blocking_scope}</p>
-            )}
           {loaded.answer && (
             <DetailSection
               className="question-section"
@@ -398,17 +405,11 @@ export function QuestionDetail({
             </DetailSection>
           )}
           <PaneFooter>
-            {(correcting ||
-              loaded.status === "open" ||
-              (loaded.status === "answered" &&
-                (editing || !loaded.delivery || loaded.delivery.can_edit)) ||
-              loaded.continuation_run_id ||
-              loaded.delivery?.can_stop) && (
+            {(correcting || loaded.status === "open" || loaded.can_correct) && (
               <div className="task-input content-stack">
-                {correcting ||
-                loaded.status === "open" ||
-                (loaded.status === "answered" && editing) ? (
+                {correcting || loaded.status === "open" ? (
                   <form
+                    aria-label="Question response"
                     className="answer-form content-stack"
                     data-space="content"
                     onSubmit={(e) => {
@@ -422,7 +423,9 @@ export function QuestionDetail({
                       disabled={busy || !!newer}
                     />
                     <Composer
+                      inputRef={input}
                       projectId={projectId}
+                      taskId={loaded.task_id ?? undefined}
                       draftKey={`${loaded.id}:${loaded.revision}`}
                       value={draft}
                       onChange={setDraft}
@@ -439,13 +442,7 @@ export function QuestionDetail({
                         aria-label={
                           correcting ? "Send correction" : "Send answer"
                         }
-                        disabled={
-                          busy ||
-                          uploading ||
-                          !!newer ||
-                          !draft.trim() ||
-                          (editing && !dirty)
-                        }
+                        disabled={busy || uploading || !!newer || !draft.trim()}
                       >
                         {busy
                           ? "Saving…"
@@ -453,7 +450,7 @@ export function QuestionDetail({
                             ? "Send correction"
                             : "Send answer"}
                       </Button>
-                      {editing && (
+                      {(correcting || dirty) && (
                         <ConfirmButton
                           size="sm"
                           variant="outline"
@@ -470,7 +467,6 @@ export function QuestionDetail({
                           title="Discard your unsaved answer?"
                           description="Your answer has not been saved."
                           action={() => {
-                            setEditing(false);
                             setCorrecting(false);
                             setDraft("");
                           }}
@@ -482,43 +478,16 @@ export function QuestionDetail({
                   </form>
                 ) : (
                   <>
-                    {loaded.status === "answered" &&
-                      (!loaded.delivery || loaded.delivery.can_edit) && (
-                        <div className="actions">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="quiet"
-                            onClick={() => {
-                              setDraft(loaded.answer ?? "");
-                              setEditing(true);
-                            }}
-                          >
-                            Edit answer
-                          </Button>
-                        </div>
-                      )}
-                    {loaded.continuation_run_id && (
+                    {loaded.can_correct && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          setEditing(true);
                           setCorrecting(true);
                           setDraft("");
                         }}
                       >
                         Send correction
-                      </Button>
-                    )}
-                    {loaded.delivery?.can_stop && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => void stopContinuation()}
-                      >
-                        Stop continuation
                       </Button>
                     )}
                   </>

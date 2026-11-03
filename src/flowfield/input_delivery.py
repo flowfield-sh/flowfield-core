@@ -10,8 +10,7 @@ from flowfield import worker_settings
 
 class InputDelivery(BaseModel):
     state: str
-    message: str
-    can_edit: bool = False
+    message: str = ""
     can_stop: bool = False
     run_id: str | None = None
 
@@ -58,19 +57,19 @@ def question_delivery(
             )
         review = json.loads(row_review[0])
         status = review["status"]
-        editable = (
-            status == "waiting"
-            and question["status"] in ("open", "answered")
-            and not question.get("consumed_answer_revision")
-        )
         label = (
-            "Withdrawn"
+            "Answer corrected"
+            if question.get("correction_question_id")
+            else "Withdrawn"
             if question["status"] == "withdrawn"
             else "Needs your answer"
             if question["status"] == "open"
-            else "Answer saved"
-            if status == "waiting"
-            else "Reviewing changes"
+            else "Queue paused"
+            if status in ("waiting", "queued")
+            and not worker_settings.read_workspace(db, workspace_id).enabled
+            else "Queued"
+            if status in ("waiting", "queued")
+            else "Reviewing"
             if status in ("queued", "preparing", "running")
             else "Review complete"
             if status == "decided"
@@ -78,14 +77,13 @@ def question_delivery(
         )
         return InputDelivery(
             state=label,
-            can_edit=editable,
-            message=review.get("problem")
-            or "Your answer resumes the scoped review when the queue and capacity allow it.",
+            message=review.get("problem") or "",
         )
 
     row = db.execute(
         "SELECT task_id,status,json_extract(data,'$.origin_run_id') AS origin, "
-        "json_extract(data,'$.continuation_run_id') AS continuation FROM questions "
+        "json_extract(data,'$.continuation_run_id') AS continuation, "
+        "json_extract(data,'$.correction_question_id') AS correction FROM questions "
         "WHERE workspace_id=? AND id=?",
         (workspace_id, identity),
     ).fetchone()
@@ -105,13 +103,12 @@ def question_delivery(
             ),
         ).fetchone()[0]
     )
-    editable = row["status"] in ("open", "answered") and not row["continuation"]
 
     def state(name: str, message: str, *, stop: bool = False) -> InputDelivery:
-        return InputDelivery(
-            state=name, message=message, can_edit=editable, can_stop=stop, run_id=run.id
-        )
+        return InputDelivery(state=name, message=message, can_stop=stop, run_id=run.id)
 
+    if row["correction"]:
+        return state("Answer corrected", "")
     if row["status"] == "withdrawn":
         return state("Withdrawn", "This input was withdrawn; it will not launch work.")
     if row["continuation"]:
@@ -120,8 +117,8 @@ def question_delivery(
                 "Work submitted",
                 "This contribution is ready for the task's combined review.",
             ),
-            "preparing": ("Resuming", "Preparing work with your saved answer."),
-            "running": ("Working", "The worker owns the continuation with your answer."),
+            "preparing": ("Starting work", ""),
+            "running": ("Working", ""),
             "in_review": (
                 "Work submitted",
                 "Continued work was submitted. Open the task for validation and result status.",
@@ -130,7 +127,7 @@ def question_delivery(
                 "New question",
                 "The worker needs further clarification; see the new question.",
             ),
-            "accepted": ("Result approved", "Open the task for the current delivery outcome."),
+            "accepted": ("Done", ""),
             "changes_requested": ("Changes requested", "Feedback continues on the same task."),
             "failed": (
                 "Continuation blocked",
@@ -189,11 +186,11 @@ def question_delivery(
             + " Ask the coordinator whether this answer still applies.",
         )
     if row["status"] == "open":
-        return state("Needs your answer", "Send an answer to continue this task.", stop=True)
+        return state("Needs your answer", "", stop=True)
     if run.status in ("running", "preparing"):
         return state(
             "Saving work",
-            "Your answer is saved. Waiting for the previous worker to stop and preserve its work.",
+            "Waiting for the previous worker to preserve its work.",
             stop=True,
         )
     if run.status != "waiting_for_input" or not run.input_checkpoint:
@@ -213,15 +210,15 @@ def question_delivery(
         (workspace_id, json.dumps(task["dependencies"])),
     ).fetchone():
         return state(
-            "Waiting for prerequisites",
-            "Your answer is saved. Complete the task's prerequisites first.",
+            "Waiting on prerequisites",
+            "",
             stop=True,
         )
     worker = worker_settings.read_workspace(db, workspace_id)
     if not worker.enabled:
         return state(
-            "Paused",
-            "Your answer is saved. Enable the queue when ready to continue.",
+            "Queue paused",
+            "",
             stop=True,
         )
     if worker.problem:
@@ -229,8 +226,8 @@ def question_delivery(
     occupied = worker_settings.occupancy(db, workspace=workspace_id)
     if occupied.active + occupied.uncertain >= worker.max_parallel:
         return state(
-            "Waiting for capacity",
-            "Your answer is saved; another attempt owns the available worker slot.",
+            "Queued",
+            "Waiting for capacity.",
             stop=True,
         )
-    return state("Resuming", "Your answer is saved and awaits an eligible worker slot.", stop=True)
+    return state("Queued", "", stop=True)

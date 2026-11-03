@@ -45,7 +45,7 @@ def test_combined_candidate_dirty_preview_and_current_destination_are_independen
     assert version.candidate_commit != run.result_commit
     inspections = Inspections(service.workspace)
     inspections.configure(
-        "harbor", InspectionConfig(expected_revision=1, run_command="touch preview-ran")
+        "harbor", InspectionConfig(expected_revision=2, run_command="touch preview-ran")
     )
     copy = prepare(inspections, version)
     checkout = Path(copy.workspace)
@@ -65,7 +65,7 @@ def test_combined_candidate_dirty_preview_and_current_destination_are_independen
     assert (checkout / "result.txt").read_text() == "human preview edit"
     approve(service, version)
     inspections.configure(
-        "harbor", InspectionConfig(expected_revision=2, run_command="echo updated")
+        "harbor", InspectionConfig(expected_revision=3, run_command="echo updated")
     )
     service.results.process("harbor")
     assert current(service).problem_code == "checkout_dirty"
@@ -158,11 +158,11 @@ def test_settings_revisions_stale_requests_and_failed_preparation_preserve_evide
     version = current(service)
     inspections = Inspections(service.workspace)
     saved = inspections.configure(
-        "harbor", InspectionConfig(expected_revision=1, run_command="echo first")
+        "harbor", InspectionConfig(expected_revision=2, run_command="echo first")
     )
     with pytest.raises(ApplicationError):
         inspections.configure(
-            "harbor", InspectionConfig(expected_revision=1, run_command="echo stale")
+            "harbor", InspectionConfig(expected_revision=2, run_command="echo stale")
         )
     with pytest.raises(ApplicationError):
         inspections.prepare(
@@ -296,7 +296,7 @@ def test_node_setup_and_run_artifacts_stay_in_inspection_copy(tmp_path):
     version = current(service)
     assert version.candidate_commit and version.status == "ready", version.problem
     inspections = Inspections(service.workspace)
-    inspections.configure("harbor", InspectionConfig(expected_revision=1, run_command="npm start"))
+    inspections.configure("harbor", InspectionConfig(expected_revision=2, run_command="npm start"))
     copy = prepare(inspections, version)
     checkout = Path(copy.workspace)
     assert not (checkout / "node_modules").exists() and not (checkout / "output.txt").exists()
@@ -352,7 +352,7 @@ def test_real_mcp_and_http_inspect_the_same_candidate_without_running_commands(t
                 "configure_inspection",
                 {
                     "project_id": "harbor",
-                    "settings": {"expected_revision": 1, "run_command": "touch not-automatic"},
+                    "settings": {"expected_revision": 2, "run_command": "touch not-automatic"},
                 },
             )
             assert not result.isError
@@ -444,7 +444,7 @@ def test_saved_launcher_quotes_paths_and_environment_and_preserves_setup_failure
     service.results.process("harbor")
     inspections = Inspections(service.workspace)
     inspections.configure(
-        "harbor", InspectionConfig(expected_revision=1, run_command="cat setup-output")
+        "harbor", InspectionConfig(expected_revision=2, run_command="cat setup-output")
     )
     copy = prepare(inspections, current(service))
     checkout, launcher = Path(copy.workspace), Path(copy.launcher)
@@ -470,7 +470,7 @@ def test_saved_launcher_quotes_paths_and_environment_and_preserves_setup_failure
         ),
     )
     inspections.configure(
-        "harbor", InspectionConfig(expected_revision=2, run_command="touch should-not-run")
+        "harbor", InspectionConfig(expected_revision=3, run_command="touch should-not-run")
     )
     failed = prepare(inspections, current(service))
     result = subprocess.run(["/bin/sh", "-c", failed.command], timeout=10)
@@ -489,7 +489,7 @@ def test_launcher_stops_with_its_terminal_process_group(tmp_path):
     inspections.configure(
         "harbor",
         InspectionConfig(
-            expected_revision=1,
+            expected_revision=2,
             run_command="trap 'exit 130' INT\n"
             "python -c 'import signal; "
             "signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT}); "

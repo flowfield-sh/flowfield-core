@@ -652,7 +652,7 @@ def test_coordinator_cannot_create_or_follow_up_inbox_questions(tmp_path):
         public = create_mcp(lambda: execution.workspace, origin="")
         names = {tool.name for tool in await public.list_tools()}
         grant = await workspace_scope(Supervisor(execution.workspace), "harbor")
-        for name in ("ask_question", "follow_up_question"):
+        for name in ("ask_question", "follow_up_question", "retract_answer"):
             assert name not in names
             assert name not in grant.tools
             denied = await grant.call(name, {})

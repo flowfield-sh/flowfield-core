@@ -23,6 +23,16 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
 }, testInfo) => {
   await stubResourcePresence(page);
   fixtureCliProject([existingDirectory(join(state, "run-ui"))]);
+  await page.route("**/api/projects/run-ui/inspection/settings", (route) =>
+    route.fulfill({
+      json: {
+        project_id: "run-ui",
+        revision: 1,
+        run_command: "echo preview",
+        no_preview_reason: "",
+      },
+    }),
+  );
   cli([
     "task",
     "create",
@@ -477,13 +487,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   await page
     .getByRole("textbox", { name: "Feedback for this result", exact: true })
     .fill("Include the source path in errors.");
-  await responseViews(
-    page,
-    test.info(),
-    "feedback",
-    "Send feedback",
-    "Cancel feedback",
-  );
+  await responseViews(page, test.info(), "feedback", "Send feedback", "Cancel");
   await page.getByRole("button", { name: "Send feedback" }).click();
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
@@ -585,7 +589,7 @@ test("validated result approval delivers real Git code with the worker queue pau
     testInfo,
     "approval-comment",
     "Approve and integrate",
-    "Cancel approval",
+    "Cancel",
   );
   const approvalResponse = page.waitForResponse(
     (response) =>
@@ -823,7 +827,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   });
   await expect(checkLink).toBeVisible();
   await expect(page.locator(".task-notices")).toContainText(
-    "Delivery succeeded",
+    "Prerequisite code needs checking",
   );
   await page.screenshot({
     path: testInfo.outputPath("dependent-validation-needed.png"),
@@ -967,7 +971,7 @@ test("adoption preserves repository guidance and standalone installation stays e
   ).toEqual(before);
 });
 
-test("managed answers show durable pause, safe edits and immutable correction input", async ({
+test("managed answers stay read-only and corrections preserve each stage", async ({
   page,
   request,
 }) => {
@@ -988,121 +992,96 @@ test("managed answers show durable pause, safe edits and immutable correction in
       ),
     );
   fixture("create");
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "input-browser")}/requests/question/which-records`,
-  );
-  const inputArea = page.getByRole("form", { name: "Task input", exact: true });
-  await expect(
-    page.getByRole("region", { name: "Request", exact: true }),
-  ).toContainText("Which records?");
-  await expect(
-    page.getByRole("button", { name: "Stop task", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Reply", exact: true }),
-  ).toHaveCount(0);
-  await page.getByLabel("Your answer", { exact: true }).fill("All records");
+  const workspace = await projectWorkspace(request, "input-browser");
+  await page.goto(`/workspaces/${workspace}/requests/question/which-records`);
+  const detail = page.getByRole("region", { name: "Request", exact: true });
+  await detail.getByLabel("Your answer", { exact: true }).fill("All records");
   await responseViews(
     page,
     test.info(),
     "worker-answer",
     "Send answer",
-    "Discard answer",
+    "Cancel",
   );
-  await page.getByRole("button", { name: "Send answer", exact: true }).click();
-  await expect(
-    page.getByRole("region", { name: "Request", exact: true }),
-  ).toContainText("All records");
-  await expect(
-    page.getByRole("textbox", { name: "Your answer", exact: true }),
-  ).toHaveCount(0);
-  // The question loads after eligibility. An early click must wait for its answer.
-  await page.route("**/questions/which-records", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    await route.continue();
-  });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, "input-browser")}/requests/question/which-records`,
-  );
-  const detail = page.getByRole("region", {
-    name: "Request",
-    exact: true,
-  });
-  await expect(inputArea).toContainText(
-    "Enable the queue when ready to continue.",
-  );
-  await expect(
-    detail.getByRole("button", { name: "Retract", exact: true }),
-  ).toHaveCount(0);
-  await detail
-    .getByRole("button", { name: "Edit answer", exact: true })
-    .click();
-  const editedAnswer = detail.getByLabel("Your answer", { exact: true });
-  await expect(editedAnswer).toBeFocused();
-  await editedAnswer.fill("");
-  await expect(editedAnswer).toBeVisible();
-  await expect(
-    detail.getByRole("button", { name: "Send answer", exact: true }),
-  ).toBeDisabled();
-  await detail
-    .getByRole("button", { name: "Cancel edit", exact: true })
-    .click();
-  await expect(editedAnswer).toHaveCount(0);
-  await detail
-    .getByRole("button", { name: "Edit answer", exact: true })
-    .click();
-  await expect(editedAnswer).toHaveValue("All records");
-  await editedAnswer.fill("");
-  await editedAnswer.fill("Only favourites");
   await detail
     .getByRole("button", { name: "Send answer", exact: true })
     .click();
-  await expect(detail).toContainText("Only favourites");
-  await page.reload();
   await expect(
-    detail.getByText("Only favourites", { exact: true }),
+    detail
+      .locator(".question-section")
+      .filter({
+        has: page.getByRole("heading", { name: "Your answer", exact: true }),
+      })
+      .getByText("All records", { exact: true }),
   ).toBeVisible();
-  await expect(inputArea).toContainText(
-    "Enable the queue when ready to continue.",
-  );
-  const counts = await request.get(
-    `/api/workspaces/${await projectWorkspace(page.request, "input-browser")}/view/attention?column=action`,
-  );
-  expect((await counts.json()).total).toBe(0);
-  fixture("consume");
-  await page.reload();
-  await expect(
-    detail.getByRole("button", { name: "Stop task", exact: true }),
-  ).toHaveCount(0);
   await expect(
     detail.getByRole("button", { name: "Edit answer", exact: true }),
   ).toHaveCount(0);
-  // A running worker closes input. External correction is immutable evidence,
-  // and must appear in the same task feed rather than a second question editor.
-  await expect(detail.getByRole("textbox")).toHaveCount(0);
-  const original = await (
-    await request.get(
-      `/api/workspaces/${await projectWorkspace(page.request, "input-browser")}/questions/which-records`,
-    )
-  ).json();
-  const corrected = await request.post(
-    `/api/workspaces/${await projectWorkspace(page.request, "input-browser")}/questions/which-records/correction`,
-    {
-      data: {
-        expected_revision: original.revision,
-        answer: "I changed my mind: all records.",
-      },
-    },
+  await expect(detail).toContainText("Queue paused");
+  await detail
+    .getByRole("button", { name: "Send correction", exact: true })
+    .click();
+  await expect(
+    detail.getByRole("button", { name: "Send correction", exact: true }),
+  ).toBeDisabled();
+  await detail.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(detail.getByLabel("Your answer", { exact: true })).toHaveCount(
+    0,
   );
-  expect(corrected.ok()).toBe(true);
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "input-browser")}/tasks/T-1`,
+  await detail
+    .getByRole("button", { name: "Send correction", exact: true })
+    .click();
+  await detail
+    .getByLabel("Your answer", { exact: true })
+    .fill("Only favourites");
+  await detail
+    .getByRole("button", { name: "Send correction", exact: true })
+    .click();
+  await expect(
+    detail
+      .locator(".question-section")
+      .filter({
+        has: page.getByRole("heading", { name: "Your answer", exact: true }),
+      })
+      .getByText("All records", { exact: true }),
+  ).toBeVisible();
+  await detail
+    .getByRole("link", { name: "View correction", exact: true })
+    .click();
+  await expect(
+    detail.getByText("Only favourites", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    detail.getByRole("link", { name: "View earlier answer", exact: true }),
+  ).toBeVisible();
+  const correctedId = page.url().split("/").at(-1)!;
+  const continuation = fixture("consume");
+  expect(continuation.input_question_id).toBe(correctedId);
+  await page.reload();
+  await expect(detail).toContainText("Starting work");
+  await detail
+    .getByRole("button", { name: "Send correction", exact: true })
+    .click();
+  await expect(detail).toContainText("Work already has the earlier answer");
+  await detail
+    .getByLabel("Your answer", { exact: true })
+    .fill("Use the current page instead");
+  await detail
+    .getByRole("button", { name: "Send correction", exact: true })
+    .click();
+  await expect(
+    detail.getByText("Only favourites", { exact: true }),
+  ).toBeVisible();
+  await detail
+    .getByRole("link", { name: "View correction", exact: true })
+    .click();
+  await expect(
+    detail.getByText("Use the current page instead", { exact: true }),
+  ).toBeVisible();
+  const old = await request.get(
+    `/api/workspaces/${workspace}/questions/which-records`,
   );
-  await expect(page.locator('[data-kind="answer"]')).toContainText([
-    "All records",
-    "Only favourites",
-    "I changed my mind: all records.",
-  ]);
+  expect((await old.json()).answer).toBe("All records");
 });
 
 test("inspection preserves exact versions, preview edits and direct approval", async ({
@@ -1237,9 +1216,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     (await (await request.get(`${path}/results/${first!.id}`)).json())
       .approved_at,
   ).toBeNull();
-  await page
-    .getByRole("button", { name: "Cancel approval", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Result", exact: true }),
   ).toBeVisible();
@@ -1252,9 +1229,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await feedback.fill("A bound result change request");
   await feedback.fill("");
   await expect(feedback).toBeVisible();
-  await page
-    .getByRole("button", { name: "Cancel feedback", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Result", exact: true }),
   ).toBeVisible();
@@ -1595,11 +1570,10 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     actions.getByRole("button", { name: "Request correction" }),
   ).toBeVisible();
   await expect(recovery).toBeVisible();
-  // The result opens its preview automatically. Let that repository operation
-  // finish before this journey requests a correction against the same checkout.
+  // No runnable preview is configured for this library fixture.
   await expect(
     page.getByRole("region", { name: "Run command", exact: true }),
-  ).toContainText("Set the project run command");
+  ).toContainText("without a runnable application");
   await expect(
     actions.getByRole("button", { name: "Archive", exact: true }),
   ).toHaveCount(0);

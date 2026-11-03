@@ -145,10 +145,11 @@ def test_answer_delivery_observes_sibling_capacity_and_shared_pause(tmp_path):
     execution.finish(identity, run.id, "waiting_for_input", input_checkpoint=BASE)
     sibling = execution.claim(identity, BASE, {}, task_id="site")
     assert sibling is not None
-    assert questions.get(identity, question.id).delivery.state == "Waiting for capacity"
+    assert questions.get(identity, question.id).delivery.state == "Queued"
+    assert questions.get(identity, question.id).delivery.message == "Waiting for capacity."
     saved = spaces.workers(identity)
     spaces.queue(identity, QueueEdit(expected_revision=saved.revision, enabled=False))
-    assert questions.get(identity, question.id).delivery.state == "Paused"
+    assert questions.get(identity, question.id).delivery.state == "Queue paused"
     assert execution.claim(identity, BASE, {}, task_id="core") is None
 
 

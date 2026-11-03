@@ -53,7 +53,7 @@ async def check_mcp(base: str, task: dict, workspace_id: str) -> None:
 
         assert initialized.instructions == template("mcp-instructions.md").strip()
         tools = {tool.name for tool in (await session.list_tools()).tools}
-        assert {"ask_question", "follow_up_question"}.isdisjoint(tools)
+        assert {"ask_question", "follow_up_question", "retract_answer"}.isdisjoint(tools)
         assert {
             "get_task",
             "get_workspace_workers",
@@ -207,7 +207,7 @@ def main() -> None:
             return subprocess.check_output([executable, *args], cwd=cwd, env=env, text=True).strip()
 
         command("--help")
-        for retired in ("ask", "follow-up"):
+        for retired in ("ask", "follow-up", "retract-answer"):
             rejected = subprocess.run(
                 [executable, "inbox", retired], cwd=cwd, env=env, capture_output=True
             )

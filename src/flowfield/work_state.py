@@ -22,7 +22,7 @@ class WorkState(BaseModel):
     label: str
     tone: Literal["active", "attention", "waiting", "complete", "idle"] = "idle"
     href: str | None = None
-    reason: Literal["prerequisites", "scheduling"] | None = None
+    reason: Literal["prerequisites", "scheduling", "preview_setup"] | None = None
 
 
 def action_label(label: str, *, queue_enabled: bool) -> str:
@@ -244,9 +244,21 @@ def task_state(
         from flowfield.publication import execution_requirement
 
         if execution_requirement(
-            bool(task["has_description"]), task["completion"], task["target_branch"]
+            bool(task["has_description"]),
+            task["completion"],
+            task["target_branch"],
+            bool(task["preview_configured"]),
         ):
-            return WorkState(label="Needs setup", tone="attention", href=href)
+            return WorkState(
+                label="Needs setup",
+                tone="attention",
+                href=href,
+                reason="preview_setup"
+                if task["has_description"]
+                and task["target_branch"]
+                and not task["preview_configured"]
+                else None,
+            )
         return WorkState(
             label="Queued" if facts.queue_enabled else "Queue paused", tone="waiting", href=href
         )

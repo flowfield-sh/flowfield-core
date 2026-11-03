@@ -774,7 +774,7 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
     detail.getByText("Cap it at 10,000.", { exact: true }),
   ).toBeVisible();
   await detail
-    .getByRole("button", { name: "Edit answer", exact: true })
+    .getByRole("button", { name: "Send correction", exact: true })
     .click();
   await detail
     .getByLabel("Your answer", { exact: true })
@@ -853,7 +853,7 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   ).toBeVisible();
 });
 
-test("retracting answers reopens questions and preserves earlier responses", async ({
+test("correcting answers preserves the original and links the replacement", async ({
   page,
   request,
 }) => {
@@ -893,49 +893,32 @@ test("retracting answers reopens questions and preserves earlier responses", asy
   await expect(
     detail.getByRole("button", { name: "Retract", exact: true }),
   ).toHaveCount(0);
-  expect(
-    (
-      await request.post(
-        `/api/workspaces/${await projectWorkspace(request, project_id)}/questions/scope/retract-answer`,
-        { data: { expected_revision: 2 } },
-      )
-    ).ok(),
-  ).toBe(true);
+  await detail
+    .getByRole("button", { name: "Send correction", exact: true })
+    .click();
+  await detail.getByLabel("Your answer", { exact: true }).fill("All rows");
+  await detail
+    .getByRole("button", { name: "Send correction", exact: true })
+    .click();
+  await expect(detail.getByText("Visible page", { exact: true })).toBeVisible();
+  const correction = detail.getByRole("link", {
+    name: "View correction",
+    exact: true,
+  });
+  await expect(correction).toBeVisible();
+  await page.reload();
+  await correction.click();
   await expect(
-    detail.getByRole("button", { name: "Send answer", exact: true }),
+    detail
+      .locator(".question-section")
+      .filter({
+        has: page.getByRole("heading", { name: "Your answer", exact: true }),
+      })
+      .getByText("All rows", { exact: true }),
   ).toBeVisible();
   await expect(
-    page
-      .getByRole("tabpanel", {
-        name: "Needs me",
-        exact: true,
-        includeHidden: true,
-      })
-      .locator(".inbox-history-row"),
+    detail.getByRole("button", { name: "Edit answer", exact: true }),
   ).toHaveCount(0);
-  await detail.getByText("Earlier responses", { exact: true }).click();
-  await expect(detail).toContainText("Visible page");
-  const question = await call("get_question", {
-    workspace_id: await projectWorkspace(request, project_id),
-    question_id: "scope",
-  });
-  expect(question.answer).toBeNull();
-  expect(question.revision).toBe(3);
-  expect(
-    (
-      await call("get_task", {
-        workspace_id: await projectWorkspace(request, project_id),
-        task_id: "T-1",
-      })
-    ).blocking_question_count,
-  ).toBe(1);
-  await expect(
-    detail.getByRole("button", { name: "Back", exact: true }),
-  ).toHaveCount(0);
-  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-  await expect(page).toHaveURL(
-    `/workspaces/${await projectWorkspace(request, project_id)}/inbox`,
-  );
 });
 
 test("project questions link affected tasks and reconcile through CLI and MCP", async ({
@@ -1015,31 +998,6 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
   expect(briefing.recommendation.action).toBe("apply_answer");
   expect(briefing.recommendation.id).toBe(q.id);
   expect(briefing.attention.answered.items[0].id).toBe(q.id);
-  const pending = await resumed("get_question", {
-    workspace_id: await projectWorkspace(request, project_id),
-    question_id: q.id,
-  });
-  expect(
-    (
-      await request.post(
-        `/api/workspaces/${await projectWorkspace(request, project_id)}/questions/${q.id}/retract-answer`,
-        { data: { expected_revision: pending.revision } },
-      )
-    ).ok(),
-  ).toBe(true);
-  await expect(
-    detail.getByRole("button", { name: "Send answer", exact: true }),
-  ).toBeVisible();
-  await detail
-    .getByLabel("Your answer", { exact: true })
-    .fill("UTF-8, without a byte-order mark.");
-  await detail
-    .getByRole("button", { name: "Send answer", exact: true })
-    .click();
-  await expect(detail).toContainText(
-    "Answer saved. Ask the coordinator to apply it.",
-  );
-
   const result = cli([
     "inbox",
     "apply",
@@ -1923,9 +1881,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await expect(page.getByLabel("Feedback for this result")).toHaveValue(
     "Include the source path in validation errors.",
   );
-  await page
-    .getByRole("button", { name: "Cancel feedback", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page
     .getByRole("button", { name: "Request changes", exact: true })
     .click();

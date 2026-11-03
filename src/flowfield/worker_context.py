@@ -33,6 +33,17 @@ def continue_input(sections: dict[str, str], current: dict[str, str | int | None
 
 
 def enrich(db: sqlite3.Connection, run: Run, sections: dict[str, str]) -> None:
+    if run.project_id and run.completion == "code":
+        row = db.execute(
+            "SELECT data FROM inspection_settings WHERE project_id=?", (run.project_id,)
+        ).fetchone()
+        preview = json.loads(row[0]) if row else {}
+        sections["preview"] = json.dumps(
+            {
+                "run_command": preview.get("run_command", ""),
+                "no_preview_reason": preview.get("no_preview_reason", ""),
+            }
+        )
     # Freeze result-bound observations at claim. Later tests cannot be attributed to
     # an earlier assignment; successor code never inherits a claim that it was tested.
     observations = db.execute(

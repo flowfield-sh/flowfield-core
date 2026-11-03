@@ -7,7 +7,6 @@ from fastapi import APIRouter
 
 from flowfield.application import Workspace
 from flowfield.questions import (
-    AnswerRetract,
     Question,
     QuestionAnswer,
     QuestionApply,
@@ -52,10 +51,6 @@ def question_router(workspace: Callable[[], Workspace]) -> APIRouter:
     @router.post("/{identity}/correction")
     def correct(workspace_id: str, identity: str, request: QuestionAnswer) -> Question:
         return Questions(workspace()).correct(workspace_id, identity, request)
-
-    @router.post("/{identity}/retract-answer")
-    def retract_answer(workspace_id: str, identity: str, request: AnswerRetract) -> Question:
-        return Questions(workspace()).retract_answer(workspace_id, identity, request)
 
     @router.post("/{identity}/withdraw")
     def withdraw(workspace_id: str, identity: str, request: QuestionWithdraw) -> Question:

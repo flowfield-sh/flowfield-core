@@ -10,7 +10,9 @@ Before running tasks, configure each project's **Project settings → Integratio
 | Destination branch | Local branch where approved code is delivered. | `main` |
 | Setup commands | Install dependencies in fresh worktrees. | `pnpm install --frozen-lockfile` |
 | Validation commands | Check the proposed code before approval. | `pnpm test` |
-| Run command | Optional launcher for **Run result**. | `pnpm dev` |
+| Run command | Launcher for **Run result**, configured before code work starts. | `pnpm dev` |
+
+For libraries or other projects without an interactive or command-line preview, select **No runnable preview** and record why. Code work waits until this choice is saved; report-only work does not require it. Existing saved run commands continue to work.
 
 Saving a new destination branch name creates it from the repository’s current commit.
 
@@ -55,7 +57,7 @@ For concurrent tasks, configure separate ports, databases and other mutable reso
 
 ## Try a result
 
-Opening an exact code result prepares an independent copy of that candidate. Its **Run result** section shows a complete, copyable launcher. Run it in your terminal, or ask the Coordinator to run it, to execute setup followed by the saved Run command.
+When a run command is configured, opening an exact code result prepares an independent copy of that candidate. Its **Run result** section shows a complete, copyable launcher. Run it in your terminal, or ask the Coordinator to run it, to execute setup followed by the saved Run command.
 
 Use a repository-owned launcher that starts all required components with isolated ports and sample data, then prints the URL and stop instructions. Verify the app during implementation and the exact **Run result** launcher during candidate review.
 

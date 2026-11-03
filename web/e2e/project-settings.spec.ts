@@ -216,6 +216,9 @@ test("integration settings create an explicit local target without changing the 
     .getByLabel("Validation commands", { exact: true })
     .fill("python -m unittest -v");
   await settings
+    .getByRole("checkbox", { name: "No runnable preview" })
+    .uncheck();
+  await settings
     .getByLabel("Run command", { exact: true })
     .fill("python app.py");
   let runSaves = 0;
@@ -356,6 +359,37 @@ test("integration settings create an explicit local target without changing the 
   await expect(
     settings.getByLabel("Validation commands", { exact: true }),
   ).toHaveValue("python -m unittest -v");
+  await settings.getByRole("checkbox", { name: "No runnable preview" }).check();
+  await settings.getByLabel("No preview reason").fill("");
+  await expect(
+    settings.getByRole("button", {
+      name: "Save integration settings",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await settings
+    .getByLabel("No preview reason")
+    .fill("Library verified through automated tests.");
+  await settings
+    .getByRole("button", { name: "Save integration settings", exact: true })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await request.get(`/api/projects/${project}/inspection/settings`)
+          ).json()
+        ).no_preview_reason,
+    )
+    .toBe("Library verified through automated tests.");
+  await page.reload();
+  await expect(
+    settings.getByRole("checkbox", { name: "No runnable preview" }),
+  ).toBeChecked();
+  await expect(settings.getByLabel("No preview reason")).toHaveValue(
+    "Library verified through automated tests.",
+  );
   expect((await request.get(`/api/workspaces/${workspace}/workers`)).ok()).toBe(
     true,
   );

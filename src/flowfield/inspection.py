@@ -53,6 +53,7 @@ class Inspections:
                 project_id=project_id,
                 revision=current.revision + 1,
                 run_command=request.run_command.strip(),
+                no_preview_reason=request.no_preview_reason.strip(),
             )
             db.execute(
                 "INSERT INTO inspection_settings VALUES (?,?) ON CONFLICT(project_id) "

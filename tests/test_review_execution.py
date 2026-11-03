@@ -97,7 +97,7 @@ def test_stale_question_is_retained_and_cannot_resume_old_review(tmp_path, monke
     assert reviews.get("harbor", review.id).status == "stale"
     saved = questions.get("harbor", question.id)
     assert saved.status == "withdrawn" and saved.answer == "Retain this evidence."
-    assert not saved.delivery.can_edit and not saved.consumed_answer_revision
+    assert not saved.can_correct and not saved.consumed_answer_revision
 
 
 def test_review_scope_rejects_delivery_and_foreign_identifiers(tmp_path):
@@ -269,7 +269,7 @@ def test_human_answer_is_canonical_and_consumed_once(tmp_path, monkeypatch, deci
     assert review.status == "waiting"
     questions = Questions(service.workspace)
     question = questions.get("harbor", review.question_id)
-    assert question.origin_review_id == review.id and question.delivery.can_edit
+    assert question.origin_review_id == review.id and question.status == "open"
     answer = QuestionAnswer(
         expected_revision=question.revision, answer="Use the existing requirement."
     )
@@ -552,3 +552,28 @@ def test_project_report_review_gets_frozen_source_and_rejects_edits(tmp_path, mo
         assert review.status == "decided" and review.verdict.action == "approve"
         assert current(service).completion == "report"
         assert current(service).integration_id is None
+
+
+def test_review_uses_corrected_unreserved_answer_and_keeps_original(tmp_path, monkeypatch):
+    service, _, run, _, reviews = configured(tmp_path)
+    install(monkeypatch, "ask_human")
+    asyncio.run(round_trip(service))
+    review = reviews.latest("harbor", run.task_id)
+    questions = Questions(service.workspace)
+    original = questions.get("harbor", review.question_id)
+    saved = questions.answer(
+        "harbor",
+        original.id,
+        QuestionAnswer(expected_revision=original.revision, answer="Initial choice"),
+    )
+    corrected = questions.correct(
+        "harbor",
+        original.id,
+        QuestionAnswer(expected_revision=saved.revision, answer="Corrected choice"),
+    )
+    assert reviews.latest("harbor", run.task_id).question_id == corrected.id
+    assert questions.get("harbor", original.id).answer == "Initial choice"
+    Reviewer.decision = "approve"
+    asyncio.run(round_trip(service))
+    assert questions.get("harbor", corrected.id).consumed_answer_revision
+    assert not questions.get("harbor", original.id).consumed_answer_revision

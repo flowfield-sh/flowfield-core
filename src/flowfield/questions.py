@@ -52,12 +52,6 @@ class QuestionAnswer(BaseModel):
     author: Title = "human"
 
 
-class AnswerRetract(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    expected_revision: int = Field(ge=1)
-    author: Title = "human"
-
-
 class QuestionTaskUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     task_id: TaskKey
@@ -98,6 +92,8 @@ class Question(QuestionCreate):
     continuation_run_id: str | None = None
     consumed_answer_revision: int | None = None
     correction_question_id: str | None = None
+    previous_question_id: str | None = None
+    can_correct: bool = False
     delivery: InputDelivery | None = None
     decision: str | None = None
     applied_task_revision: int | None = None
@@ -195,7 +191,24 @@ class Questions:
             result = self._get(db, workspace_id, identity, revision)
             if revision is None:
                 result.delivery = question_delivery(db, workspace_id, identity)
+                self._correction_eligibility(db, result)
             return result
+
+    @staticmethod
+    def _correction_eligibility(db: sqlite3.Connection, question: Question) -> None:
+        targets = [question.task_id] if question.task_id else question.affected_task_ids
+        inactive = db.execute(
+            "SELECT 1 FROM tasks WHERE workspace_id=? AND id IN (SELECT value FROM json_each(?)) "
+            "AND (json_extract(data,'$.archived')=1 OR "
+            "json_extract(data,'$.status')='done') LIMIT 1",
+            (question.workspace_id, json.dumps(targets)),
+        ).fetchone()
+        question.can_correct = bool(
+            question.answer
+            and question.status != "withdrawn"
+            and not question.correction_question_id
+            and not inactive
+        )
 
     def counts(self, db: sqlite3.Connection, workspace_id: str) -> dict[str, int]:
         from flowfield.attention import attention_counts
@@ -313,7 +326,7 @@ class Questions:
             )
 
     def _save(self, db: sqlite3.Connection, question: Question, event: str) -> Question:
-        data = question.model_dump_json(exclude={"delivery"})
+        data = question.model_dump_json(exclude={"delivery", "can_correct"})
         db.execute(
             "UPDATE questions SET status=?, data=? WHERE workspace_id=? AND id=?",
             (question.status, data, question.workspace_id, question.id),
@@ -335,6 +348,7 @@ class Questions:
                 question.updated_at,
                 question_id=question.id,
             )
+        self._correction_eligibility(db, question)
         return question
 
     def _change(
@@ -415,17 +429,13 @@ class Questions:
     ) -> Question:
         current = self._get(db, workspace_id, identity)
         # A replay of the exact preceding write is a receipt, not another continuation.
-        if (
-            (current.origin_run_id or current.origin_review_id)
-            and current.answer == request.answer
-            and request.expected_revision
-            in (
-                current.revision,
-                current.revision - 1,
-                (current.consumed_answer_revision or 0) - 1,
-            )
+        if current.answer == request.answer and request.expected_revision in (
+            current.revision,
+            current.revision - 1,
+            (current.consumed_answer_revision or 0) - 1,
         ):
             current.delivery = question_delivery(db, workspace_id, identity)
+            self._correction_eligibility(db, current)
             return current
         if current.continuation_run_id or current.consumed_answer_revision:
             raise ApplicationError(
@@ -439,6 +449,15 @@ class Questions:
         self.workspace._current(current.revision, request.expected_revision)
         if current.status == "answered" and current.answer == request.answer:
             return current
+        if current.answer is not None:
+            raise ApplicationError(
+                "answer_recorded", "This answer is recorded. Send a correction instead.", 409
+            )
+        from flowfield.attachments import Attachments
+
+        Attachments(self.workspace).references(
+            db, workspace_id, current.task_id, request.answer, bind=True
+        )
         question = self._change(
             current,
             request.expected_revision,
@@ -458,33 +477,51 @@ class Questions:
         return question
 
     def correct(self, workspace_id: str, identity: str, request: QuestionAnswer) -> Question:
-        """A consumed answer is immutable; contradictory new input needs reconciliation."""
+        """Retain every sent answer; replace only unreserved input with a new record."""
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
             original = self._get(db, workspace_id, identity)
             if original.correction_question_id:
                 correction = self._get(db, workspace_id, original.correction_question_id)
                 if correction.answer == request.answer:
+                    correction.delivery = question_delivery(db, workspace_id, correction.id)
+                    self._correction_eligibility(db, correction)
                     return correction
             self.workspace._current(original.revision, request.expected_revision)
-            if not original.continuation_run_id:
+            if (
+                not original.answer
+                or original.status == "withdrawn"
+                or original.correction_question_id
+            ):
                 raise ApplicationError(
-                    "answer_pending", "Edit the pending answer before assignment.", 409
+                    "question_closed", "Correct the latest recorded answer.", 409
                 )
+            reserved = bool(original.continuation_run_id or original.consumed_answer_revision)
+            from flowfield.attachments import Attachments
+
+            Attachments(self.workspace).references(
+                db, workspace_id, original.task_id, request.answer, bind=True
+            )
             correction = self._ask(
                 db,
                 workspace_id,
                 QuestionCreate(
                     task_id=original.task_id,
-                    question="Reconcile a correction to an earlier answer",
-                    context=(
-                        f"Correction to question {original.id}: {original.question[:500]}\n\n"
-                        f"Read preserved answer revision {original.consumed_answer_revision} "
-                        "before reconciling this new input."
-                    ),
-                    recommendation="Reconcile this input before continuing or approving work.",
-                    blocking_scope="A correction needs coordinator reconciliation.",
+                    affected_task_ids=original.affected_task_ids,
+                    question="Reconcile a correction to an earlier answer"
+                    if reserved
+                    else original.question,
+                    context=original.context,
+                    recommendation="Reconcile this input before continuing or approving work."
+                    if reserved
+                    else original.recommendation,
+                    choices=original.choices if not reserved else [],
+                    blocking_scope="A correction needs coordinator reconciliation."
+                    if reserved
+                    else original.blocking_scope,
                     author=request.author,
                 ),
+                origin_run_id=None if reserved else original.origin_run_id,
+                origin_review_id=None if reserved else original.origin_review_id,
             )
             correction = self._change(
                 correction,
@@ -493,29 +530,47 @@ class Questions:
                 status="answered",
                 answer=request.answer,
                 answer_count=1,
+                previous_question_id=original.id,
             )
-            self._save(db, correction, "Correction received; coordinator reconciliation needed.")
+            self._save(
+                db,
+                correction,
+                "Correction received; coordinator reconciliation needed."
+                if reserved
+                else "Corrected answer sent.",
+            )
+            if not reserved and original.origin_run_id:
+                from flowfield.execution import Execution
+
+                execution = Execution(self.workspace)
+                run = execution._run(db, workspace_id, original.origin_run_id)
+                if run.question_id != original.id:
+                    raise ApplicationError(
+                        "question_changed", "This worker has moved to another question.", 409
+                    )
+                run.question_id = correction.id
+                execution._save(db, run)
+            if not reserved and original.origin_review_id:
+                from flowfield.task_reviews import TaskReviews
+
+                reviews = TaskReviews(self.workspace)
+                review = reviews._get(db, workspace_id, original.origin_review_id)
+                if review.status != "waiting" or review.question_id != original.id:
+                    raise ApplicationError(
+                        "question_changed", "This review has already continued.", 409
+                    )
+                review.question_id = correction.id
+                reviews._save(db, review)
             original = self._change(
-                original, original.revision, request.author, correction_question_id=correction.id
+                original,
+                original.revision,
+                request.author,
+                correction_question_id=correction.id,
+                **({"status": "withdrawn"} if not reserved else {}),
             )
             self._save(db, original, "Correction recorded as new input; original answer retained.")
+            correction.delivery = question_delivery(db, workspace_id, correction.id)
             return correction
-
-    def retract_answer(self, workspace_id: str, identity: str, request: AnswerRetract) -> Question:
-        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
-            current = self._get(db, workspace_id, identity)
-            if current.origin_run_id or current.origin_review_id:
-                raise ApplicationError(
-                    "managed_answer", "Edit pending input instead of retracting it.", 409
-                )
-            if current.status != "answered":
-                raise ApplicationError(
-                    "question_state", "Only an unapplied saved answer can be retracted.", 409
-                )
-            question = self._change(
-                current, request.expected_revision, request.author, status="open", answer=None
-            )
-            return self._save(db, question, "Answer retracted; question reopened.")
 
     def apply(self, workspace_id: str, identity: str, request: QuestionApply) -> Question:
         from flowfield.application import TaskEdit, TaskRevision

@@ -58,7 +58,7 @@ def test_local_workers_validate_and_inspect_with_host_tools(tmp_path, monkeypatc
         inspections = Inspections(service.workspace)
         inspections.configure(
             "harbor",
-            InspectionConfig(expected_revision=1, run_command='test -n "$FLOWFIELD_RUNTIME_DIR"'),
+            InspectionConfig(expected_revision=2, run_command='test -n "$FLOWFIELD_RUNTIME_DIR"'),
         )
         copy = await asyncio.to_thread(
             inspections.prepare,

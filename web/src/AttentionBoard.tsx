@@ -68,7 +68,7 @@ function TaskRequest({
           onDirty={response}
           requestTarget={{
             kind: item.kind as
-              "question" | "result" | "intervention" | "review" | "integration",
+              "result" | "intervention" | "review" | "integration",
             id: item.id,
           }}
         />
@@ -106,7 +106,7 @@ export function RequestContent({
           id={item.id}
           refresh={refresh}
         />
-      ) : item.kind === "question" && !item.task_key ? (
+      ) : item.kind === "question" ? (
         <QuestionDetail
           projectId={item.workspace_id!}
           identity={item.id}

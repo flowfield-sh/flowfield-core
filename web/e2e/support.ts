@@ -254,6 +254,25 @@ export async function fixtureProject(
     { data: project },
   );
   if (adopted.ok()) {
+    const id = (await adopted.json()).id;
+    const preview = await request.get(
+      `/api/projects/${id}/inspection/settings`,
+    );
+    const current = await preview.json();
+    if (!current.run_command && !current.no_preview_reason) {
+      const saved = await request.put(
+        `/api/projects/${id}/inspection/settings`,
+        {
+          data: {
+            expected_revision: current.revision,
+            run_command: "",
+            no_preview_reason:
+              "Browser fixture without a runnable application.",
+          },
+        },
+      );
+      expect(saved.ok(), await saved.text()).toBeTruthy();
+    }
     for (const [resource, selection] of [
       ["coordinator-settings", coordinator],
       ["workers", worker],
@@ -339,6 +358,16 @@ export async function fixtureMcpProject(
     workspace_id: workspaceId,
     project: { ...project, id },
   });
+  const preview = await call("get_inspection_settings", { project_id: id });
+  if (!preview.run_command && !preview.no_preview_reason)
+    await call("configure_inspection", {
+      project_id: id,
+      settings: {
+        expected_revision: preview.revision,
+        run_command: "",
+        no_preview_reason: "Browser fixture without a runnable application.",
+      },
+    });
   return {
     ...(await call("get_project", { project_id: id })),
     workspace_id: workspaceId,

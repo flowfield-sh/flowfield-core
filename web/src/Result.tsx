@@ -228,6 +228,7 @@ export function Result({
               <Inspection
                 key={version.id}
                 projectId={projectId}
+                repositoryId={worker.data?.project_id ?? undefined}
                 result={version}
                 refresh={refresh}
               />

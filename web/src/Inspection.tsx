@@ -22,14 +22,20 @@ type Version = components["schemas"]["ResultVersion"];
 
 export function Inspection({
   projectId,
+  repositoryId,
   result,
   refresh,
 }: {
   projectId: string;
+  repositoryId?: string;
   result: Version;
   refresh: unknown;
 }) {
   const path = `workspaces/${projectId}`;
+  const instructions = useResource<components["schemas"]["InspectionSettings"]>(
+    repositoryId ? `projects/${repositoryId}/inspection/settings` : null,
+    refresh,
+  );
   const [identity, setIdentity] = useState<string | null>(null);
   const [saved, setSaved] = useState<Copy | null>(null);
   const [busy, setBusy] = useState(true);
@@ -56,7 +62,7 @@ export function Inspection({
   const invalidate = resource.invalidate;
   const prepare = useCallback(
     (newCopy = false) => {
-      if (preparing.current) return;
+      if (preparing.current || !instructions.data) return;
       preparing.current = true;
       retryCopy.current = newCopy;
       // Reopening a result reads its saved copy. Approval/status updates must
@@ -68,20 +74,22 @@ export function Inspection({
               `${path}/inspection?result_id=${encodeURIComponent(result.id)}`,
             )
       )
-        .then(
-          (existing) =>
-            existing ??
-            request<Copy>(`${path}/inspection`, "POST", {
-              result_id: result.id,
-              expected_revision: result.revision,
-              new_copy: newCopy,
-            }),
+        .then((existing) =>
+          existing?.command ||
+          existing?.locally_changed ||
+          !instructions.data!.run_command
+            ? existing
+            : request<Copy>(`${path}/inspection`, "POST", {
+                result_id: result.id,
+                expected_revision: result.revision,
+                new_copy: newCopy,
+              }),
         )
         .then((next) => {
           if (!mounted.current) return;
           setWaiting(false);
           setSaved(next);
-          setIdentity(next.id);
+          setIdentity(next?.id ?? null);
           invalidate();
         })
         .catch((e) => {
@@ -102,7 +110,7 @@ export function Inspection({
           if (mounted.current) setBusy(false);
         });
     },
-    [path, result.id, result.revision, invalidate],
+    [path, result.id, result.revision, invalidate, instructions.data],
   );
   useEffect(() => {
     if (!value && !error) void prepare();
@@ -127,7 +135,19 @@ export function Inspection({
       ) : (
         busy && <p role="status">Preparing preview…</p>
       )}
-      <ResourceRetry resources={[resource]} />
+      <ResourceRetry resources={[resource, instructions]} />
+      {!busy &&
+        !value &&
+        instructions.data &&
+        (instructions.data.no_preview_reason ? (
+          <p>{instructions.data.no_preview_reason}</p>
+        ) : (
+          <Button size="sm" variant="outline" asChild>
+            <WorkspaceLink to={`/projects/${repositoryId}/edit/integration`}>
+              Configure preview
+            </WorkspaceLink>
+          </Button>
+        ))}
       {error && !value && (
         <Button
           size="sm"
@@ -196,22 +216,22 @@ export function Inspection({
                   </InputGroupAddon>
                 </InputGroup>
               </>
+            ) : instructions.data?.no_preview_reason ? (
+              <p>{instructions.data.no_preview_reason}</p>
             ) : (
-              <p>
-                Set the project run command in{" "}
+              <Button size="sm" variant="outline" asChild>
                 <WorkspaceLink
                   to={`/projects/${value.project_id}/edit/integration`}
                 >
-                  Integration settings
+                  Configure preview
                 </WorkspaceLink>
-                , then prepare another copy.
-              </p>
+              </Button>
             ))}
           {(value.locally_changed ||
             value.instructions_changed ||
             value.problem ||
             value.status !== "ready" ||
-            !value.command) && (
+            (!value.command && !!instructions.data?.run_command)) && (
             <Button
               size="sm"
               variant="outline"

@@ -13,11 +13,22 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
   const resource = useResource<Settings>(path, key);
   const [draft, setDraft] = useState<{
     command: string;
+    reason: string;
+    noPreview: boolean;
     revision: number;
   } | null>(null);
+  const fields = draft ?? {
+    command: resource.data?.run_command ?? "",
+    reason: resource.data?.no_preview_reason ?? "",
+    noPreview: !!resource.data?.no_preview_reason,
+    revision: resource.data?.revision ?? 1,
+  };
   return {
     binding: JSON.stringify([path, resource.data?.revision, draft]),
-    command: draft?.command ?? resource.data?.run_command ?? "",
+    command: fields.command,
+    reason: fields.reason,
+    noPreview: fields.noPreview,
+    valid: !!(fields.noPreview ? fields.reason.trim() : fields.command.trim()),
     dirty: draft !== null,
     loaded: !!resource.data,
     error: resource.error,
@@ -27,9 +38,16 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     change(command: string) {
       if (resource.data)
         setDraft({
+          ...fields,
           command,
           revision: draft?.revision ?? resource.data.revision,
         });
+    },
+    changeReason(reason: string) {
+      if (resource.data) setDraft({ ...fields, reason });
+    },
+    chooseNoPreview(noPreview: boolean) {
+      if (resource.data) setDraft({ ...fields, noPreview });
     },
     loadCurrent() {
       setDraft(null);
@@ -39,7 +57,8 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
       try {
         const value = await request<Settings>(path, "PUT", {
           expected_revision: draft.revision,
-          run_command: draft.command,
+          run_command: draft.noPreview ? "" : draft.command,
+          no_preview_reason: draft.noPreview ? draft.reason : "",
         });
         resource.invalidate();
         resource.setData(value);

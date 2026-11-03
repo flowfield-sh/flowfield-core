@@ -129,6 +129,15 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "This is report-only work: return findings, evidence and uncertainty without changing "
             "the repository tree. Report delivery does not imply human endorsement."
         )
+    if repository and present("preview"):
+        rules.append(
+            "Read preview before implementing. Keep its run command usable in a fresh worktree; "
+            "verify startup within your assigned scope with isolated state/ports, retain evidence "
+            "and stop your processes. Report unavailable sibling behavior as a handoff. "
+            "Repair a missing launcher within the agreed scope, or ask about "
+            "a concrete scope conflict. "
+            "A no_preview_reason means this project has no runnable preview to prepare."
+        )
     if repository and present("validation"):
         rules.append(
             "Read validation and use its frozen commands; report their observed results. "

@@ -42,6 +42,20 @@ def adopt(
         with patch("flowfield.workspaces.uuid4", return_value=SimpleNamespace(hex=identity)):
             spaces.create(WorkspaceCreate(**TEST_AGENTS, name=defaults.name + " Workspace"))
     project = spaces.adopt(identity, request)
+    from flowfield.inspection import Inspections
+    from flowfield.inspection_models import InspectionConfig
+
+    previews = Inspections(workspace)
+    settings = previews.settings(project.id)
+    if not settings.run_command and not settings.no_preview_reason:
+        previews.configure(
+            project.id,
+            InspectionConfig(
+                expected_revision=settings.revision,
+                run_command="",
+                no_preview_reason="Task execution fixture without a runnable application.",
+            ),
+        )
     if coordinator:
         spaces.configure_coordinator(
             identity,

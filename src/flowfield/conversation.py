@@ -98,7 +98,9 @@ WITH definitions AS (
         OR json_extract(data,'$.labels') IS NOT json_extract(previous,'$.labels')
     UNION ALL
     SELECT 'question:'||question_id||':'||revision,
-        CASE WHEN json_extract(data,'$.answer') IS NOT NULL THEN 'answer' ELSE 'question' END,
+        CASE WHEN json_extract(data,'$.answer') IS NOT NULL AND
+            (previous IS NULL OR json_extract(data,'$.answer') IS NOT
+                json_extract(previous,'$.answer')) THEN 'answer' ELSE 'question' END,
         json_extract(data,'$.updated_at'), json_extract(data,'$.updated_by'),
         question_id, revision, data
     FROM exchanges WHERE previous IS NULL
@@ -399,13 +401,7 @@ class Conversation:
                 (workspace_id, task_id, question_id, question_id),
             ).fetchone()
             if answered:
-                from flowfield.input_delivery import question_delivery
-
-                delivery = question_delivery(db, workspace_id, answered[0])
-                if delivery is None or delivery.can_edit:
-                    result.question_id = answered[0]
-                    result.question_revision = json.loads(answered[1])["revision"]
-                    result.reason = "answer_editable"
-                else:
-                    result.enabled, result.reason = False, "answer_pending"
+                result.question_id = answered[0]
+                result.question_revision = json.loads(answered[1])["revision"]
+                result.enabled, result.reason = False, "answer_recorded"
         return result

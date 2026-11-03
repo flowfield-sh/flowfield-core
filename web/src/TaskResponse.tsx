@@ -1,8 +1,6 @@
 import { MessageBody } from "./TaskMessages";
 import { useRetainedState, retainDirty } from "./retainedState";
 import type { DirtyCallback } from "./retainedState";
-import { QuestionPrompt } from "./QuestionPrompt";
-import { QuestionChoices } from "./QuestionChoices";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -13,7 +11,6 @@ import { ContentStack } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request, type Task, type WorkspaceBoard } from "./workspace";
-import { Markdown } from "./Markdown";
 import { Result } from "./Result";
 import { ExecutionDetails } from "./Runs";
 import { RunActivity } from "./RunActivity";
@@ -29,7 +26,7 @@ type Draft = {
   id: string;
   body: string;
   binding: Binding;
-  action: "answer" | "changes" | "approve";
+  action: "changes" | "approve";
   candidate?: string;
 };
 const binding = (gate: Gate): Binding => ({
@@ -58,7 +55,7 @@ export function TaskResponse({
   projects: WorkspaceBoard["projects"];
   task: Task;
   requestTarget: {
-    kind: "question" | "result" | "intervention" | "review" | "integration";
+    kind: "result" | "intervention" | "review" | "integration";
     id: string;
   };
   refresh: unknown;
@@ -67,10 +64,7 @@ export function TaskResponse({
   const path = `workspaces/${projectId}/tasks/${task.id}`;
   const [revision, setRevision] = useState(0);
   const tick = useMemo(() => ({ refresh, revision }), [refresh, revision]);
-  const gate = useResource<Gate>(
-    `${path}/input-eligibility${requestTarget.kind === "question" ? `?question_id=${encodeURIComponent(requestTarget.id)}` : ""}`,
-    tick,
-  );
+  const gate = useResource<Gate>(`${path}/input-eligibility`, tick);
   const currentAttemptId = gate.data?.run_id ?? gate.data?.latest_attempt?.id;
   const currentAttempt = useResource<Message>(
     currentAttemptId ? `${path}/thread/attempt:${currentAttemptId}` : null,
@@ -80,14 +74,6 @@ export function TaskResponse({
     gate.data?.result_id
       ? `${path}/thread/result:${gate.data.result_id}`
       : null,
-    tick,
-  );
-  const questionId =
-    requestTarget.kind === "question"
-      ? requestTarget.id
-      : gate.data?.question_id;
-  const currentQuestion = useResource<components["schemas"]["Question"]>(
-    questionId ? "workspaces/" + projectId + "/questions/" + questionId : null,
     tick,
   );
   const executionId =
@@ -122,14 +108,12 @@ export function TaskResponse({
       ? execution.data?.run_id
       : requestTarget.id;
   const belongs = (binding: Draft["binding"]) =>
-    requestTarget.kind === "question"
-      ? binding.question_id === requestTarget.id
-      : requestTarget.kind === "result"
-        ? binding.result_id === requestTarget.id && !binding.question_id
-        : !!requestedAttemptId &&
-          currentAttemptId === requestedAttemptId &&
-          !binding.question_id &&
-          !binding.result_id;
+    requestTarget.kind === "result"
+      ? binding.result_id === requestTarget.id && !binding.question_id
+      : !!requestedAttemptId &&
+        currentAttemptId === requestedAttemptId &&
+        !binding.question_id &&
+        !binding.result_id;
   const selectedKey =
     chosen && drafts[chosen] && belongs(drafts[chosen].binding) ? chosen : null;
   const key =
@@ -140,27 +124,14 @@ export function TaskResponse({
         "request:" + requestTarget.kind + ":" + requestTarget.id));
   const draft = drafts[key];
   const matchesRequest =
-    requestTarget.kind === "question"
-      ? gate.data?.question_id === requestTarget.id
-      : requestTarget.kind === "result"
-        ? gate.data?.result_id === requestTarget.id
-        : !!requestedAttemptId &&
-          currentAttemptId === requestedAttemptId &&
-          !gate.data?.question_id &&
-          !gate.data?.result_id;
-  const inputEnabled =
-    matchesRequest &&
-    !!gate.data?.enabled &&
-    (gate.data?.reason !== "answer_editable" || !!draft);
-  // A selected draft stays open even when empty; eligibility controls delivery.
-  const composerAction =
-    draft?.action ??
-    (matchesRequest &&
-    requestTarget.kind === "question" &&
-    gate.data?.question_id &&
-    gate.data.reason !== "answer_editable"
-      ? "answer"
-      : null);
+    requestTarget.kind === "result"
+      ? gate.data?.result_id === requestTarget.id
+      : !!requestedAttemptId &&
+        currentAttemptId === requestedAttemptId &&
+        !gate.data?.question_id &&
+        !gate.data?.result_id;
+  const inputEnabled = matchesRequest && !!gate.data?.enabled;
+  const composerAction = draft?.action ?? null;
   const showComposer = composerAction !== null;
   const [busy, setBusy] = useState(false);
   const [savedResult, setSavedResult] = useState<Version | null>(null);
@@ -356,14 +327,7 @@ export function TaskResponse({
         data-announcement-source={`${projectId}:${requestTarget.kind}:${requestTarget.id}`}
       >
         <ResourceRetry
-          resources={[
-            selected,
-            gate,
-            execution,
-            currentAttempt,
-            currentResult,
-            currentQuestion,
-          ]}
+          resources={[selected, gate, execution, currentAttempt, currentResult]}
         />
         {requestTarget.kind === "result" ? (
           <Result
@@ -384,23 +348,6 @@ export function TaskResponse({
               !gate.data?.question_id
             }
           />
-        ) : requestTarget.kind === "question" ? (
-          currentQuestion.data && (
-            <>
-              <QuestionPrompt
-                question={currentQuestion.data.question}
-                context={currentQuestion.data.context}
-                reviewContext={!!currentQuestion.data.origin_review_id}
-                recommendation={currentQuestion.data.recommendation}
-              />
-              {currentQuestion.data.answer && (
-                <ContentStack>
-                  <strong>Your answer</strong>
-                  <Markdown>{currentQuestion.data.answer}</Markdown>
-                </ContentStack>
-              )}
-            </>
-          )
         ) : (
           selected.data && (
             <>
@@ -440,7 +387,7 @@ export function TaskResponse({
                   void send();
                 }}
               >
-                {requestTarget.kind !== "question" && showComposer && (
+                {showComposer && (
                   <div className="task-input-context">
                     <strong>
                       {draft?.action === "approve"
@@ -461,14 +408,6 @@ export function TaskResponse({
                     response is available in its history.
                   </p>
                 )}
-                <ResourceRetry resources={[currentQuestion]} />
-                {composerAction === "answer" && currentQuestion.data && (
-                  <QuestionChoices
-                    choices={currentQuestion.data.choices}
-                    choose={updateBody}
-                    disabled={busy || !inputEnabled || stale}
-                  />
-                )}
                 <Composer
                   draftKey={key}
                   collapsed={!showComposer}
@@ -483,9 +422,7 @@ export function TaskResponse({
                       ? "Feedback for this result"
                       : draft?.action === "approve"
                         ? "Testing notes or approval comment (optional)"
-                        : composerAction === "answer"
-                          ? "Your answer"
-                          : "Task response"
+                        : "Task response"
                   }
                   disabled={busy || !inputEnabled}
                   onBusy={setUploading}
@@ -501,9 +438,7 @@ export function TaskResponse({
                         ? "Reply waiting for the queue or a task update. Cancel to revise it."
                         : gate.data.reason === "reconcile_task"
                           ? "Ask the coordinator to update this task before continuing."
-                          : gate.data.reason === "answer_pending"
-                            ? "Answer saved. Waiting for the worker or coordinator to continue."
-                            : "Task busy. Reply when processing finishes."}
+                          : "Task busy. Reply when processing finishes."}
                     </p>
                   )}
                 {stale && (
@@ -512,11 +447,6 @@ export function TaskResponse({
                     question or result.{" "}
                   </p>
                 )}
-                {!showComposer &&
-                  currentQuestion.data?.status !== "open" &&
-                  currentQuestion.data?.delivery && (
-                    <p>{currentQuestion.data.delivery.message}</p>
-                  )}
                 <div
                   ref={setActionContext}
                   className="task-action-context content-stack"
@@ -527,13 +457,9 @@ export function TaskResponse({
                       type="submit"
                       size="sm"
                       aria-label={
-                        draft?.action === "changes"
-                          ? "Send feedback"
-                          : composerAction === "approve"
-                            ? "Approve and integrate"
-                            : composerAction === "answer"
-                              ? "Send answer"
-                              : "Send message"
+                        composerAction === "approve"
+                          ? "Approve and integrate"
+                          : "Send feedback"
                       }
                       disabled={
                         busy ||
@@ -548,9 +474,7 @@ export function TaskResponse({
                         ? "Saving…"
                         : composerAction === "approve"
                           ? "Approve and integrate"
-                          : draft?.action === "changes"
-                            ? "Send feedback"
-                            : "Send answer"}
+                          : "Send feedback"}
                     </Button>
                   )}
                   <div
@@ -559,26 +483,6 @@ export function TaskResponse({
                     hidden={!!draft || !!gate.data?.question_id}
                   />
 
-                  {matchesRequest &&
-                    gate.data?.reason === "answer_editable" &&
-                    !draft && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={!currentQuestion.data}
-                        onClick={() => {
-                          if (!currentBinding || !currentQuestion.data) return;
-                          beginDraft(
-                            "answer",
-                            currentBinding,
-                            currentQuestion.data.answer ?? "",
-                          );
-                        }}
-                      >
-                        Edit answer
-                      </Button>
-                    )}
                   {Object.entries(drafts)
                     .filter(
                       ([id, d]) => id !== key && d.body && belongs(d.binding),
@@ -607,15 +511,7 @@ export function TaskResponse({
                       disabled={busy || uploading}
                       onClick={discardDraft}
                     >
-                      {composerAction === "answer"
-                        ? gate.data?.reason === "answer_editable"
-                          ? "Cancel edit"
-                          : "Discard answer"
-                        : composerAction === "changes"
-                          ? "Cancel feedback"
-                          : composerAction === "approve"
-                            ? "Cancel approval"
-                            : "Cancel message"}
+                      Cancel
                     </Button>
                   )}
                   {matchesRequest && gate.data?.pending_reply_id && (
@@ -625,7 +521,7 @@ export function TaskResponse({
                       size="sm"
                       onClick={() => void cancelPending()}
                     >
-                      Cancel pending message
+                      Cancel
                     </Button>
                   )}
                   {matchesRequest && (

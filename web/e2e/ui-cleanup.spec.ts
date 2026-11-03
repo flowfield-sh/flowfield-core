@@ -59,7 +59,7 @@ test("failed resource reads and a broken event stream stay local while health is
     integration.getByLabel("Validation commands", { exact: true }),
   ).toBeEnabled();
   await expect(
-    integration.getByLabel("Run command", { exact: true }),
+    integration.getByRole("checkbox", { name: "No runnable preview" }),
   ).toBeEnabled();
 });
 

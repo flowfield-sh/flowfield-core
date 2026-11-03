@@ -26,10 +26,6 @@ export function TaskNotices({
           <p>{task.scheduling_problem}</p>
         </StatusNotice>
       )}
-      {task.state?.reason === "prerequisites" &&
-        !board.pending_code[task.key]?.length && (
-          <StatusNotice title="Waiting on prerequisites" />
-        )}
       <TaskNeeds
         task={task}
         projectId={workspaceId}

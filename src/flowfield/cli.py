@@ -1636,29 +1636,6 @@ def inbox_withdraw(
     )
 
 
-@inbox_app.command("retract-answer")
-def inbox_retract_answer(
-    ctx: typer.Context,
-    question: str,
-    workspace: str = typer.Option(..., "--workspace"),
-    expected_revision: Expected = None,
-    author: Author = "human",
-    json_output: Json = False,
-) -> None:
-    """Retract a saved, unapplied answer and return its question to Open."""
-    output(
-        lambda: update(
-            ctx.obj,
-            workspace_item_path(workspace, "questions", question),
-            {},
-            expected_revision,
-            author,
-            operation="retract-answer",
-        ),
-        json_output,
-    )
-
-
 from flowfield.execution_cli import register as register_execution  # noqa: E402
 from flowfield.integration_cli import register as register_integration  # noqa: E402
 from flowfield.storage_cli import register as register_storage  # noqa: E402

@@ -80,6 +80,17 @@ def main() -> None:
             checks=["python -m unittest -v"],
         ),
     )
+    from flowfield.inspection import Inspections
+    from flowfield.inspection_models import InspectionConfig
+
+    Inspections(workspace).configure(
+        project.id,
+        InspectionConfig(
+            expected_revision=1,
+            run_command="",
+            no_preview_reason="Catalog library without a runnable application.",
+        ),
+    )
     git(repo, "switch", "integration")
     for identity, title, dependencies in [
         ("loader", "Load a local JSON catalog", []),

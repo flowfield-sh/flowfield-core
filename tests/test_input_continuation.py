@@ -24,7 +24,7 @@ def test_answer_survives_restart_and_claims_once_with_frozen_evidence(tmp_path):
     execution.finish("harbor", run.id, "waiting_for_input", input_checkpoint=RESULT)
     queue(execution, False)
     execution.restart()
-    assert questions.get("harbor", q.id).delivery.state == "Paused"
+    assert questions.get("harbor", q.id).delivery.state == "Queue paused"
     assert execution.claim("harbor", BASE, {BASE: set()}) is None
     queue(execution, True)
     with ThreadPoolExecutor(2) as pool:
@@ -42,8 +42,8 @@ def test_answer_survives_restart_and_claims_once_with_frozen_evidence(tmp_path):
     assert json.loads(current["input"])[0]["answer_revision"] == saved.revision
     assert json.loads(current["input"])[0]["answer"] == saved.answer
     consumed = questions.get("harbor", q.id)
-    assert consumed.status == "assigned" and consumed.delivery.state == "Resuming"
-    assert consumed.continuation_run_id == successor.id and not consumed.delivery.can_edit
+    assert consumed.status == "assigned" and consumed.delivery.state == "Starting work"
+    assert consumed.continuation_run_id == successor.id and consumed.can_correct
     assert answer(questions, q).continuation_run_id == successor.id  # lost-response replay
     with pytest.raises(ApplicationError, match="already assigned"):
         answer(questions, saved, "Current page")
@@ -101,7 +101,7 @@ def test_answers_do_not_override_execution_gates(tmp_path, gate):
     current = questions.get("harbor", q.id)
     assert current.answer == saved.answer and current.continuation_run_id is None
     assert current.delivery.state in (
-        "Paused",
+        "Queue paused",
         "Continuation blocked",
         "Needs update",
         "Check execution",
@@ -273,7 +273,7 @@ def test_answer_waits_for_capacity_and_uncertain_assigned_work_is_not_replayed(t
     occupied = execution.claim("harbor", BASE, {BASE: set()})
     assert occupied.task_id != run.task_id
     questions = Questions(execution.workspace)
-    assert answer(questions, q).delivery.state == "Waiting for capacity"
+    assert answer(questions, q).delivery.state == "Queued"
     assert execution.claim("harbor", BASE, {RESULT: set()}) is None
     execution.finish("harbor", occupied.id, "stopped")
     successor = execution.claim("harbor", BASE, {RESULT: set()})
@@ -303,7 +303,7 @@ def test_failed_input_continuation_retry_keeps_answer_and_checkpoint(tmp_path):
         == execution.assignment("harbor", successor.id)["input"]
     )
     current = questions.get("harbor", q.id)
-    assert current.delivery.state == "Resuming" and current.delivery.run_id == retry.id
+    assert current.delivery.state == "Starting work" and current.delivery.run_id == retry.id
     assert current.continuation_run_id == successor.id  # Original reservation evidence stays fixed.
 
 
@@ -337,3 +337,36 @@ def test_explicit_retry_after_scope_revision_cannot_relabel_old_answer_as_new_as
     assignment = execution.assignment("harbor", retry.id)
     assert assignment["description"] == "A new agreed report outcome"
     assert "input" not in assignment
+
+
+def test_unreserved_correction_rebinds_once_and_preserves_original_answer(tmp_path):
+    execution = fixture(tmp_path)
+    run, original = question(execution)
+    execution.finish("harbor", run.id, "waiting_for_input", input_checkpoint=RESULT)
+    queue(execution, False)
+    questions = Questions(execution.workspace)
+    saved = answer(questions, original, "All records")
+    correction = questions.correct(
+        "harbor",
+        original.id,
+        QuestionAnswer(expected_revision=saved.revision, answer="Only active records"),
+    )
+    old = questions.get("harbor", original.id)
+    assert old.status == "withdrawn" and old.answer == "All records"
+    assert old.correction_question_id == correction.id
+    assert correction.origin_run_id == run.id and correction.answer == "Only active records"
+    assert execution.get("harbor", run.id).question_id == correction.id
+    with pytest.raises(ApplicationError, match="latest"):
+        questions.correct(
+            "harbor",
+            original.id,
+            QuestionAnswer(expected_revision=old.revision, answer="A competing correction"),
+        )
+    queue(execution, True)
+    successor = execution.claim("harbor", BASE, {RESULT: set()})
+    assert successor.input_question_id == correction.id
+    assert (
+        json.loads(execution.assignment("harbor", successor.id)["input"])[0]["answer"]
+        == "Only active records"
+    )
+    assert questions.get("harbor", original.id, saved.revision).answer == "All records"

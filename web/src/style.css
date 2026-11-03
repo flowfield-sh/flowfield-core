@@ -521,13 +521,6 @@
     overflow-wrap: anywhere;
     min-width: 0;
   }
-  .question-scope {
-    padding: 10px 14px;
-    border-left: 3px solid var(--warning-border);
-    background: var(--warning-background);
-    color: var(--warning-foreground);
-    font-size: 13px;
-  }
   .question-meta {
     display: flex;
     flex-wrap: wrap;

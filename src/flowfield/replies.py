@@ -35,7 +35,11 @@ class Replies:
             )
             if not gate.enabled:
                 raise ApplicationError(
-                    "input_closed", "Work is processing. Your draft is kept; wait until idle.", 409
+                    "input_closed",
+                    "This answer is recorded. Send a correction instead."
+                    if gate.reason == "answer_recorded"
+                    else "Work is processing. Your draft is kept; wait until idle.",
+                    409,
                 )
             binding = ReplyBinding.model_validate(
                 gate.model_dump(include=set(ReplyBinding.model_fields))
@@ -49,9 +53,10 @@ class Replies:
                 )
             if not request.body.strip():
                 raise ApplicationError("empty_reply", "Write a reply before sending.")
-            Attachments(self.workspace).references(
-                db, workspace_id, task_id, request.body, bind=True
-            )
+            if request.action != "answer":
+                Attachments(self.workspace).references(
+                    db, workspace_id, task_id, request.body, bind=True
+                )
             reply = Reply(
                 **request.model_dump(), workspace_id=workspace_id, task_id=task_id, created_at=now()
             )

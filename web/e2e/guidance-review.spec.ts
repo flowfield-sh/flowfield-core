@@ -6,6 +6,7 @@ import { dialogViews } from "./dialog-evidence";
 
 test("changed guidance has visible queue and stop recovery without starting a worker", async ({
   page,
+  request,
 }, info) => {
   const value = JSON.parse(
     execFileSync(
@@ -29,8 +30,8 @@ store.create_task(space.id, TaskCreate(title="Plan the next accessibility review
 blocked = store.create_task(space.id, TaskCreate(title="Check the preview setup", body="Verify the preview.", status="up_next", completion="report"))
 Execution(store).task_problem(space.id, blocked.id, "The preview setup command failed. Fix its configuration before continuing.")
 Documents(store).edit(space.id, "guidance", DocumentEdit(expected_revision=1, body="Use plain language and accessible labels."))
-prepare(TaskReviews(store), space.id, task.id)
-print(json.dumps({"workspace": space.id, "task": task.key}))`,
+review = prepare(TaskReviews(store), space.id, task.id)
+print(json.dumps({"workspace": space.id, "task": task.key, "review": review.id, "revision": review.revision}))`,
         state,
       ],
       { encoding: "utf8" },
@@ -87,12 +88,24 @@ print(json.dumps({"workspace": space.id, "task": task.key}))`,
     name: "Guidance review",
     exact: true,
   });
-  await expect(guidance).toBeVisible();
+  await expect(guidance).toHaveCount(0);
   await expect(
     page.getByRole("img", { name: "Queue paused", exact: true }).first(),
   ).toBeVisible();
   await dialogViews(page, info, "guidance-queued");
-  await page.getByRole("button", { name: "Stop review", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Stop review", exact: true }),
+  ).toHaveCount(0);
+  // Queued work has no running process to stop in the header. Retain an
+  // explicit stopped review to exercise its recovery notice.
+  await expect(
+    page.getByRole("button", { name: "Stop task", exact: true }),
+  ).toHaveCount(0);
+  const stopped = await request.post(
+    `/api/workspaces/${value.workspace}/reviews/${value.review}/stop`,
+    { data: { expected_revision: value.revision } },
+  );
+  expect(stopped.ok()).toBeTruthy();
   await expect(
     page.getByRole("button", { name: "Retry review", exact: true }),
   ).toBeVisible();
@@ -102,6 +115,6 @@ print(json.dumps({"workspace": space.id, "task": task.key}))`,
   await dialogViews(page, info, "guidance-stopped");
   await page.getByRole("button", { name: "Retry review", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Stop review", exact: true }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Retry review", exact: true }),
+  ).toHaveCount(0);
 });
