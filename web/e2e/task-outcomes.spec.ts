@@ -214,7 +214,9 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     page.getByRole("link", { name: "Harbor", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Run command", exact: true }),
+    page.locator(".status-notice").filter({
+      has: page.getByRole("heading", { name: "Run result", exact: true }),
+    }),
   ).toBeVisible();
   await page.getByText("Guidance", { exact: true }).click();
   const guidance = page

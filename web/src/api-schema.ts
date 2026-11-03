@@ -2245,6 +2245,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/inspection/runtime": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Prepare Runtime */
+    post: operations["prepare_runtime_api_workspaces__workspace_id__inspection_runtime_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/inspections/{identity}/runtime/log": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Runtime Log */
+    get: operations["runtime_log_api_workspaces__workspace_id__inspections__identity__runtime_log_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/inspections/{identity}/runtime": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Runtime */
+    post: operations["runtime_api_workspaces__workspace_id__inspections__identity__runtime_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/announcements/settings": {
     parameters: {
       query?: never;
@@ -3970,6 +4021,57 @@ export interface components {
        * @default false
        */
       instructions_changed: boolean;
+      /**
+       * Ready Command
+       * @default
+       */
+      ready_command: string;
+      /**
+       * Url
+       * @default
+       */
+      url: string;
+      /**
+       * Runtime State
+       * @default cold
+       * @enum {string}
+       */
+      runtime_state:
+        | "cold"
+        | "preparing"
+        | "ready"
+        | "starting"
+        | "running"
+        | "stopping"
+        | "stopped"
+        | "failed"
+        | "uncertain";
+      /** Runtime Problem */
+      runtime_problem: string | null;
+      /**
+       * Runtime Output
+       * @default
+       */
+      runtime_output: string;
+      /**
+       * Runtime Truncated
+       * @default false
+       */
+      runtime_truncated: boolean;
+      /** Runtime Session */
+      runtime_session: string | null;
+      /**
+       * Runtime Prepared
+       * @default false
+       */
+      runtime_prepared: boolean;
+      /** Runtime Generation */
+      runtime_generation: string | null;
+      /**
+       * Runtime Log Truncated
+       * @default false
+       */
+      runtime_log_truncated: boolean;
     };
     /** InspectionConfig */
     InspectionConfig: {
@@ -3982,6 +4084,21 @@ export interface components {
        * @default
        */
       no_preview_reason: string;
+      /**
+       * Auto Prepare
+       * @default false
+       */
+      auto_prepare: boolean;
+      /**
+       * Ready Command
+       * @default
+       */
+      ready_command: string;
+      /**
+       * Url
+       * @default
+       */
+      url: string;
     };
     /** InspectionPrepare */
     InspectionPrepare: {
@@ -3994,6 +4111,14 @@ export interface components {
        * @default false
        */
       new_copy: boolean;
+    };
+    /** InspectionRuntimeAction */
+    InspectionRuntimeAction: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "prepare" | "run" | "stop" | "confirm-stopped";
     };
     /** InspectionSettings */
     InspectionSettings: {
@@ -4014,6 +4139,21 @@ export interface components {
        * @default
        */
       no_preview_reason: string;
+      /**
+       * Auto Prepare
+       * @default false
+       */
+      auto_prepare: boolean;
+      /**
+       * Ready Command
+       * @default
+       */
+      ready_command: string;
+      /**
+       * Url
+       * @default
+       */
+      url: string;
     };
     /** IntegrationConfig */
     IntegrationConfig: {
@@ -12379,6 +12519,109 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Inspection"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  prepare_runtime_api_workspaces__workspace_id__inspection_runtime_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InspectionPrepare"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Inspection"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  runtime_log_api_workspaces__workspace_id__inspections__identity__runtime_log_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  runtime_api_workspaces__workspace_id__inspections__identity__runtime_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InspectionRuntimeAction"];
+      };
+    };
     responses: {
       /** @description Successful Response */
       200: {

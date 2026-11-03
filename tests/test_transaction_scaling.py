@@ -13,6 +13,7 @@ from flowfield.agent_settings import AgentSettings
 from flowfield.application import TaskCreate, TaskEdit, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.reviewer_settings import Reviewers
+from flowfield.schema import SCHEMA_VERSION
 from flowfield.supervisor import Supervisor
 from flowfield.workspaces import WorkspaceCreate, Workspaces
 
@@ -182,7 +183,7 @@ def test_index_upgrade_preserves_95_records_and_does_not_reset_sessions(
 
         def fail(db):
             original(db)
-            if storage.version(db) == 96:
+            if storage.version(db) == SCHEMA_VERSION:
                 raise RuntimeError("interrupted index upgrade")
 
         with monkeypatch.context() as changes:

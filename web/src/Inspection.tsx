@@ -1,20 +1,13 @@
-import { ResourceRetry } from "./ResourceRetry";
-import { reportError } from "./requestFeedback";
-import { toast } from "sonner";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  InputGroup,
-  InputGroupInput,
-  InputGroupAddon,
-} from "@/components/ui/input-group";
-import { Copy } from "lucide-react";
-import { ActionTooltip } from "./ActionTooltip";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ContentStack } from "./DetailLayout";
+import { ConfirmButton } from "./ConfirmButton";
+import { StatusNotice } from "./StatusNotice";
+import { Disclosure } from "./DetailLayout";
+import { ResourceRetry } from "./ResourceRetry";
 import { WorkspaceLink } from "./WorkspaceLink";
+import { reportError } from "./requestFeedback";
 import { useResource } from "./useResource";
-import { request, RequestError } from "./workspace";
+import { request } from "./workspace";
 import type { components } from "./api-schema";
 
 type Copy = components["schemas"]["Inspection"];
@@ -25,224 +18,193 @@ export function Inspection({
   repositoryId,
   result,
   refresh,
+  current,
 }: {
   projectId: string;
   repositoryId?: string;
   result: Version;
   refresh: unknown;
+  current: boolean;
 }) {
   const path = `workspaces/${projectId}`;
   const instructions = useResource<components["schemas"]["InspectionSettings"]>(
     repositoryId ? `projects/${repositoryId}/inspection/settings` : null,
     refresh,
   );
-  const [identity, setIdentity] = useState<string | null>(null);
-  const [saved, setSaved] = useState<Copy | null>(null);
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState("");
-  const [waiting, setWaiting] = useState(false);
-  const [retryTick, setRetryTick] = useState(0);
-  const handledRetry = useRef(0);
-  const retryCopy = useRef(false);
-  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      if (retryTimer.current) clearTimeout(retryTimer.current);
-    };
-  }, []);
-  const preparing = useRef(false);
-  const resource = useResource<Copy>(
-    identity ? `${path}/inspections/${identity}` : null,
+  const resource = useResource<Copy | null>(
+    `${path}/inspection?result_id=${encodeURIComponent(result.id)}`,
     refresh,
+    10000,
   );
-  const value = resource.data?.id === identity ? resource.data : saved;
-  const invalidate = resource.invalidate;
-  const prepare = useCallback(
-    (newCopy = false) => {
-      if (preparing.current || !instructions.data) return;
-      preparing.current = true;
-      retryCopy.current = newCopy;
-      // Reopening a result reads its saved copy. Approval/status updates must
-      // not recreate it or silently adopt newer project launch settings.
-      return (
-        newCopy
-          ? Promise.resolve(null)
-          : request<Copy | null>(
-              `${path}/inspection?result_id=${encodeURIComponent(result.id)}`,
-            )
-      )
-        .then((existing) =>
-          existing?.command ||
-          existing?.locally_changed ||
-          !instructions.data!.run_command
-            ? existing
-            : request<Copy>(`${path}/inspection`, "POST", {
-                result_id: result.id,
-                expected_revision: result.revision,
-                new_copy: newCopy,
-              }),
-        )
-        .then((next) => {
-          if (!mounted.current) return;
-          setWaiting(false);
-          setSaved(next);
-          setIdentity(next?.id ?? null);
-          invalidate();
-        })
-        .catch((e) => {
-          if (!mounted.current) return;
-          if (e instanceof RequestError && e.code === "integration_busy") {
-            setWaiting(true);
-            retryTimer.current = setTimeout(() => {
-              if (mounted.current) setRetryTick((tick) => tick + 1);
-            }, 2000);
-            return;
-          }
-          setWaiting(false);
-          setError((e as Error).message);
-          reportError(e, "Could not prepare inspection");
-        })
-        .finally(() => {
-          preparing.current = false;
-          if (mounted.current) setBusy(false);
-        });
-    },
-    [path, result.id, result.revision, invalidate, instructions.data],
+  const [busy, setBusy] = useState(false);
+  const value = resource.data;
+  const state = value?.runtime_state ?? "cold";
+  const active = ["preparing", "starting", "running", "stopping"].includes(
+    state,
   );
-  useEffect(() => {
-    if (!value && !error) void prepare();
-  }, [prepare, value, error]);
-  useEffect(() => {
-    if (retryTick > handledRetry.current) {
-      handledRetry.current = retryTick;
-      void prepare(retryCopy.current);
-    }
-  }, [prepare, retryTick]);
-  function retry(newCopy = false) {
+  const eligible = current && ["ready", "delivered"].includes(result.status);
+  const prepared =
+    (state === "ready" || state === "stopped") && value?.runtime_prepared;
+  async function act(
+    action: "prepare" | "run" | "stop" | "confirm-stopped",
+    newCopy = false,
+  ) {
     setBusy(true);
-    setError("");
-    void prepare(newCopy);
+    try {
+      const next =
+        action === "prepare"
+          ? await request<Copy>(`${path}/inspection/runtime`, "POST", {
+              result_id: result.id,
+              expected_revision: result.revision,
+              new_copy: newCopy,
+            })
+          : await request<Copy>(
+              `${path}/inspections/${value!.id}/runtime`,
+              "POST",
+              { action },
+            );
+      resource.setData(next);
+      resource.invalidate();
+    } catch (error) {
+      reportError(error, "Could not update result runtime");
+    } finally {
+      setBusy(false);
+    }
   }
+  const titles: Record<string, string> = {
+    cold: "Run result",
+    preparing: "Preparing result",
+    ready: "Result ready to run",
+    starting: "Starting result",
+    running: "Result running",
+    stopping: "Stopping result",
+    stopped: "Result stopped",
+    failed: "Result could not run",
+    uncertain: "Runtime needs attention",
+  };
   return (
-    <ContentStack role="region" aria-label="Run command">
-      {waiting ? (
-        <p role="status">
-          Waiting to prepare this preview while repository work finishes…
-        </p>
-      ) : (
-        busy && <p role="status">Preparing preview…</p>
-      )}
-      <ResourceRetry resources={[resource, instructions]} />
-      {!busy &&
-        !value &&
-        instructions.data &&
-        (instructions.data.no_preview_reason ? (
-          <p>{instructions.data.no_preview_reason}</p>
-        ) : (
-          <Button size="sm" variant="outline" asChild>
-            <WorkspaceLink to={`/projects/${repositoryId}/edit/integration`}>
-              Configure preview
-            </WorkspaceLink>
-          </Button>
-        ))}
-      {error && !value && (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={() => retry()}
-        >
-          Retry preparation
-        </Button>
-      )}
-      {value && (
-        <ContentStack>
-          {value.source_changed && (
-            <p>This preview belongs to this earlier result.</p>
+    <StatusNotice
+      title={titles[state]}
+      tone={
+        state === "failed" || state === "uncertain"
+          ? "attention"
+          : state === "preparing" ||
+              state === "starting" ||
+              state === "stopping"
+            ? "progress"
+            : "neutral"
+      }
+      actions={
+        <>
+          {state === "uncertain" && (
+            <ConfirmButton
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              title="Confirm runtime stopped?"
+              description="Confirm that this result’s processes have stopped. Its files and logs will be preserved."
+              binding={value?.id}
+              action={() => void act("confirm-stopped")}
+            >
+              Confirm stopped
+            </ConfirmButton>
           )}
-          {value.locally_changed && (
-            <p>Approval uses the saved result, excluding edits in this copy.</p>
+          {eligible &&
+            instructions.data?.run_command &&
+            !active &&
+            state !== "uncertain" && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  void act(
+                    prepared &&
+                      !value?.instructions_changed &&
+                      !value?.locally_changed
+                      ? "run"
+                      : "prepare",
+                    !!value?.locally_changed ||
+                      !!value?.instructions_changed ||
+                      !!value?.problem,
+                  )
+                }
+              >
+                {prepared &&
+                !value?.instructions_changed &&
+                !value?.locally_changed
+                  ? "Run result"
+                  : value
+                    ? "Prepare again"
+                    : "Prepare"}
+              </Button>
+            )}
+          {state === "running" && value?.url && (
+            <Button size="sm" variant="outline" asChild>
+              <a href={value.url} target="_blank" rel="noreferrer">
+                Open result
+              </a>
+            </Button>
           )}
-          {value.instructions_changed && (
-            <p>
-              Project run or setup instructions changed. Prepare another copy to
-              use them.
-            </p>
+          {active && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void act("stop")}
+            >
+              Stop
+            </Button>
           )}
-          {value.problem && (
-            <Alert variant="destructive">
-              <AlertDescription>{value.problem}</AlertDescription>
-            </Alert>
-          )}
-          {value.status === "preparing" && (
-            <p>Still preparing. Retry if the service was interrupted.</p>
-          )}
-          {value.status === "ready" &&
-            !value.problem &&
-            (value.command ? (
-              <>
-                <InputGroup>
-                  <InputGroupInput
-                    className="font-mono text-xs"
-                    aria-label="Terminal commands"
-                    readOnly
-                    value={value.command}
-                    onFocus={(event) => event.currentTarget.select()}
-                  />
-                  <InputGroupAddon>
-                    <ActionTooltip label="Copy commands">
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label="Copy commands"
-                        onClick={() => {
-                          void navigator.clipboard
-                            .writeText(value.command)
-                            .then(
-                              () => toast.info("Commands copied."),
-                              () =>
-                                toast.error(
-                                  "Could not copy. Select the commands and copy them manually.",
-                                ),
-                            );
-                        }}
-                      >
-                        <Copy size={16} aria-hidden="true" />
-                      </Button>
-                    </ActionTooltip>
-                  </InputGroupAddon>
-                </InputGroup>
-              </>
-            ) : instructions.data?.no_preview_reason ? (
-              <p>{instructions.data.no_preview_reason}</p>
-            ) : (
+          {eligible &&
+            instructions.data &&
+            !instructions.data.run_command &&
+            !instructions.data.no_preview_reason && (
               <Button size="sm" variant="outline" asChild>
                 <WorkspaceLink
-                  to={`/projects/${value.project_id}/edit/integration`}
+                  to={`/projects/${repositoryId}/edit/integration`}
                 >
                   Configure preview
                 </WorkspaceLink>
               </Button>
-            ))}
-          {(value.locally_changed ||
-            value.instructions_changed ||
-            value.problem ||
-            value.status !== "ready" ||
-            (!value.command && !!instructions.data?.run_command)) && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy || waiting}
-              onClick={() => retry(true)}
-            >
-              Prepare another copy
-            </Button>
-          )}
-        </ContentStack>
+            )}
+        </>
+      }
+    >
+      <ResourceRetry resources={[resource, instructions]} />
+      {instructions.data?.no_preview_reason && (
+        <p>{instructions.data.no_preview_reason}</p>
       )}
-    </ContentStack>
+      {value?.runtime_problem && <p>{value.runtime_problem}</p>}
+      {value?.problem && <p>{value.problem}</p>}
+      {value?.locally_changed && (
+        <p>
+          This copy has local edits. Preparing again preserves them in the
+          previous copy.
+        </p>
+      )}
+      {value?.instructions_changed && (
+        <p>Run settings changed. Prepare again to use them.</p>
+      )}
+      {!eligible && (
+        <p>
+          This result is retained for inspection. Run the current ready result.
+        </p>
+      )}
+      {value?.runtime_output && (
+        <Disclosure summary="Runtime output">
+          {value.runtime_truncated && <p>Earlier output omitted.</p>}
+          {value.runtime_log_truncated && (
+            <p>The retained log reached its size limit.</p>
+          )}
+          <a href={`/api/${path}/inspections/${value.id}/runtime/log`} download>
+            Download runtime log
+          </a>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs">
+            {value.runtime_output}
+          </pre>
+        </Disclosure>
+      )}
+    </StatusNotice>
   );
 }

@@ -13,12 +13,18 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
   const resource = useResource<Settings>(path, key);
   const [draft, setDraft] = useState<{
     command: string;
+    autoPrepare: boolean;
+    readyCommand: string;
+    url: string;
     reason: string;
     noPreview: boolean;
     revision: number;
   } | null>(null);
   const fields = draft ?? {
     command: resource.data?.run_command ?? "",
+    autoPrepare: resource.data?.auto_prepare ?? false,
+    readyCommand: resource.data?.ready_command ?? "",
+    url: resource.data?.url ?? "",
     reason: resource.data?.no_preview_reason ?? "",
     noPreview: !!resource.data?.no_preview_reason,
     revision: resource.data?.revision ?? 1,
@@ -26,6 +32,16 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
   return {
     binding: JSON.stringify([path, resource.data?.revision, draft]),
     command: fields.command,
+    autoPrepare: fields.autoPrepare,
+    readyCommand: fields.readyCommand,
+    url: fields.url,
+    changeRuntime(
+      values: Partial<
+        Pick<typeof fields, "autoPrepare" | "readyCommand" | "url">
+      >,
+    ) {
+      if (resource.data) setDraft({ ...fields, ...values });
+    },
     reason: fields.reason,
     noPreview: fields.noPreview,
     valid: !!(fields.noPreview ? fields.reason.trim() : fields.command.trim()),
@@ -58,6 +74,9 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
         const value = await request<Settings>(path, "PUT", {
           expected_revision: draft.revision,
           run_command: draft.noPreview ? "" : draft.command,
+          auto_prepare: !draft.noPreview && draft.autoPrepare,
+          ready_command: draft.readyCommand,
+          url: draft.url,
           no_preview_reason: draft.noPreview ? draft.reason : "",
         });
         resource.invalidate();

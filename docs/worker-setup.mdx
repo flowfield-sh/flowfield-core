@@ -57,8 +57,14 @@ For concurrent tasks, configure separate ports, databases and other mutable reso
 
 ## Try a result
 
-When a run command is configured, opening an exact code result prepares an independent copy of that candidate. Its **Run result** section shows a complete, copyable launcher. Run it in your terminal, or ask the Coordinator to run it, to execute setup followed by the saved Run command.
+Open a code result and choose **Prepare**, then **Run result** in its status notice. Flowfield prepares an independent copy of that exact candidate, runs the saved setup commands, and owns the run command and its child processes. Opening the result page executes nothing.
 
-Use a repository-owned launcher that starts all required components with isolated ports and sample data, then prints the URL and stop instructions. Verify the app during implementation and the exact **Run result** launcher during candidate review.
+Enable **Automatically prepare new results** in Integration settings to have setup finish before you open each new result. Add an optional **Readiness command** that exits successfully when the application is usable, and a **Result URL** for an **Open result** link. Without a readiness command, Running means the command is active, not that the application has passed a health check.
 
-Existing copies keep their files and saved settings. A later delivery does not update them automatically. Open the result you intend to try, and follow any displayed preparation or destination recovery action.
+Keep the run command and its services in the foreground. A repository script can start several related services and wait for them. Commands that daemonize or hand off to an existing desktop application are outside managed cleanup. Use separate ports, databases and sample data for each task; Local execution uses the service host and is not a security sandbox.
+
+Each task has one active result runtime. **Stop** ends its processes while preserving the prepared copy, saved files and logs. Choose **Run result** to start it again during the same Flowfield session. Requesting changes stops the old runtime before correction work begins. Feedback uses the existing **Request changes** action and stays bound to the result you tried.
+
+Flowfield stops its owned result processes when it shuts down or restarts. Return to the result and choose **Prepare again** to run it in the new service session. Existing dependencies and builds can be reused; preparation does not reset local edits. If a copy has edits, preparing again creates another copy and preserves the old one. Runtime edits never change the candidate used for approval.
+
+Runtime failures and bounded output appear in the result notice. Download the retained log for more detail; logs indicate when their size limit was reached. If cleanup is uncertain, inspect and stop the remaining processes before choosing **Confirm stopped**.

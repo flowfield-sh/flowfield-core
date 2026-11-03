@@ -121,7 +121,7 @@ def retire_task_drafts(db: sqlite3.Connection) -> None:
 
 def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
     """Upgrade supported stores atomically with a verified backup."""
-    if current not in (86, 87, 89, 90, 91, 92, 93, 94, 95):
+    if current not in (86, 87, 89, 90, 91, 92, 93, 94, 95, 96):
         require_supported(current)
         return
     if (
@@ -213,6 +213,8 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
                 "WHERE json_extract(data,'$.harness')='claude-code')"
             )
         db.execute("CREATE INDEX IF NOT EXISTS result_run ON result_versions(run_id)")
+        # Result runtime ownership lives in inspection JSON. Older services must not
+        # ignore that ownership and delete a copy while its commands are running.
         db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         integrity(db)
         db.commit()

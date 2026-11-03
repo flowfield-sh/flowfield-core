@@ -256,7 +256,7 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     app.include_router(integration_router(supervisor))
     app.include_router(result_router(supervisor))
     app.include_router(reviewer_router(supervisor))
-    app.include_router(inspection_router(lambda: supervisor().workspace))
+    app.include_router(inspection_router(lambda: supervisor().workspace, supervisor))
     app.include_router(notification_router(lambda: app.state.notifications))
 
     @app.get("/api/events")

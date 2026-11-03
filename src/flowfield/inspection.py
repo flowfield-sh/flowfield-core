@@ -54,6 +54,9 @@ class Inspections:
                 revision=current.revision + 1,
                 run_command=request.run_command.strip(),
                 no_preview_reason=request.no_preview_reason.strip(),
+                auto_prepare=request.auto_prepare,
+                ready_command=request.ready_command.strip(),
+                url=request.url.strip(),
             )
             db.execute(
                 "INSERT INTO inspection_settings VALUES (?,?) ON CONFLICT(project_id) "
@@ -85,10 +88,13 @@ class Inspections:
 
     def _observe(self, value: Inspection) -> Inspection:
         settings = self.integrations.settings(value.project_id)
+        instructions = self.settings(value.project_id)
         value.instructions_changed = (
             settings.runtime != value.runtime
             or settings.setup_commands != value.setup_commands
-            or self.settings(value.project_id).run_command != value.run_command
+            or instructions.run_command != value.run_command
+            or instructions.ready_command != value.ready_command
+            or instructions.url != value.url
         )
         assert value.result_id
         result = Results(self.workspace).get(value.workspace_id, value.result_id)
@@ -181,6 +187,8 @@ class Inspections:
                 runtime=settings.runtime,
                 setup_commands=settings.setup_commands,
                 run_command=instructions.run_command,
+                ready_command=instructions.ready_command,
+                url=instructions.url,
             )
             return self._copy(value, repository)
 

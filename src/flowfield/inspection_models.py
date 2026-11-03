@@ -12,12 +12,18 @@ class InspectionSettings(Record):
     revision: int = 1
     run_command: str = ""
     no_preview_reason: str = ""
+    auto_prepare: bool = False
+    ready_command: str = ""
+    url: str = ""
 
 
 class InspectionConfig(Record):
     expected_revision: int = Field(ge=1)
     run_command: str = Field(max_length=4000)
     no_preview_reason: str = Field(default="", max_length=500)
+    auto_prepare: bool = False
+    ready_command: str = Field(default="", max_length=4000)
+    url: str = Field(default="", max_length=2000, pattern=r"^(https?://[^\s]+)?$")
 
     @model_validator(mode="after")
     def preview_choice(self) -> Self:
@@ -55,3 +61,27 @@ class Inspection(Record):
     locally_changed: bool = False
     source_changed: bool = False
     instructions_changed: bool = False
+    ready_command: str = ""
+    url: str = ""
+    runtime_state: Literal[
+        "cold",
+        "preparing",
+        "ready",
+        "starting",
+        "running",
+        "stopping",
+        "stopped",
+        "failed",
+        "uncertain",
+    ] = "cold"
+    runtime_problem: str | None = None
+    runtime_output: str = ""
+    runtime_truncated: bool = False
+    runtime_session: str | None = None
+    runtime_prepared: bool = False
+    runtime_generation: str | None = None
+    runtime_log_truncated: bool = False
+
+
+class InspectionRuntimeAction(Record):
+    action: Literal["prepare", "run", "stop", "confirm-stopped"]

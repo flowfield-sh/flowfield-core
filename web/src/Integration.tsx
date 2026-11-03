@@ -242,9 +242,48 @@ export function IntegrationSettings({
                   />
                 </Label>
                 <p id={`${id}-run-help`} className="detail-metadata">
-                  Configure before code work starts. Run result uses this
-                  command after setup.
+                  Run result executes this command after preparation. Keep
+                  services in the foreground so Flowfield can stop them.
                 </p>
+              </>
+            )}
+            {!inspection.noPreview && (
+              <>
+                <SettingsCheckbox
+                  checked={inspection.autoPrepare}
+                  disabled={!inspection.loaded || busy}
+                  onChange={(event) =>
+                    inspection.changeRuntime({
+                      autoPrepare: event.target.checked,
+                    })
+                  }
+                >
+                  Automatically prepare new results
+                </SettingsCheckbox>
+                <Label className="field block">
+                  Readiness command (optional)
+                  <Textarea
+                    aria-label="Readiness command"
+                    rows={2}
+                    value={inspection.readyCommand}
+                    onChange={(event) =>
+                      inspection.changeRuntime({
+                        readyCommand: event.target.value,
+                      })
+                    }
+                  />
+                </Label>
+                <Label className="field block">
+                  Result URL (optional)
+                  <Input
+                    aria-label="Result URL"
+                    value={inspection.url}
+                    onChange={(event) =>
+                      inspection.changeRuntime({ url: event.target.value })
+                    }
+                    placeholder="http://127.0.0.1:3000"
+                  />
+                </Label>
               </>
             )}
             {inspection.stale && (

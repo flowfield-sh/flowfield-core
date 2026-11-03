@@ -109,8 +109,12 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   await page.route("**/api/workspaces/*/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
-    if (path.endsWith("/inspection") || path.includes("/inspections/")) {
-      if (path.endsWith("/inspection") && !previewReady) {
+    if (
+      path.endsWith("/inspection") ||
+      path.endsWith("/inspection/runtime") ||
+      path.includes("/inspections/")
+    ) {
+      if (!previewReady) {
         if (route.request().method() === "GET")
           return route.fulfill({ json: null });
         previewAttempts++;
@@ -137,6 +141,8 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
           created_at: "2026-10-19T00:00:00Z",
           status: "ready",
           command: "echo preview",
+          runtime_state: "ready",
+          runtime_prepared: true,
           workspace: "/fixture/worktree",
           locally_changed: false,
           source_changed: true,
@@ -316,7 +322,17 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   await expect(
     runs.getByText("Requested in the previous review", { exact: true }),
   ).toHaveCount(0);
+  expect(previewAttempts).toBe(0);
+  await runs.getByRole("button", { name: "Prepare", exact: true }).click();
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close toast", exact: true }).click();
+  await runs.getByRole("button", { name: "Prepare", exact: true }).click();
   await expect.poll(() => previewAttempts).toBe(2);
+  await expect(
+    runs.getByRole("button", { name: "Run result", exact: true }),
+  ).toBeVisible();
   await expect(
     runs.getByRole("button", { name: "Prepare another copy" }),
   ).toHaveCount(0);
@@ -1085,7 +1101,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   page.on("request", (request) => {
     if (
       request.method() === "POST" &&
-      new URL(request.url()).pathname.endsWith("/inspection")
+      new URL(request.url()).pathname.endsWith("/inspection/runtime")
     )
       preparations++;
   });
@@ -1129,66 +1145,41 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   let selectedPreview = first!.id;
   const preview = () =>
     page
-      .locator(`.task-result[data-result-id="${selectedPreview}"]`)
-      .getByRole("region", { name: "Run command", exact: true });
+      .locator(
+        `.task-result[data-result-id="${selectedPreview}"] .status-notice`,
+      )
+      .filter({
+        has: page.getByRole("heading", {
+          name: /Run result|Result ready to run|Result running|Result stopped/,
+        }),
+      });
   await expect(preview()).toBeVisible();
-  await expect(preview().locator("summary")).toHaveCount(0);
+  expect(preparations).toBe(0);
+  await preview().getByRole("button", { name: "Prepare", exact: true }).click();
   await expect(
-    preview().getByRole("textbox", { name: "Terminal commands" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Inspection", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    preview().getByText("Inspection details", { exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    preview().getByRole("button", { name: "Copy commands", exact: true }),
+    preview().getByRole("button", { name: "Run result", exact: true }),
   ).toBeVisible();
   const copy = await (
     await request.get(`${path}/inspection?result_id=${first!.id}`)
   ).json();
   expect(copy.commit).toBe(first!.candidate_commit);
-  expect(copy.command).toMatch(/^\/bin\/sh /);
-  await expect(
-    preview().getByRole("textbox", { name: "Terminal commands" }),
-  ).toHaveValue(copy.command);
   expect(preparations).toBe(1);
   await page.reload();
   await expect(
-    preview().getByRole("textbox", { name: "Terminal commands" }),
-  ).toHaveValue(copy.command);
-  expect(preparations).toBe(1); // Reopening reads the existing copy without another write.
+    preview().getByRole("button", { name: "Run result", exact: true }),
+  ).toBeVisible();
+  expect(preparations).toBe(1);
   await page.setViewportSize({ width: 390, height: 844 });
-  const copyButton = preview().getByRole("button", {
-    name: "Copy commands",
+  const runButton = preview().getByRole("button", {
+    name: "Run result",
     exact: true,
   });
-  await expect
-    .poll(async () => {
-      const box = (await copyButton.boundingBox())!;
-      return box.x >= 0 && box.x + box.width <= 390;
-    })
-    .toBe(true);
-  await expect
-    .poll(
-      async () =>
-        (await preview()
-          .getByRole("textbox", { name: "Terminal commands" })
-          .boundingBox())!.height,
-    )
-    .toBeLessThanOrEqual(128);
+  const box = (await runButton.boundingBox())!;
+  expect(box.x >= 0 && box.x + box.width <= 390).toBe(true);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await preview()
-    .getByRole("button", { name: "Copy commands", exact: true })
-    .click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    copy.command,
-  );
-  expect(
-    execFileSync("/bin/sh", ["-c", copy.command], { encoding: "utf8" }),
-  ).toContain("First greeting");
+  await runButton.click();
+  await preview().getByText("Runtime output", { exact: true }).click();
+  await expect(preview()).toContainText("First greeting");
   writeFileSync(join(copy.workspace, "app.py"), "print('Preview edit')\n");
   await expect(
     page.getByRole("button", { name: "Record testing", exact: true }),
@@ -1251,20 +1242,21 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     `/workspaces/${await projectWorkspace(page.request, project)}/results/${selectedPreview}`,
   );
   await expect(preview()).toBeVisible();
-  await expect(preview().locator("summary")).toHaveCount(0);
+  await preview().getByRole("button", { name: "Prepare", exact: true }).click();
   await expect(
-    preview().getByRole("textbox", { name: "Terminal commands" }),
+    preview().getByRole("button", { name: "Run result", exact: true }),
   ).toBeVisible();
-  await expect(preview().getByText(/T-1 · Result 2/)).toHaveCount(0);
   const second = (await (await request.get(`${path}/tasks/try/results`)).json())
     .items[0];
   const next = await (
     await request.get(`${path}/inspection?result_id=${second.id}`)
   ).json();
   expect(next.workspace).not.toBe(copy.workspace);
-  expect(
-    execFileSync("/bin/sh", ["-c", next.command], { encoding: "utf8" }),
-  ).toContain("Useful successor");
+  await preview()
+    .getByRole("button", { name: "Run result", exact: true })
+    .click();
+  await preview().getByText("Runtime output", { exact: true }).click();
+  await expect(preview()).toContainText("Useful successor");
   expect(readFileSync(join(copy.workspace, "app.py"), "utf8")).toContain(
     "Preview edit",
   );
@@ -1303,18 +1295,10 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, project)}/results/${first!.id}`,
   );
-  await expect(preview().locator("summary")).toHaveCount(0);
+  await expect(preview()).toContainText("This copy has local edits");
+  await expect(preview()).toContainText("Run the current ready result");
   await expect(
-    preview().getByText("excluding edits in this copy.", { exact: false }),
-  ).toBeVisible();
-  await expect(
-    preview().getByText("This preview belongs to this earlier result.", {
-      exact: false,
-    }),
-  ).toBeVisible();
-  await preview().getByRole("button", { name: "Prepare another copy" }).click();
-  await expect(
-    preview().getByText("excluding edits in this copy.", { exact: false }),
+    preview().getByRole("button", { name: "Prepare again", exact: true }),
   ).toHaveCount(0);
   expect(readFileSync(join(copy.workspace, "app.py"), "utf8")).toContain(
     "Preview edit",
@@ -1562,7 +1546,9 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   await expect(recovery).toBeVisible();
   // No runnable preview is configured for this library fixture.
   await expect(
-    page.getByRole("region", { name: "Run command", exact: true }),
+    page.locator(".status-notice").filter({
+      has: page.getByRole("heading", { name: "Run result", exact: true }),
+    }),
   ).toContainText("without a runnable application");
   await expect(
     actions.getByRole("button", { name: "Archive", exact: true }),

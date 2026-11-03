@@ -44,6 +44,7 @@ Discover tools and their schemas through MCP; the server supplies current argume
 | --- | --- |
 | Agent choices | `get_coordinator_settings`, `get_workspace_workers`, `get_task_worker_settings`, `get_reviewer_settings`; matching configuration tools save revision-checked choices. |
 | Host setup | `get_harness_settings`, `configure_harness`, `check_harness_setup`; paths affect all workspaces, not native accounts. |
+| Result runtimes | `prepare_result_runtime`, `run_result`, `stop_result`, `get_inspection`; `confirm_result_stopped` records explicit human cleanup confirmation. |
 | Review recovery | `get_review`, `get_review_attempts`, `get_review_activity`, `retry_review`; cleanup confirmation requires your host inspection. |
 | Execution evidence | `get_execution_diff`, `get_execution_patch`, `get_execution_log`, `get_setup_log`; follow returned pages for complete evidence. |
 

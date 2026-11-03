@@ -10,6 +10,7 @@ from usage_fixtures import accounting
 from flowfield import storage, usage_schema
 from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
+from flowfield.schema import SCHEMA_VERSION
 from flowfield.usage_models import UsageFilter
 from flowfield.usage_reads import UsageReads
 
@@ -108,7 +109,7 @@ def test_interrupted_upgrade_rolls_back_and_retries(tmp_path, monkeypatch):
             "SELECT 1 FROM sqlite_master WHERE name='usage_executions'"
         ).fetchone()
     Workspace(directory)
-    assert storage.status(directory)["schema_version"] == 96
+    assert storage.status(directory)["schema_version"] == SCHEMA_VERSION
 
 
 def test_upgrade_requires_exclusive_execution_ownership(tmp_path):
@@ -141,10 +142,11 @@ import os, sys
 from pathlib import Path
 from flowfield import storage
 from flowfield.application import Workspace
+from flowfield.schema import SCHEMA_VERSION
 check = storage.integrity
 def interrupted(db):
     check(db)
-    if storage.version(db) == 96:
+    if storage.version(db) == SCHEMA_VERSION:
         os._exit(17)
 storage.integrity = interrupted
 Workspace(Path(sys.argv[1]))

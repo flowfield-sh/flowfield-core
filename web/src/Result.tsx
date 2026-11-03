@@ -224,15 +224,14 @@ export function Result({
             <p role="status">{version.next_action?.reason}</p>
           )}
           {version.completion === "code" && version.candidate_commit && (
-            <DetailSection title="Run result">
-              <Inspection
-                key={version.id}
-                projectId={projectId}
-                repositoryId={worker.data?.project_id ?? undefined}
-                result={version}
-                refresh={refresh}
-              />
-            </DetailSection>
+            <Inspection
+              key={version.id}
+              projectId={projectId}
+              repositoryId={worker.data?.project_id ?? undefined}
+              result={version}
+              refresh={refresh}
+              current={!!current}
+            />
           )}
           <DetailSection title="Outcome">
             <Markdown>{version.report.summary}</Markdown>

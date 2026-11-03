@@ -542,6 +542,49 @@ def create_mcp(
             lambda: inspection_view(Inspections(workspace()).prepare(workspace_id, request))
         )
 
+    if supervisor is not None:
+
+        @mcp.tool(annotations=write)
+        async def prepare_result_runtime(
+            workspace_id: Identifier, request: InspectionPrepare
+        ) -> dict[str, Any]:
+            """Execute saved setup for the exact current result in its independent Local copy.
+            Flowfield owns its processes. No code approval or delivery.
+            Restart requires preparation.
+            """
+            assert supervisor is not None
+            return (await supervisor().result_runtimes.prepare(workspace_id, request)).model_dump()
+
+        @mcp.tool(annotations=write)
+        async def run_result(workspace_id: Identifier, inspection_id: Identifier) -> dict[str, Any]:
+            """Run the prepared current result using its saved command. Flowfield owns cleanup."""
+            assert supervisor is not None
+            return (
+                await supervisor().result_runtimes.run(workspace_id, inspection_id)
+            ).model_dump()
+
+        @mcp.tool(annotations=write)
+        async def stop_result(
+            workspace_id: Identifier, inspection_id: Identifier
+        ) -> dict[str, Any]:
+            """Stop the result runtime, preserving saved files and code approval."""
+            assert supervisor is not None
+            return (
+                await supervisor().result_runtimes.stop(workspace_id, inspection_id)
+            ).model_dump()
+
+        @mcp.tool(annotations=write)
+        async def confirm_result_stopped(
+            workspace_id: Identifier, inspection_id: Identifier
+        ) -> dict[str, Any]:
+            """Record human confirmation that uncertain result processes were stopped.
+            Requires explicit human confirmation after inspection, not lost contact.
+            """
+            assert supervisor is not None
+            return (
+                await supervisor().result_runtimes.confirm_stopped(workspace_id, inspection_id)
+            ).model_dump()
+
     if include_service_tools:
 
         @mcp.tool(annotations=read)

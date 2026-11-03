@@ -80,6 +80,9 @@ class Supervisor:
         self.updates = Updates(workspace)
         self.integrations = Integrations(workspace)
         self.results = Results(workspace)
+        from flowfield.result_runtime import ResultRuntimes
+
+        self.result_runtimes = ResultRuntimes(workspace)
         from flowfield.review_execution import ReviewExecution
 
         self.review_execution = ReviewExecution(self)
@@ -140,6 +143,7 @@ class Supervisor:
 
         Outputs(self.workspace).recover()
         self.integrations.restart()
+        self.result_runtimes.recover()
         self._refresh_statistics()
 
     def _refresh_statistics(self) -> None:
@@ -276,6 +280,7 @@ class Supervisor:
             raise
 
     async def _schedule_once(self) -> None:
+        await self.result_runtimes.schedule()
         if self.cleanup_job is None or self.cleanup_job.done():
             if self.cleanup_job is not None:
                 self.cleanup_job.result()
@@ -304,6 +309,7 @@ class Supervisor:
             try:
                 task = self.workspace.task(workspace_id, task_id)
                 checked_agents = await self.check_task_agents(workspace_id, task.id)
+                await self.result_runtimes.stop_task(workspace_id, task.id)
                 repository = (
                     Path(self.workspace.project(task.project_id).path) if task.project_id else None
                 )
@@ -1003,6 +1009,7 @@ class Supervisor:
 
     async def close(self) -> None:
         self.closing = True
+        self.result_runtimes.closing = True
         await self.updates.close()
         await self.harness_checks.close()
         await self.coordinator.close()
@@ -1040,6 +1047,7 @@ class Supervisor:
             await asyncio.gather(*list(self.jobs.values()), return_exceptions=True)
         if self.delivery_jobs:
             await asyncio.gather(*list(self.delivery_jobs.values()), return_exceptions=True)
+        await self.result_runtimes.close()
         if self.cleanup_job:
             await asyncio.gather(self.cleanup_job, return_exceptions=True)
         if self.lock:

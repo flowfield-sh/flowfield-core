@@ -42,6 +42,15 @@ class TaskDeletionService:
         self.store = store
 
     def blocker(self, db: sqlite3.Connection, task: TaskRevision) -> str | None:
+        runtime = db.execute(
+            "SELECT 1 FROM inspections i JOIN result_versions r ON r.id=i.result_id "
+            "WHERE i.workspace_id=? AND r.task_id=? AND "
+            "json_extract(i.data,'$.runtime_state') IN "
+            "('preparing','starting','running','stopping','uncertain') LIMIT 1",
+            (task.workspace_id, task.id),
+        ).fetchone()
+        if runtime:
+            return "Stop the result runtime and confirm cleanup before deleting this task."
         # Archived tasks must pass the same ownership checks as visible tasks.
         issue = self.store.archive_issue(db, task.model_copy(update={"archived": False}))
         if issue:

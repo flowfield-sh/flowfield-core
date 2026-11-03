@@ -24,6 +24,7 @@ from flowfield.api import create_app
 from flowfield.application import Workspace
 from flowfield.context_measurements import ContextMeasurements
 from flowfield.errors import ApplicationError
+from flowfield.schema import SCHEMA_VERSION
 
 
 def test_boundary_measurements_repeats_bounds_and_no_content(tmp_path, monkeypatch):
@@ -194,7 +195,7 @@ def test_actual_published_0101_upgrade_and_rollback(tmp_path, monkeypatch):
         assert snapshot(db, names) == all_rows
     store = Workspace(directory)
     with store.connection() as db:
-        assert storage.version(db) == 96 and storage.identity(db) == identity
+        assert storage.version(db) == SCHEMA_VERSION and storage.identity(db) == identity
         assert [tuple(r) for r in db.execute("SELECT id,data FROM tasks ORDER BY id")] == before
         assert db.execute("SELECT count(*) FROM usage_context").fetchone()[0] == 0
         assert snapshot(db, names) == all_rows
