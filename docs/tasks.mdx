@@ -45,11 +45,11 @@ Move queued work back to Backlog before editing; stop active work first. In **Ba
 
 **Delete task** permanently removes its history, results, files and working copies. Stop previews and save useful edits before confirming. Delivered code stays in your repository. Active work or references from other tasks block deletion; archive instead. The Coordinator can also delete tasks.
 
-You can also ask the Coordinator to delete a task; it uses the same deletion and cleanup rules.
-
 ## Dependencies
 
-Tasks can depend on other tasks in the same workspace, including other projects. Dependents wait for delivered results; archiving unfinished work does not satisfy them. Cross-project prerequisites supply context and files without merging their code into the dependent repository.
+Tasks can depend on other tasks in the same workspace, including other projects. Dependents wait for delivered results; archiving unfinished work does not satisfy them. Cross-project dependencies do not share checkouts or merge code into the dependent repository.
+
+If a task needs files from a prerequisite, ask the Coordinator to select those retained files as inputs. Keep it in Backlog until the files exist and the handoff is complete, then move it to Up next.
 
 Completed tasks keep their delivered results when dependencies change.
 

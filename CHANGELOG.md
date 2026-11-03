@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.12.0
+
+### Improvements
+
+- Make task alerts actionable and consistent, and put response actions below their inputs. Earlier results prominently link to the current result or ongoing task.
+- Let connected agents configure roles, inspect exact logs and diffs, and handle setup and execution recovery through MCP, using the same controls as the browser.
+
+### Bug fixes
+
+- Return consistent, actionable MCP errors for invalid or stale requests, and search the correct workspace, including work without a project.
+- Keep downloaded command logs bound to their verified contents.
+
+### Breaking changes
+
+- Done tasks cannot be reopened. Create a new task referencing the completed result for follow-up work. Sent answers cannot be overwritten or retracted; use a correction.
+- Coordinator planning no longer creates task questions that require a separate apply-answer step. Planning decisions belong in chat; Worker and Reviewer questions remain in Inbox.
+- New code work requires a saved result launcher or an explicit reason why no runnable preview applies. Configure this in Project settings before starting work.
+- The CLI now handles service operation, external-agent integration and diagnostics. Manage workspaces, projects, tasks and settings through the GUI or MCP; the application-management commands and `agents.json` workspace bootstrap are removed. MCP `search_context` takes `workspace_id` rather than `project_id`.
+
+### Upgrade
+
+Stop Flowfield, run `uv tool upgrade flowfield-core`, then start it with `flowfield serve`. Workspaces and history are retained. See [updating Flowfield](https://docs.flowfield.sh/installation#update) for other installation methods.
+
 ## 0.11.0
 
 ### Improvements

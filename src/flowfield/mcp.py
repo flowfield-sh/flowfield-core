@@ -806,7 +806,10 @@ def create_mcp(
     async def edit_document_usage(
         workspace_id: Identifier, document_id: Identifier, changes: DocumentUsageEdit
     ) -> CallToolResult:
-        """Select future task audiences; null excludes a default. Frozen tasks stay unchanged."""
+        """Set custom-document defaults; null excludes a default. Workspace guidance is always
+        required and has no editable usage. Unfinished tasks reconcile changed defaults at
+        their next safe handoff; completed tasks keep their original sources.
+        """
         return await mutate(
             lambda: (
                 DocumentUsage(workspace())
