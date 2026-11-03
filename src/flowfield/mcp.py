@@ -20,7 +20,6 @@ from flowfield.application import (
     TaskIdentifier,
     TaskPriority,
     TaskReconcile,
-    TaskReopen,
     Workspace,
 )
 from flowfield.attention import AttentionColumn, RequestKind
@@ -1013,7 +1012,7 @@ def create_mcp(
         Upcoming edits preserve execution intent and automatically update their snapshots.
         Active execution, review and delivery block edits. Once idle, changed work in progress
         or review needs reconcile_task before get_task_input/reply_to_task continuation.
-        For delivered work, first use reopen_task, then edit the follow-up requirements.
+        For delivered work, create a new task referencing the completed result.
         Preserves priority/queue.
         Cross-project dependencies use task keys (for example API-1), not bare task IDs.
         archived=false restores.
@@ -1075,23 +1074,6 @@ def create_mcp(
                 workspace()
                 .reconcile_task(workspace_id, task_id, attributed(reconciliation))
                 .model_dump()
-            )
-        )
-
-    @mcp.tool(annotations=write)
-    async def reopen_task(
-        workspace_id: Identifier, task_id: TaskIdentifier, reopening: TaskReopen
-    ) -> CallToolResult:
-        """Return completed work to Backlog for an authorized follow-up on the same task.
-
-        Preserve delivered results, approvals and history. Read current task/result first and
-        explain the new work in note. Then edit_task for the follow-up;
-        prioritize only when execution is authorized. Reopening does not start a worker or
-        transfer approval. Use result feedback for work that has not yet been delivered.
-        """
-        return await mutate(
-            lambda: (
-                workspace().reopen_task(workspace_id, task_id, attributed(reopening)).model_dump()
             )
         )
 

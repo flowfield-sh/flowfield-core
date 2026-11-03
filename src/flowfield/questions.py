@@ -383,7 +383,7 @@ class Questions:
             if item.archived or item.status == "done":
                 raise ApplicationError(
                     "inactive_task",
-                    "Ask about active tasks; restore or reopen them first.",
+                    "Ask about active tasks. Restore archived tasks or create new work after Done.",
                     409,
                 )
         normalized = request.model_copy(

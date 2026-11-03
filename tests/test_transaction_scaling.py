@@ -60,18 +60,20 @@ def test_mutations_reuse_records_without_losing_bodies_or_dependency_changes(tmp
         )
     assert assignment["description"] == task.body
     upstream = store.task("harbor", "T-1")
-    store.edit_task(
-        "harbor",
-        upstream.id,
-        TaskEdit(
-            expected_revision=upstream.revision,
-            body="Changed upstream requirements.",
-        ),
-    )
+    with pytest.raises(ApplicationError, match="Done is permanent"):
+        store.edit_task(
+            "harbor",
+            upstream.id,
+            TaskEdit(
+                expected_revision=upstream.revision,
+                body="Changed upstream requirements.",
+            ),
+        )
     downstream = store.task("harbor", task.id)
-    assert downstream.reconciliation_reason
+    assert not downstream.reconciliation_reason
     assert downstream.body == task.body
-    assert [item.key for item in downstream.blocked_by] == ["T-1"]
+    assert not downstream.blocked_by
+    assert store.task("harbor", "T-1") == upstream
 
 
 def test_settings_resolve_scoped_keys_without_reading_task_history(tmp_path, monkeypatch):

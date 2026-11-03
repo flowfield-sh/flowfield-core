@@ -185,7 +185,9 @@ def test_active_work_requires_reconciliation_without_moving_its_card(tmp_path: P
     assert reconciled.status == "in_progress" and reconciled.readiness == "ready"
 
 
-def test_project_answer_updates_a_completed_dependency_chain_atomically(tmp_path: Path) -> None:
+def test_project_answer_cannot_change_completed_work_and_rolls_back_atomically(
+    tmp_path: Path,
+) -> None:
     from flowfield.questions import QuestionTaskUpdate
 
     workspace = setup(tmp_path)
@@ -215,28 +217,27 @@ def test_project_answer_updates_a_completed_dependency_chain_atomically(tmp_path
         "harbor", question.id, QuestionAnswer(expected_revision=1, answer="Preserve extra fields.")
     )
     before = {identity: workspace.task("harbor", identity) for identity in ("catalog", "export")}
-    applied = questions.apply(
-        "harbor",
-        question.id,
-        QuestionApply(
-            expected_revision=2,
-            expected_workspace_revision=1,
-            task_updates=[
-                QuestionTaskUpdate(
-                    task_id=identity,
-                    expected_revision=task.revision,
-                    body=task.body + " Preserve extra fields.",
-                )
-                for identity, task in before.items()
-            ],
-            decision="Preserve extra fields.",
-        ),
-    )
+    with pytest.raises(ApplicationError, match="Done is permanent"):
+        questions.apply(
+            "harbor",
+            question.id,
+            QuestionApply(
+                expected_revision=2,
+                expected_workspace_revision=1,
+                task_updates=[
+                    QuestionTaskUpdate(
+                        task_id=identity,
+                        expected_revision=task.revision,
+                        body=task.body + " Preserve extra fields.",
+                    )
+                    for identity, task in before.items()
+                ],
+                decision="Preserve extra fields.",
+            ),
+        )
     for identity in ("catalog", "export"):
-        current = workspace.task("harbor", identity)
-        assert current.revision == before[identity].revision + 1
-        assert applied.applied_task_revisions[identity] == current.revision
-        assert current.readiness == "needs_reconciliation" and current.status == "done"
+        assert workspace.task("harbor", identity) == before[identity]
+    assert questions.get("harbor", question.id).revision == 2
 
 
 def test_upcoming_edit_runs_without_another_preparation_operation(tmp_path: Path) -> None:

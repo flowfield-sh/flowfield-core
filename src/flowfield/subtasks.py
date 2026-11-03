@@ -90,8 +90,12 @@ class Subtasks:
 
     @staticmethod
     def _editable(db: sqlite3.Connection, parent: TaskRevision) -> None:
-        if parent.archived or parent.status == "done":
-            raise ApplicationError("task_closed", "Reopen the task before changing its work.", 409)
+        if parent.archived:
+            raise ApplicationError("task_closed", "Restore the task before changing its work.", 409)
+        if parent.status == "done":
+            raise ApplicationError(
+                "task_closed", "Done is permanent. Create a new task for follow-up work.", 409
+            )
         from flowfield.task_execution import task_edit_blocker
 
         if blocker := task_edit_blocker(db, parent.workspace_id, parent.id):

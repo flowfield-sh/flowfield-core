@@ -53,7 +53,9 @@ async def check_mcp(base: str, task: dict, workspace_id: str) -> None:
 
         assert initialized.instructions == template("mcp-instructions.md").strip()
         tools = {tool.name for tool in (await session.list_tools()).tools}
-        assert {"ask_question", "follow_up_question", "retract_answer"}.isdisjoint(tools)
+        assert {"ask_question", "follow_up_question", "retract_answer", "reopen_task"}.isdisjoint(
+            tools
+        )
         assert {
             "get_task",
             "get_workspace_workers",

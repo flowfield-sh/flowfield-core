@@ -242,10 +242,6 @@ class TaskReconcile(Edit):
     note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200_000)]
 
 
-class TaskReopen(Edit):
-    note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=8000)]
-
-
 class TaskRevision(WorkRecord):
     completion: Literal["code", "report"] = "code"
 
@@ -1038,6 +1034,30 @@ class Workspace:
             (task.workspace_id, task.id),
         ).fetchone()
         previous = TaskRevision.model_validate_json(previous_row[0]) if previous_row else None
+        if (
+            previous
+            and previous.status == "done"
+            and (
+                task.status != "done"
+                or any(
+                    getattr(previous, field) != getattr(task, field)
+                    for field in (
+                        "body",
+                        "acceptance_criteria",
+                        "dependencies",
+                        "documents",
+                        "input_files",
+                        "completion",
+                        "agreement_revision",
+                        "publication",
+                        "reconciliation_reason",
+                    )
+                )
+            )
+        ):
+            raise ApplicationError(
+                "task_completed", "Done is permanent. Create a new task for follow-up work.", 409
+            )
         messages = []
         if previous is None:
             messages.append(f"Task created in {task.status.replace('_', ' ').capitalize()}.")
@@ -1183,7 +1203,11 @@ class Workspace:
             if human and request.model_fields_set - {"expected_revision", "author", "archived"}:
                 if current.status != "backlog":
                     raise ApplicationError(
-                        "task_not_backlog", "Move this task to Backlog before editing.", 409
+                        "task_not_backlog",
+                        "Done is permanent. Create a new task for follow-up work."
+                        if current.status == "done"
+                        else "Move this task to Backlog before editing.",
+                        409,
                     )
             blocker = task_edit_blocker(db, workspace_id, task_id)
             if blocker:
@@ -1328,6 +1352,12 @@ class Workspace:
             self._current(current.revision, request.expected_revision)
             if current.archived:
                 raise ApplicationError("archived_task", "Restore the task before moving it.", 409)
+            if current.status == "done":
+                raise ApplicationError(
+                    "task_completed",
+                    "Done is permanent. Create a new task for follow-up work.",
+                    409,
+                )
             if current.status not in PLANNING:
                 raise ApplicationError(
                     "active_task",
@@ -1394,54 +1424,6 @@ class Workspace:
             raise ApplicationError(
                 "reconciliation_required", "Reconcile the changed task before continuing.", 409
             )
-
-    def reopen_task(self, workspace_id: str, task_id: str, request: TaskReopen) -> Task:
-        """Prepare a new assignment without rewriting delivered evidence or starting work."""
-        with self.connection(write=True, workspace_id=workspace_id) as db:
-            current = self._task(db, workspace_id, task_id)
-            self._current(current.revision, request.expected_revision)
-            if current.archived or current.status != "done":
-                raise ApplicationError(
-                    "task_not_completed", "Reopen an unarchived completed task for follow-up.", 409
-                )
-            if (
-                db.execute(
-                    "SELECT 1 FROM runs WHERE workspace_id=? AND task_id=? "
-                    "AND status IN ('preparing','running','stopping','uncertain')",
-                    (workspace_id, current.id),
-                ).fetchone()
-                or db.execute(
-                    "SELECT 1 FROM result_versions WHERE workspace_id=? AND task_id=? "
-                    "AND status IN ('preparing','delivering')",
-                    (workspace_id, current.id),
-                ).fetchone()
-                or db.execute(
-                    "SELECT 1 FROM task_replies WHERE workspace_id=? AND task_id=? "
-                    "AND json_extract(data,'$.status')='pending'",
-                    (workspace_id, current.id),
-                ).fetchone()
-            ):
-                raise ApplicationError(
-                    "task_busy", "Wait for the current execution or delivery before reopening.", 409
-                )
-            task = TaskRevision(
-                **{
-                    **current.model_dump(),
-                    "status": "backlog",
-                    "revision": current.revision + 1,
-                    "agreement_revision": current.agreement_revision + 1,
-                    "reconciliation_reason": None,
-                    "updated_at": now(),
-                    "updated_by": request.author,
-                    "change_note": f"Reopened for follow-up: {request.note}",
-                }
-            )
-            self._apply_task(db, task)
-            db.execute(
-                "UPDATE tasks SET position=? WHERE workspace_id=? AND id=?",
-                (self._append_position(db, workspace_id), workspace_id, current.id),
-            )
-            return self._task(db, workspace_id, current.id)
 
     def reconcile_task(self, workspace_id: str, task_id: str, request: TaskReconcile) -> Task:
         with self.connection(write=True, workspace_id=workspace_id) as db:

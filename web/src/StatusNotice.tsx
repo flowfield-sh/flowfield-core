@@ -48,7 +48,7 @@ export function StatusNoticeItems({ children }: { children: ReactNode }) {
     <ContentStack className="w-full">
       {items.map((item, index) => (
         <Fragment key={index}>
-          {index > 0 && <Separator />}
+          {index > 0 && <Separator className="my-2" />}
           {item}
         </Fragment>
       ))}

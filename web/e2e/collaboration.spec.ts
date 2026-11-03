@@ -148,7 +148,9 @@ test("coordinator dependencies update blockers, links and reconciliation without
       },
     },
   );
-  expect(reopened.ok(), await reopened.text()).toBeTruthy();
+  expect(reopened.status()).toBe(404);
+  // Fixture delivery writes from another process; the rejected route emits no event.
+  await page.reload();
   await expect(
     page
       .getByRole("region", { name: "Done tasks", exact: true })
@@ -1733,6 +1735,30 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     "The worker queue is paused",
   );
   await page.unroute(workerSettingsPath);
+  const resultPagePath = `**/api/workspaces/${workspace_id}/tasks/one/results`;
+  await page.route(resultPagePath, (route) =>
+    route.fulfill({
+      json: {
+        items: [version(first), version(older)],
+        current_id: first.id,
+        current_run_id: "new-attempt-without-result",
+        next_before: null,
+      },
+    }),
+  );
+  await page.reload();
+  const outdated = page.locator(".status-notice").filter({
+    has: page.getByRole("heading", { name: "Outdated result", exact: true }),
+  });
+  await expect(outdated).toHaveAttribute("data-tone", "attention");
+  await expect(outdated).toContainText("The latest attempt has no result yet.");
+  await expect(
+    outdated.getByRole("link", { name: "View task", exact: true }),
+  ).toHaveAttribute("href", `/workspaces/${workspace_id}/tasks/T-1`);
+  await expect(
+    outdated.getByRole("link", { name: "View latest result", exact: true }),
+  ).toHaveCount(0);
+  await page.unroute(resultPagePath);
   first = { ...first, status: "in_review" };
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   const boot = await page.evaluate(() => performance.timeOrigin);
@@ -1876,6 +1902,11 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     page.getByRole("region", { name: "Proposed result", exact: true }),
   ).toContainText("Validate the input rows.");
   await expect(page.getByLabel("Feedback for this result")).toHaveCount(0);
+  await expect(outdated).toHaveAttribute("data-tone", "attention");
+  await expect(
+    outdated.getByRole("link", { name: "View latest result", exact: true }),
+  ).toHaveAttribute("href", `/workspaces/${workspace_id}/results/first`);
+  await expect(outdated).not.toContainText(/accepted|in review/i);
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.getByLabel("Feedback for this result")).toHaveValue(
@@ -1892,7 +1923,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     .getByRole("button", { name: "Send feedback", exact: true })
     .click();
   await page
-    .getByRole("link", { name: "View current result", exact: true })
+    .getByRole("link", { name: "View latest result", exact: true })
     .click();
   await expect(page).toHaveURL(/results\/successor$/);
   await page.reload();

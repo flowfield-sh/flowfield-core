@@ -265,23 +265,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{workspace_id}/tasks/{task_id}/reopen": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Reopen Task */
-    post: operations["reopen_task_api_workspaces__workspace_id__tasks__task_id__reopen_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/workspaces": {
     parameters: {
       query?: never;
@@ -6333,18 +6316,6 @@ export interface components {
       /** Reconciliation Reason */
       reconciliation_reason: string | null;
     };
-    /** TaskReopen */
-    TaskReopen: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-      /** Note */
-      note: string;
-    };
     /** TaskReview */
     TaskReview: {
       /**
@@ -7882,42 +7853,6 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["TaskReconcile"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Task"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  reopen_task_api_workspaces__workspace_id__tasks__task_id__reopen_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        task_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TaskReopen"];
       };
     };
     responses: {

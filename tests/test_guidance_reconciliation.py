@@ -515,35 +515,22 @@ def test_preparation_uses_latest_even_with_an_older_selection_revision(tmp_path)
     assert task.publication.documents[0].revision == changed.revision
 
 
-def test_reopened_task_reconciles_without_changing_its_delivered_result(tmp_path, monkeypatch):
-    from flowfield.application import TaskEdit, TaskPriority, TaskReopen
-
+def test_guidance_changes_leave_completed_task_and_result_unchanged(tmp_path, monkeypatch):
     service, _, run, _, reviews = configured(tmp_path)
     peers(monkeypatch)
     asyncio.run(round_trip(service))
     approve(service, current(service))
     service.results.process("harbor")
     delivered = current(service)
-    assert delivered.status == "delivered"
     task = service.workspace.task("harbor", run.task_id)
-    task = service.workspace.reopen_task(
-        "harbor", task.id, TaskReopen(expected_revision=task.revision, note="Cover another case")
-    )
-    task = service.workspace.edit_task(
-        "harbor",
-        task.id,
-        TaskEdit(expected_revision=task.revision, completion="code"),
-    )
-    service.workspace.prioritize_task(
-        "harbor", task.id, TaskPriority(expected_revision=task.revision, status="up_next")
-    )
+    review = reviews.latest("harbor", task.id)
     change(service.workspace)
     asyncio.run(round_trip(service))
-    review = reviews.latest("harbor", task.id)
-    assert review.status == "decided" and review.result_id is None
-    assert current(service).id == delivered.id
-    assert current(service).status == "delivered"
-    assert service.workspace.task("harbor", task.id).publication.documents[0].revision == 2
+    assert reviews.latest("harbor", task.id) == review
+    assert current(service) == delivered
+    retained = service.workspace.task("harbor", task.id)
+    assert retained.status == "done"
+    assert retained.publication == task.publication
 
 
 @pytest.mark.parametrize("cycle", [False, True])

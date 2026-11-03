@@ -143,7 +143,7 @@ def test_review_is_bound_to_code_and_current_intent(tmp_path: Path) -> None:
         execution.finish("harbor", run.id, "in_review", result=run.result, commit=BASE)
 
 
-def test_reopened_delivery_keeps_history_without_repeating_resolved_feedback(tmp_path):
+def test_delivered_correction_keeps_history_and_cannot_restart(tmp_path):
     execution = fixture(tmp_path)
     previous = result(execution, partial=True)
     results = Results(execution.workspace)
@@ -172,15 +172,15 @@ def test_reopened_delivery_keeps_history_without_repeating_resolved_feedback(tmp
     validate_report(execution)
     assert execution.get("harbor", corrected.id).status == "accepted"
     task = execution.workspace.task("harbor", previous.task_id)
-    run_report(
-        execution.workspace, "harbor", task.id, expected_revision=task.revision, status="up_next"
-    )
-    followup = execution.claim("harbor", RESULT, {RESULT: set()})
-    assert followup and followup.predecessor_id == corrected.id
-    assert followup.feedback == ""
-    assignment = execution.assignment("harbor", followup.id)
-    assert assignment["feedback"] == ""
-    assert "Original outcome delivered" in assignment["predecessor"]
+    with pytest.raises(ApplicationError, match="Done is permanent"):
+        run_report(
+            execution.workspace,
+            "harbor",
+            task.id,
+            expected_revision=task.revision,
+            status="up_next",
+        )
+    assert execution.claim("harbor", RESULT, {RESULT: set()}) is None
     assert execution.get("harbor", corrected.id).feedback == "Resolve the original missing check"
 
 

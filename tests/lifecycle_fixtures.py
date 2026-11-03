@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from flowfield.agent_models import AgentChoice
-from flowfield.application import TaskEdit, TaskPriority, TaskReopen
+from flowfield.application import TaskEdit, TaskPriority
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import QueueEdit, SettingsEdit, WorkerResult
@@ -22,19 +22,10 @@ def run_report(
             identity,
             TaskEdit(expected_revision=task.revision, completion=completion, author=author),
         )
-    if task.status == "done" and status != "done":
-        task = store.reopen_task(
-            owner,
-            identity,
-            TaskReopen(
-                expected_revision=task.revision, note="Verify revised findings", author=author
-            ),
-        )
-        task = store.edit_task(
-            owner,
-            identity,
-            TaskEdit(expected_revision=task.revision, completion="report", author=author),
-        )
+    if task.status == "done":
+        if status != "done":
+            raise ApplicationError("task_completed", "Done is permanent.", 409)
+        return task
     if status in ("backlog", "up_next"):
         return store.prioritize_task(
             owner,

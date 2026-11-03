@@ -16,6 +16,7 @@ from flowfield.agent_models import AgentChoice
 from flowfield.application import TaskCreate, Workspace
 from flowfield.cost_models import PricingEvidence
 from flowfield.execution import Execution
+from flowfield.execution_models import RunAction
 from flowfield.results import Results
 from flowfield.usage import Usage
 from flowfield.usage_models import Consumption, Tokens
@@ -38,7 +39,7 @@ def seed(state: Path):
     usage = Usage(store)
     runs = []
     for index, (harness, total) in enumerate([("claude-code", 2000), ("codex", 1200), ("pi", 600)]):
-        # The report helper owns queue pausing, publication and result delivery.
+        # Record two stopped attempts followed by one delivery; Done is terminal.
         choice = AgentChoice(harness=harness, model="synthetic-requested-model")
         with patch("lifecycle_fixtures.AgentChoice", return_value=choice):
             task = run_report(
@@ -106,7 +107,12 @@ def seed(state: Path):
             "flowfield.application.now", return_value=f"2026-10-27T{10 + index}:20:00+00:00"
         ):
             usage.end(owner, "run", run.id, confirmed=True)
-        task = run_report(store, owner, task.id, expected_revision=task.revision, status="done")
+        if index < 2:
+            stopped = execution.finish(owner, run.id, "stopped")
+            execution.retry(owner, stopped.id, RunAction(expected_revision=stopped.revision))
+            task = store.task(owner, task.id)
+        else:
+            task = run_report(store, owner, task.id, expected_revision=task.revision, status="done")
     result = Results(store).page(owner, task.id).items[0]
     return {
         "url": f"/workspaces/{owner}/tasks/{task.key}",

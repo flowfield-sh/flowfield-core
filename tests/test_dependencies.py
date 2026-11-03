@@ -17,8 +17,6 @@ from flowfield.application import ProjectSetup, TaskEdit, TaskReconcile, Workspa
 from flowfield.browser import BrowserReads
 from flowfield.cli import app
 from flowfield.errors import ApplicationError
-from flowfield.execution import Execution
-from flowfield.results import Results
 
 
 def workspace(tmp_path: Path) -> Workspace:
@@ -76,7 +74,7 @@ def test_graph_validation_is_atomic_and_scoped(tmp_path: Path) -> None:
     assert Workspace(tmp_path / "state").board("harbor") == before
 
 
-def test_completed_deliveries_survive_upstream_reopening_without_cascades(tmp_path: Path) -> None:
+def test_completed_deliveries_remain_done_without_cascades(tmp_path: Path) -> None:
     service = workspace(tmp_path)
     for key, dependencies in [("a", []), ("b", ["a"]), ("c", ["b"])]:
         service.create_task(
@@ -100,9 +98,10 @@ def test_completed_deliveries_survive_upstream_reopening_without_cascades(tmp_pa
     saved = {key: service.task("harbor", key) for key in ["b", "c"]}
     with service.connection() as db:
         results = db.execute("SELECT data FROM result_versions ORDER BY id").fetchall()
-    # A new consumer of B can use its completed snapshot even while A is corrected.
+    # A new consumer can use B without changing completed work.
     service.create_task("harbor", task_request(id="d", title="New outcome", dependencies=["b"]))
-    progress(service, "a", "in_progress")
+    with pytest.raises(ApplicationError, match="Done is permanent"):
+        progress(service, "a", "in_progress")
     for key in ["b", "c"]:
         retained = service.task("harbor", key)
         assert retained.status == "done" and retained.readiness == "ready"
@@ -127,51 +126,11 @@ def test_completed_deliveries_survive_upstream_reopening_without_cascades(tmp_pa
     progress(service, "a", "done")
     for key in ["b", "c"]:
         assert service.task("harbor", key).revisions == saved[key].revisions
-    # Explicitly reopening B does require its own preparation, leaving C delivered.
-    progress(service, "b", "in_progress")
+    with pytest.raises(ApplicationError, match="Done is permanent"):
+        progress(service, "b", "in_progress")
     assert service.task("harbor", "c").revisions == saved["c"].revisions
     assert service.task("harbor", "c").readiness == "ready"
     assert Workspace(tmp_path / "state").board("harbor") == service.board("harbor")
-
-
-def test_unfinished_dependents_still_reconcile_changed_prerequisites(tmp_path: Path) -> None:
-    service = workspace(tmp_path)
-    service.create_task("harbor", task_request(id="a", title="A"))
-    service.create_task("harbor", task_request(id="b", title="B", dependencies=["a"]))
-    progress(service, "a", "done")
-    progress(service, "b", "in_progress")
-    progress(service, "a", "in_progress")
-    affected = service.task("harbor", "b")
-    assert affected.status == "in_progress" and affected.readiness == "needs_reconciliation"
-    assert affected.reconciliation_reason and affected.blocked_by
-    with pytest.raises(ApplicationError, match="Blocked by"):
-        progress(service, "b", "done")
-    progress(service, "a", "done")
-    with pytest.raises(ApplicationError, match="reconcile"):
-        progress(service, "b", "done")
-    current = service.task("harbor", "b")
-    with pytest.raises(ApplicationError, match="working on this task"):
-        service.reconcile_task(
-            "harbor",
-            "b",
-            TaskReconcile(expected_revision=current.revision, note="Review changed inputs"),
-        )
-    import asyncio
-
-    from flowfield.execution_models import RunAction
-    from flowfield.supervisor import Supervisor
-
-    asyncio.run(
-        Supervisor(service).stop_task("harbor", "b", RunAction(expected_revision=current.revision))
-    )
-    current = service.task("harbor", "b")
-    assert current.status == "backlog"
-    reconciled = service.reconcile_task(
-        "harbor",
-        "b",
-        TaskReconcile(expected_revision=current.revision, note="Review changed inputs"),
-    )
-    assert reconciled.readiness == "ready" and not reconciled.reconciliation_reason
 
 
 def test_added_dependency_preserves_work_and_explicit_replanning(tmp_path: Path) -> None:
@@ -230,63 +189,18 @@ def test_concurrent_edges_and_completion_are_serialized(tmp_path: Path) -> None:
         try:
             return progress(
                 service,
-                prerequisite if action == "reopen" else linked.id,
-                "up_next" if action == "reopen" else "done",
+                prerequisite if action == "move" else linked.id,
+                "up_next" if action == "move" else "done",
             )
         except ApplicationError as error:
             return error.code
 
     with ThreadPoolExecutor(2) as pool:
-        list(pool.map(race, ["reopen", "complete"]))
+        results = list(pool.map(race, ["move", "complete"]))
+    assert results[0] == "task_completed"
     final = service.task("harbor", linked.id)
-    if final.status == "done":
-        assert not final.blocked_by and not final.reconciliation_reason
-        assert final.readiness == "ready"
-    else:
-        # The fixture drives claim, start, submission and delivery separately. A
-        # prerequisite can reopen after claim; that preserves blocked work.
-        assert final.status in {"backlog", "up_next", "in_progress"} and final.blocked_by
-
-
-@pytest.mark.parametrize("phase", ["before_start", "before_submission", "before_delivery"])
-def test_reopened_prerequisite_blocks_each_report_completion_phase(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase: str
-) -> None:
-    service = workspace(tmp_path)
-    service.create_task("harbor", task_request(id="upstream", title="Upstream"))
-    service.create_task(
-        "harbor", task_request(id="dependent", title="Dependent", dependencies=["upstream"])
-    )
-    progress(service, "upstream", "done")
-    owner, method = {
-        "before_start": (Execution, "started"),
-        "before_submission": (Execution, "finish"),
-        "before_delivery": (Results, "process"),
-    }[phase]
-    original = getattr(owner, method)
-
-    def reopen_before(instance, *args, **kwargs):
-        progress(service, "upstream", "up_next")
-        return original(instance, *args, **kwargs)
-
-    monkeypatch.setattr(owner, method, reopen_before)
-    if phase == "before_start":
-        with pytest.raises(ApplicationError, match="older or blocked assignment"):
-            progress(service, "dependent", "done")
-    else:
-        progress(service, "dependent", "done")
-    final = service.task("harbor", "dependent")
-    assert final.status == "in_progress" and final.blocked_by
-    assert final.readiness != "ready"
-    with service.connection() as db:
-        rows = db.execute(
-            "SELECT status,data FROM result_versions WHERE task_id=?", (final.id,)
-        ).fetchall()
-    if phase == "before_start":
-        assert not rows
-    else:
-        assert len(rows) == 1 and rows[0]["status"] == "blocked"
-        assert json.loads(rows[0]["data"])["problem_code"] == "assignment_changed"
+    assert final.status == "done" and final.readiness == "ready"
+    assert not final.blocked_by and not final.reconciliation_reason
 
 
 def test_http_reconciliation_and_cli_dependencies(tmp_path: Path) -> None:

@@ -1,4 +1,5 @@
 import { useLocation } from "react-router";
+import { StatusNotice } from "./StatusNotice";
 import { TaskReview } from "./TaskReview";
 import { WorkerDocumentEvidence } from "./WorkerDocuments";
 import { ResourceRetry } from "./ResourceRetry";
@@ -17,7 +18,7 @@ import type { DiffViewState } from "./CodeDiff";
 import { Markdown } from "./Markdown";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { usePage, useResource } from "./useResource";
-import { label, request, type WorkspaceBoard } from "./workspace";
+import { request, type WorkspaceBoard } from "./workspace";
 import { taskHref } from "./navigation";
 import { FailureEvidence } from "./Integration";
 import { ReviewChecks } from "./ReviewChecks";
@@ -96,18 +97,9 @@ export function Result({
     10000,
     { workspaceId: projectId, attemptId: version?.run_id, isActive: checking },
   );
-  const successor = useResource<components["schemas"]["Run"]>(
-    page.data?.current_run_id && page.data.current_run_id !== version?.run_id
-      ? `${path}/runs/${page.data.current_run_id}`
-      : null,
-    refresh,
-  );
   const current =
     version?.id === page.data?.current_id &&
     version?.run_id === page.data?.current_run_id;
-  const latestResult = page.data?.items.find(
-    (item) => item.id === page.data?.current_id,
-  );
   const settingsHref =
     version?.next_action?.settings === "reviewer"
       ? `${taskHref(projectId, { key: taskKey })}/settings`
@@ -152,7 +144,7 @@ export function Result({
       data-result-id={versionId}
     >
       <ResourceRetry
-        resources={[page, detail, evidence, availability, worker, successor]}
+        resources={[page, detail, evidence, availability, worker]}
       />
       {page.loading && !page.data && <p>Loading result…</p>}
       {page.data && !page.data.items.length && (
@@ -195,23 +187,31 @@ export function Result({
             }
           />
           {page.data && !current && (
-            <p className="detail-metadata">
-              {page.data.current_id && page.data.current_id !== version.id ? (
-                <>
-                  {latestResult
-                    ? `Result #${latestResult.version} is ${label(latestResult.status).toLowerCase()}. `
-                    : "A newer result is available. "}
-                  <WorkspaceLink to={`${href}/${page.data.current_id}`}>
-                    View current result
+            <StatusNotice
+              title="Outdated result"
+              tone="attention"
+              actions={
+                <Button variant="outline" size="sm" asChild>
+                  <WorkspaceLink
+                    to={
+                      page.data.current_id &&
+                      page.data.current_id !== version.id
+                        ? `${href}/${page.data.current_id}`
+                        : taskHref(projectId, { key: taskKey })
+                    }
+                  >
+                    {page.data.current_id && page.data.current_id !== version.id
+                      ? "View latest result"
+                      : "View task"}
                   </WorkspaceLink>
-                </>
-              ) : (
-                <>
-                  A newer worker attempt is{" "}
-                  {label(successor.data?.status ?? "pending")}.
-                </>
+                </Button>
+              }
+            >
+              {(!page.data.current_id ||
+                page.data.current_id === version.id) && (
+                <p>The latest attempt has no result yet.</p>
               )}
-            </p>
+            </StatusNotice>
           )}
           {current && ["preparing", "delivering"].includes(version.status) && (
             <p role="status">

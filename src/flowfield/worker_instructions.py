@@ -72,7 +72,7 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         )
         + "sentences about the complete current outcome of your assignment, including what remains "
         "available from "
-        "earlier work when correcting or reopening a task. Do not describe only the latest patch. "
+        "earlier work when correcting a task. Do not describe only the latest patch. "
         "Put command output, paths, hashes and detailed evidence "
         "in checks, with unresolved constraints in limitations. "
         "Leave review, approval and delivery status to Flowfield's live controls; do not "

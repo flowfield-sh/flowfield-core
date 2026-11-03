@@ -220,7 +220,6 @@ def test_revisions_keep_exact_inputs_and_old_files(tmp_path):
     from file_delivery_fixtures import deliver, setup
     from file_delivery_fixtures import task as make_task
 
-    from flowfield.application import TaskEdit, TaskPriority, TaskReopen
     from flowfield.output_models import FileInput
     from flowfield.task_files import materialize
 
@@ -240,23 +239,9 @@ def test_revisions_keep_exact_inputs_and_old_files(tmp_path):
     frozen = json.loads(execution.assignment(scope, run.id)["files"])
     assert frozen[0]["id"] == first.files[0].id
     execution.finish(scope, run.id, "stopped")
-    current = store.task(scope, task.id)
-    current = store.reopen_task(
-        scope, task.id, TaskReopen(expected_revision=current.revision, note="Revise the findings")
-    )
-    current = store.prioritize_task(
-        scope, task.id, TaskPriority(expected_revision=current.revision, status="up_next")
-    )
-    store.edit_task(
-        scope,
-        task.id,
-        TaskEdit(
-            expected_revision=current.revision,
-            completion="report",
-        ),
-    )
-    second = deliver(store, scope, task.id, {"report.txt": "Revised"})
-    assert second.version == 2 and second.files[0].id != first.files[0].id
+    followup = make_task(store, scope, title="Revise the findings", dependencies=[task.key])
+    second = deliver(store, scope, followup.id, {"report.txt": "Revised"})
+    assert second.task_id != first.task_id and second.files[0].id != first.files[0].id
     shutil.rmtree(store.directory / "workspaces" / owner.id / "attempts")
     inputs = materialize(
         store, owner.id, [FileInput.model_validate(item) for item in frozen], tmp_path / "inputs"
@@ -265,7 +250,7 @@ def test_revisions_keep_exact_inputs_and_old_files(tmp_path):
     assert [
         Outputs(store).content(file).read_text() for file in Outputs(store).page(owner.id).items
     ] == ["Revised", "Original"]
-    assert store.task(scope, dependent.id).reconciliation_reason
+    assert not store.task(scope, dependent.id).reconciliation_reason
 
 
 def test_workspace_coordinator_tools_create_and_read_file_tasks(tmp_path):

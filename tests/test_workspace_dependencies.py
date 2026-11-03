@@ -83,15 +83,19 @@ def test_same_local_ids_scope_cycles_pagination_and_completed_dependencies(tmp_p
     saved = store.task(space, site.id)
     notifications.clear()
     current = store.task(space, core.id)
-    store.edit_task(
-        space, core.id, TaskEdit(expected_revision=current.revision, body="Changed API contract")
-    )
+    with pytest.raises(ApplicationError, match="Done is permanent"):
+        store.edit_task(
+            space,
+            core.id,
+            TaskEdit(expected_revision=current.revision, body="Changed API contract"),
+        )
     revised = store.task(space, site.id)
     assert revised.reconciliation_reason is None and revised.body == "Site behavior"
     assert revised.revisions == saved.revisions and revised.readiness == "ready"
-    assert {space} == set(notifications)
+    assert not notifications
+    assert store.task(space, core.id) == current
     assert store.task(foreign_space, foreign.id).reconciliation_reason is None
-    assert [p.id for p in store.task(space, joined.id).blocked_by] == [core.id]
+    assert not store.task(space, joined.id).blocked_by
 
 
 def test_competing_cross_project_edges_cannot_commit_a_cycle(tmp_path):

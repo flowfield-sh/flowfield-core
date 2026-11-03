@@ -1014,30 +1014,6 @@ def task_reconcile(
     )
 
 
-@task_app.command("reopen")
-def task_reopen(
-    ctx: typer.Context,
-    task: str,
-    note: Annotated[str, typer.Option(help="Explain the authorized follow-up work.")],
-    workspace: str = typer.Option(..., "--workspace"),
-    expected_revision: Expected = None,
-    author: Author = "human",
-    json_output: Json = False,
-) -> None:
-    """Return completed work to Backlog, preserving delivered results and approval."""
-    output(
-        lambda: update(
-            ctx.obj,
-            workspace_item_path(workspace, "tasks", task),
-            {"note": note},
-            expected_revision,
-            author,
-            operation="reopen",
-        ),
-        json_output,
-    )
-
-
 def archive_task(
     ctx: typer.Context,
     task: str,

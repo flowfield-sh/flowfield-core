@@ -54,9 +54,11 @@ async function screenshot(
   if (process.env.FLOWFIELD_VISUAL_EVIDENCE) {
     if (target) await target.scrollIntoViewIfNeeded();
     else
-      await page.locator(".harness-settings-page").evaluate((element) => {
-        element.scrollTop = 0;
-      });
+      await page
+        .getByRole("region", { name: "Settings content", exact: true })
+        .evaluate((element) => {
+          element.scrollTop = 0;
+        });
     await page.screenshot({
       path: testInfo.outputPath(`harness-settings-${name}.png`),
       fullPage: true,

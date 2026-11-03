@@ -125,14 +125,11 @@ def test_context_readiness_matches_domain_and_invalid_input(tmp_path: Path) -> N
     run_report(service, "harbor", "two", expected_revision=1, status="done", completion="report")
     service.create_task("harbor", task_request(id="three", title="Three", dependencies=["two"]))
     reads = ContextReads(service)
-    for status in ["backlog", "done"]:
-        run_report(
-            service,
+    for archived in [True, False]:
+        service.edit_task(
             "harbor",
             "one",
-            expected_revision=service.task("harbor", "one").revision,
-            status=status,
-            completion="report",
+            TaskEdit(expected_revision=service.task("harbor", "one").revision, archived=archived),
         )
         for task in service.tasks("harbor"):
             detail = reads.task("harbor", task.key)
