@@ -11,7 +11,7 @@ function MarkdownLink({
   children,
 }: {
   href?: string;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   if (!href) return <span>{children}</span>;
   let target: URL | undefined;
@@ -43,6 +43,19 @@ function MarkdownLink({
   );
 }
 
+function PlainLink({ children }: { children?: ReactNode }) {
+  return <span>{children}</span>;
+}
+
+function MarkdownImage({ alt }: { alt?: string }) {
+  return <span>{alt || "Image"}</span>;
+}
+
+// Stable component types preserve a link's focus and in-flight pointer gesture
+// when unrelated workspace data refreshes its parent.
+const linkedComponents = { a: MarkdownLink, img: MarkdownImage };
+const plainComponents = { ...linkedComponents, a: PlainLink };
+
 export function Markdown({
   children,
   links = true,
@@ -55,15 +68,7 @@ export function Markdown({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         skipHtml
-        components={{
-          a: ({ href, children }) =>
-            links ? (
-              <MarkdownLink href={href}>{children}</MarkdownLink>
-            ) : (
-              <span>{children}</span>
-            ),
-          img: ({ alt }) => <span>{alt || "Image"}</span>,
-        }}
+        components={links ? linkedComponents : plainComponents}
       >
         {children}
       </ReactMarkdown>

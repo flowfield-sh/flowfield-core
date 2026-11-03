@@ -198,11 +198,25 @@ test("individual requests retain answers and drafts across Inbox and reused tabs
       },
     });
   });
+  let releaseTask!: () => void;
+  const taskRead = new Promise<void>((resolve) => {
+    releaseTask = resolve;
+  });
+  await page.route(`**/api${base}/view/tasks/${task.key}`, async (route) => {
+    await taskRead;
+    await route.continue();
+  });
   await page.goto(`/workspaces/${workspace}/tasks/${task.key}`);
-  await page
+  const chatLink = page
     .getByRole("region", { name: "Coordinator conversation" })
-    .getByRole("link", { name: "Review this request", exact: true })
-    .click();
+    .getByRole("link", { name: "Review this request", exact: true });
+  await chatLink.hover();
+  await page.mouse.down();
+  // A background read can finish during a real pointer gesture. It must not
+  // replace the Markdown anchor and lose the eventual click.
+  releaseTask();
+  await expect(page.locator(".task-detail")).toContainText(task.title);
+  await page.mouse.up();
   await expect(page).toHaveURL(href);
   await expect(
     detail.getByText("Name and rate", { exact: true }).first(),

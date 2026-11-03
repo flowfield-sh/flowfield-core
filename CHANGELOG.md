@@ -9,6 +9,7 @@
 
 ### Bug fixes
 
+- Keep conversation links clickable while workspace data refreshes.
 - Return consistent, actionable MCP errors for invalid or stale requests, and search the correct workspace, including work without a project.
 - Keep downloaded command logs bound to their verified contents.
 
