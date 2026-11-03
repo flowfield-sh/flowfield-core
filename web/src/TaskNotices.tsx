@@ -5,6 +5,7 @@ import { TaskNeeds } from "./TaskNeeds";
 import { TaskReview } from "./TaskReview";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { resultHref } from "./navigation";
+import { requestHref } from "./requestLinks";
 import type { Task, WorkspaceBoard } from "./workspace";
 
 /** Current task notices have one position; historical diagnostics stay in the feed. */
@@ -19,8 +20,25 @@ export function TaskNotices({
   board: WorkspaceBoard;
   openTask: (id: string) => void;
 }) {
+  const attention = board.attention_requests?.[task.key];
+  const permission = attention?.startsWith(
+    requestHref(workspaceId, "permission", ""),
+  )
+    ? attention
+    : null;
   return (
     <ContentStack className="task-notices" aria-label="Task notices">
+      {permission && (
+        <StatusNotice
+          title="Tool permission needed"
+          tone="attention"
+          actions={
+            <Button variant="outline" size="sm" asChild>
+              <WorkspaceLink to={permission}>Review permission</WorkspaceLink>
+            </Button>
+          }
+        />
+      )}
       {task.state?.reason === "scheduling" && (
         <StatusNotice title="Work cannot start" tone="attention">
           <p>{task.scheduling_problem}</p>

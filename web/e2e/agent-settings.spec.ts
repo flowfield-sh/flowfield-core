@@ -501,6 +501,32 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     ).toBe(true);
     return route.fulfill({ json: permission });
   });
+  await page.route(
+    `**/api/workspaces/${workspace}/view/board`,
+    async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({
+        json: {
+          ...(await response.json()),
+          attention_requests:
+            permission.status === "pending"
+              ? {
+                  [task.key]: `/workspaces/${workspace}/requests/permission/request-2?project_id=agent-settings`,
+                }
+              : {},
+        },
+      });
+    },
+  );
+  await page.goto(`/workspaces/${workspace}/tasks/${task.key}`);
+  const permissionNotice = page.locator('[aria-label="Task notices"]');
+  await expect(permissionNotice).toContainText("Tool permission needed");
+  await permissionNotice
+    .getByRole("link", { name: "Review permission" })
+    .click();
+  await expect(
+    permissionDetail.getByRole("button", { name: "Allow once" }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   const action = page.getByRole("tabpanel", {
     name: "Needs me",
@@ -535,6 +561,11 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   ).toBeVisible();
   await history.getByRole("link", { name: /Run the project checks/ }).click();
   await expect(page.getByText(/Allow once · Answer recorded/)).toBeVisible();
+  await page.goto(`/workspaces/${workspace}/tasks/${task.key}`);
+  await expect(page.locator(".task-detail")).toContainText(task.title);
+  await expect(
+    permissionNotice.getByText("Tool permission needed"),
+  ).toHaveCount(0);
 });
 
 test("Integration uses Local automatically and preserves drafts across project tabs", async ({
