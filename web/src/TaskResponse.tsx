@@ -9,7 +9,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PaneFooter } from "./EntityPane";
 import { Button } from "@/components/ui/button";
 import { Composer } from "./Composer";
-import { ArrowUp } from "lucide-react";
 import { ContentStack } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
@@ -491,40 +490,6 @@ export function TaskResponse({
                   disabled={busy || !inputEnabled}
                   onBusy={setUploading}
                   onSend={() => void send()}
-
-                  action={
-                    showComposer && (
-                      <Button
-                        type="submit"
-                        size={composerAction === "approve" ? "sm" : "icon-sm"}
-                        aria-label={
-                          draft?.action === "changes"
-                            ? "Send feedback"
-                            : composerAction === "approve"
-                              ? "Approve and integrate"
-                              : composerAction === "answer"
-                                ? "Send answer"
-                                : "Send message"
-                        }
-                        disabled={
-                          busy ||
-                          uploading ||
-                          !inputEnabled ||
-                          !draft ||
-                          (draft.action !== "approve" && !draft.body.trim()) ||
-                          stale
-                        }
-                      >
-                        {busy ? (
-                          "Saving…"
-                        ) : composerAction === "approve" ? (
-                          "Approve and integrate"
-                        ) : (
-                          <ArrowUp size={16} />
-                        )}
-                      </Button>
-                    )
-                  }
                 />
                 {!inputEnabled &&
                   gate.data &&
@@ -557,6 +522,37 @@ export function TaskResponse({
                   className="task-action-context content-stack"
                 />
                 <div className="actions" role="group" aria-label="Task actions">
+                  {showComposer && (
+                    <Button
+                      type="submit"
+                      size="sm"
+                      aria-label={
+                        draft?.action === "changes"
+                          ? "Send feedback"
+                          : composerAction === "approve"
+                            ? "Approve and integrate"
+                            : composerAction === "answer"
+                              ? "Send answer"
+                              : "Send message"
+                      }
+                      disabled={
+                        busy ||
+                        uploading ||
+                        !inputEnabled ||
+                        !draft ||
+                        (draft.action !== "approve" && !draft.body.trim()) ||
+                        stale
+                      }
+                    >
+                      {busy
+                        ? "Saving…"
+                        : composerAction === "approve"
+                          ? "Approve and integrate"
+                          : draft?.action === "changes"
+                            ? "Send feedback"
+                            : "Send answer"}
+                    </Button>
+                  )}
                   <div
                     ref={setActionHost}
                     className="task-result-actions"

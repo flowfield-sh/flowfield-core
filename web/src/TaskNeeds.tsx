@@ -1,120 +1,79 @@
+import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
-import { TaskLink, BlockedBy } from "./TaskLinks";
+import { TaskLink } from "./TaskLinks";
+import { StatusNotice } from "./StatusNotice";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { QuestionLink } from "./QuestionLink";
+import { requestHref } from "./requestLinks";
 import type { TaskCard } from "./workspace";
-
-function combinedDependencies(task: TaskCard) {
-  return task.state?.reason === "prerequisites" && task.blocked_by.length > 0;
-}
-
-export function hasTaskNeeds(
-  task: TaskCard,
-  pendingCode: components["schemas"]["PendingCode"][] = [],
-  showQuestions = true,
-  includeDependencies = false,
-  hideDependencies = false,
-) {
-  return !!(
-    (task.execution_issue &&
-      (!task.blocking_questions.length ||
-        task.readiness === "needs_reconciliation")) ||
-    (!hideDependencies &&
-      (includeDependencies || !combinedDependencies(task)) &&
-      task.blocked_by.length) ||
-    task.blocking_questions.some((q) => showQuestions || !q.task_id) ||
-    pendingCode.length
-  );
-}
 
 export function TaskNeeds({
   task,
   projectId,
   pendingCode = [],
   open,
-  detailed = false,
-  showQuestions = true,
-  includeDependencies = false,
-  hideDependencies = false,
 }: {
   task: TaskCard;
   projectId: string;
   pendingCode?: components["schemas"]["PendingCode"][];
   open: (id: string) => void;
-  detailed?: boolean;
-  showQuestions?: boolean;
-  includeDependencies?: boolean;
-  hideDependencies?: boolean;
 }) {
   return (
-    <ul className="task-needs">
+    <>
       {task.execution_issue &&
         (!task.blocking_questions.length ||
           task.readiness === "needs_reconciliation") && (
-          <li>{task.execution_issue}</li>
+          <StatusNotice title="Work needs attention" tone="attention">
+            <p>{task.execution_issue}</p>
+          </StatusNotice>
         )}
-      {!hideDependencies &&
-        (includeDependencies || !combinedDependencies(task)) &&
-        !!task.blocked_by.length && (
-          <li>
-            <BlockedBy
-              projectId={projectId}
-              tasks={task.blocked_by}
-              open={open}
-            />
-          </li>
-        )}
-      {task.blocking_questions
-        .filter((q) => showQuestions || !q.task_id)
-        .map((q) => (
-          <li key={q.id}>
-            {detailed && (
-              <p>
-                {q.delivery
-                  ? q.delivery.message
-                  : q.status === "answered"
-                    ? "Ask the coordinator to apply your answer:"
-                    : "Needs your answer before work can continue:"}
-              </p>
-            )}
-            {q.task_id ? (
-              <WorkspaceLink
-                to={`/workspaces/${projectId}/requests/question/${q.id}`}
-                className={`input-request${q.status === "open" ? " needs-answer" : ""}`}
-              >
-                {detailed
-                  ? q.question
-                  : q.delivery
-                    ? q.delivery.state
-                    : q.status === "answered"
-                      ? "Ask coordinator to apply answer"
-                      : "Needs your answer"}
+      {task.blocking_questions.map((q) => (
+        <StatusNotice
+          key={q.id}
+          title={q.status === "open" ? "Your answer is needed" : "Answer saved"}
+          tone={q.status === "open" ? "attention" : "neutral"}
+          actions={
+            <Button variant="outline" size="sm" asChild>
+              <WorkspaceLink to={requestHref(projectId, "question", q.id)}>
+                {q.status === "open" ? "Answer question" : "View answer"}
               </WorkspaceLink>
-            ) : (
-              <QuestionLink workspaceId={projectId} id={q.id}>
-                {q.question}
-              </QuestionLink>
-            )}
-          </li>
-        ))}
-      {pendingCode.map((prerequisite) => (
-        <li key={prerequisite.key}>
-          <TaskLink projectId={projectId} task={prerequisite} open={open} />
-          {prerequisite.reuse_action?.action === "revalidate" ? (
-            <>
-              {": "}
-              {prerequisite.reuse_action.reason}{" "}
-              {prerequisite.result_href && (
-                <WorkspaceLink to={prerequisite.result_href}>
-                  {prerequisite.reuse_action.label} for {prerequisite.key}
-                </WorkspaceLink>
-              )}
-            </>
-          ) : (
-            " — prerequisite code is unavailable. Open the task for details."
-          )}
-        </li>
+            </Button>
+          }
+        >
+          <p>{q.question}</p>
+          {q.delivery ? (
+            <p>{q.delivery.message}</p>
+          ) : q.status === "answered" ? (
+            <p>The Coordinator needs to apply your saved answer.</p>
+          ) : null}
+        </StatusNotice>
       ))}
-    </ul>
+      {pendingCode.map((prerequisite) => (
+        <StatusNotice
+          key={prerequisite.key}
+          title={
+            prerequisite.reuse_action?.action === "revalidate"
+              ? "Prerequisite code needs checking"
+              : "Prerequisite code is unavailable"
+          }
+          tone="attention"
+          actions={
+            prerequisite.result_href && (
+              <Button variant="outline" size="sm" asChild>
+                <WorkspaceLink to={prerequisite.result_href}>
+                  View prerequisite result
+                </WorkspaceLink>
+              </Button>
+            )
+          }
+        >
+          <p>
+            <TaskLink projectId={projectId} task={prerequisite} open={open} />
+          </p>
+          {prerequisite.reuse_action?.action === "revalidate" && (
+            <p>{prerequisite.reuse_action.reason}</p>
+          )}
+        </StatusNotice>
+      ))}
+    </>
   );
 }

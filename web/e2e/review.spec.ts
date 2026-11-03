@@ -1,3 +1,4 @@
+import { responseViews } from "./response-evidence";
 import { dialogViews } from "./dialog-evidence";
 import { resultRequest } from "./support";
 import { projectWorkspace } from "./support";
@@ -476,6 +477,13 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   await page
     .getByRole("textbox", { name: "Feedback for this result", exact: true })
     .fill("Include the source path in errors.");
+  await responseViews(
+    page,
+    test.info(),
+    "feedback",
+    "Send feedback",
+    "Cancel feedback",
+  );
   await page.getByRole("button", { name: "Send feedback" }).click();
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
@@ -572,7 +580,13 @@ test("validated result approval delivers real Git code with the worker queue pau
   await page
     .getByLabel("Testing notes or approval comment (optional)", { exact: true })
     .fill("Keyboard checked; mobile not tested.");
-  await page.screenshot({ path: testInfo.outputPath("approval-comment.png") });
+  await responseViews(
+    page,
+    testInfo,
+    "approval-comment",
+    "Approve and integrate",
+    "Cancel approval",
+  );
   const approvalResponse = page.waitForResponse(
     (response) =>
       response.url().endsWith(`${base}/results/${seed.result}/review`) &&
@@ -804,11 +818,13 @@ test("validated result approval delivers real Git code with the worker queue pau
   }
   await page.goto(`${workspacePath}/tasks/T-2`);
   const checkLink = page.getByRole("link", {
-    name: "Check destination for T-1",
+    name: "View prerequisite result",
     exact: true,
   });
   await expect(checkLink).toBeVisible();
-  await expect(page.locator(".task-needs")).toContainText("Delivery succeeded");
+  await expect(page.locator(".task-notices")).toContainText(
+    "Delivery succeeded",
+  );
   await page.screenshot({
     path: testInfo.outputPath("dependent-validation-needed.png"),
     fullPage: true,
@@ -835,7 +851,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   ).toBeVisible();
   await page.goto(`${workspacePath}/tasks/T-2`);
   await expect(
-    page.getByRole("link", { name: "Check destination for T-1", exact: true }),
+    page.getByRole("link", { name: "View prerequisite result", exact: true }),
   ).toHaveCount(0);
   const settings = await (
     await request.get(`/api/projects/${seed.project}/integration`)
@@ -855,7 +871,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   expect(changed.ok()).toBe(true);
   await page.goto(`${workspacePath}/tasks/T-2`);
   await page
-    .getByRole("link", { name: "Check destination for T-1", exact: true })
+    .getByRole("link", { name: "View prerequisite result", exact: true })
     .click();
   await expect(
     result.getByRole("region", { name: "Current branch checks" }),
@@ -902,7 +918,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   }
   await page.goto(`${workspacePath}/tasks/T-2`);
   await expect(
-    page.getByRole("link", { name: "Check destination for T-1", exact: true }),
+    page.getByRole("link", { name: "View prerequisite result", exact: true }),
   ).toBeVisible();
 });
 
@@ -986,6 +1002,13 @@ test("managed answers show durable pause, safe edits and immutable correction in
     page.getByRole("button", { name: "Reply", exact: true }),
   ).toHaveCount(0);
   await page.getByLabel("Your answer", { exact: true }).fill("All records");
+  await responseViews(
+    page,
+    test.info(),
+    "worker-answer",
+    "Send answer",
+    "Discard answer",
+  );
   await page.getByRole("button", { name: "Send answer", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Request", exact: true }),

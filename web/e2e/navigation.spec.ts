@@ -69,7 +69,7 @@ test("task keys link to persistent selections with history and draft protection"
     exact: true,
   });
   await expect(
-    waiting.getByRole("heading", { name: "Waiting on", exact: true }),
+    waiting.getByRole("heading", { name: "Work needs attention", exact: true }),
   ).toBeVisible();
   await expect(
     waiting.getByRole("link", { name: one.key, exact: true }).first(),

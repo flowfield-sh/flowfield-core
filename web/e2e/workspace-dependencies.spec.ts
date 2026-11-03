@@ -110,6 +110,6 @@ test("cross-project prerequisites link to their owner and refresh dependent view
   expect(edited.ok(), await edited.text()).toBeTruthy();
   await refreshed;
   await expect(
-    task.getByRole("heading", { name: "Waiting on", exact: true }),
+    task.getByRole("heading", { name: "Work needs attention", exact: true }),
   ).toHaveCount(0);
 });

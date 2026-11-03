@@ -100,7 +100,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
     detail.getByText("Needs code from T-1", { exact: true }),
   ).toHaveCount(0);
   await expect(dependencyState).toContainText("Prerequisites: T-1, T-3");
-  await expect(detail.locator(".task-needs")).toContainText(
+  await expect(detail.locator(".task-notices")).toContainText(
     "Configure the project's delivery target before execution.",
   );
   await openResource(page, "Task Board");
@@ -160,7 +160,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
       .getByRole("img", { name: "Done", exact: true }),
   ).toHaveCount(1);
   await expect(
-    detail.getByRole("heading", { name: "Waiting on", exact: true }),
+    detail.getByRole("heading", { name: "Work needs attention", exact: true }),
   ).toHaveCount(0);
   await expect(
     detail.getByRole("heading", { name: "Delivery context", exact: true }),
@@ -419,7 +419,7 @@ test("cards keep one state while project questions remain in Inbox", async ({
   const card = page.locator(".task-card");
   await expect(card.locator(".work-state")).toHaveText("Needs your answer");
   await expect(card.getByRole("link")).toHaveCount(1);
-  await expect(card.locator(".task-needs")).toHaveCount(0);
+  await expect(card.locator(".task-notices")).toHaveCount(0);
   await call("ask_question", {
     workspace_id: await projectWorkspace(request, project_id),
     question: {
@@ -431,7 +431,7 @@ test("cards keep one state while project questions remain in Inbox", async ({
       blocking_scope: "Project constraint",
     },
   });
-  await expect(card.locator(".task-needs")).toHaveCount(0);
+  await expect(card.locator(".task-notices")).toHaveCount(0);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(
     page
@@ -1267,17 +1267,18 @@ test("related questions preserve the page, drafts, focus and router history", as
   });
   const origin = `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-1`;
   await expect(
-    editor.getByText("Needs your answer before work can continue:", {
+    editor.getByText("Your answer is needed", {
       exact: true,
     }),
   ).toBeVisible();
   await expect(
     editor.getByText("No dependency or input blockers.", { exact: true }),
   ).toHaveCount(0);
-  const trigger = editor.locator(".task-needs").getByRole("link", {
-    name: "Which books?",
+  const trigger = editor.locator(".task-notices").getByRole("link", {
+    name: "Answer question",
     exact: true,
   });
+  await dialogViews(page, test.info(), "task-question-notice");
   await page.setViewportSize({ width: 1280, height: 300 });
   await trigger.scrollIntoViewIfNeeded();
   const taskDialog = page.getByRole("region", {
@@ -1300,6 +1301,7 @@ test("related questions preserve the page, drafts, focus and router history", as
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
   const answer = dialog.getByLabel("Your answer", { exact: true });
   await answer.fill("My unsaved answer");
+  await dialogViews(page, test.info(), "coordinator-answer");
   await page.goBack();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await expect(page).toHaveURL(origin);
@@ -1352,7 +1354,7 @@ test("related questions preserve the page, drafts, focus and router history", as
   await expect(page).toHaveURL(origin);
   await expect(dialog).toHaveCount(0);
   await expect(
-    editor.getByText("Ask the coordinator to apply your answer:", {
+    editor.getByText("Answer saved", {
       exact: true,
     }),
   ).toBeVisible();

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ContentStack } from "./DetailLayout";
 import { StatusNotice } from "./StatusNotice";
-import { TaskNeeds, hasTaskNeeds } from "./TaskNeeds";
+import { TaskNeeds } from "./TaskNeeds";
 import { TaskReview } from "./TaskReview";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { resultHref } from "./navigation";
@@ -26,21 +26,16 @@ export function TaskNotices({
           <p>{task.scheduling_problem}</p>
         </StatusNotice>
       )}
-      {task.state?.reason === "prerequisites" && (
-        <StatusNotice title="Waiting on prerequisites" />
-      )}
-      {hasTaskNeeds(task, board.pending_code[task.key], true, false, true) && (
-        <StatusNotice title="Waiting on" tone="attention">
-          <TaskNeeds
-            task={task}
-            projectId={workspaceId}
-            pendingCode={board.pending_code[task.key]}
-            open={openTask}
-            detailed
-            hideDependencies
-          />
-        </StatusNotice>
-      )}
+      {task.state?.reason === "prerequisites" &&
+        !board.pending_code[task.key]?.length && (
+          <StatusNotice title="Waiting on prerequisites" />
+        )}
+      <TaskNeeds
+        task={task}
+        projectId={workspaceId}
+        pendingCode={board.pending_code[task.key]}
+        open={openTask}
+      />
       <TaskReview
         projectId={workspaceId}
         taskId={task.id}

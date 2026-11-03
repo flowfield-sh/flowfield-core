@@ -2,7 +2,6 @@ import { ConfirmButton } from "./ConfirmButton";
 import { LoadMore } from "./LoadMore";
 import { useRetainedState, retainDirty } from "./retainedState";
 import type { DirtyCallback } from "./retainedState";
-import { ArrowUp } from "lucide-react";
 import { Composer } from "./Composer";
 import { QuestionPrompt } from "./QuestionPrompt";
 import { QuestionChoices } from "./QuestionChoices";
@@ -432,26 +431,28 @@ export function QuestionDetail({
                       disabled={busy}
                       onBusy={setUploading}
                       onSend={() => void answer()}
-                      action={
-                        <Button
-                          type="submit"
-                          size="icon-sm"
-                          aria-label={
-                            correcting ? "Send correction" : "Send answer"
-                          }
-                          disabled={
-                            busy ||
-                            uploading ||
-                            !!newer ||
-                            !draft.trim() ||
-                            (editing && !dirty)
-                          }
-                        >
-                          <ArrowUp size={16} />
-                        </Button>
-                      }
                     />
                     <div className="actions">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        aria-label={
+                          correcting ? "Send correction" : "Send answer"
+                        }
+                        disabled={
+                          busy ||
+                          uploading ||
+                          !!newer ||
+                          !draft.trim() ||
+                          (editing && !dirty)
+                        }
+                      >
+                        {busy
+                          ? "Saving…"
+                          : correcting
+                            ? "Send correction"
+                            : "Send answer"}
+                      </Button>
                       {editing && (
                         <ConfirmButton
                           size="sm"

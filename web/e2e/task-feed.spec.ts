@@ -579,7 +579,7 @@ test("conversation edits preserve readiness and task defaults show only useful w
     0,
   );
   await expect(
-    editor.getByRole("heading", { name: "Waiting on", exact: true }),
+    editor.getByRole("heading", { name: "Work needs attention", exact: true }),
   ).toHaveCount(0);
   const current = await call("get_task", {
     workspace_id: await projectWorkspace(page.request, project_id),
