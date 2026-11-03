@@ -1,4 +1,5 @@
 import { useContext } from "react";
+import { Badge } from "@/components/ui/badge";
 import { ProjectOwners } from "./WorkspaceLink";
 import { canonicalHref } from "./navigation";
 import { useLocation, useNavigate } from "react-router";
@@ -10,10 +11,12 @@ export function TaskLink({
   projectId,
   task,
   open,
+  badge = false,
 }: {
   projectId: string;
   task: TaskReference;
   open: (id: string) => void;
+  badge?: boolean;
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -22,9 +25,9 @@ export function TaskLink({
     taskHref(task.workspace_id, task),
     useContext(ProjectOwners),
   );
-  return (
+  const link = (
     <TooltipLink
-      className="task-key"
+      className={badge ? "" : "task-key"}
       href={href}
       tooltip={task.title}
       onClick={(event) =>
@@ -37,6 +40,13 @@ export function TaskLink({
     >
       {task.key}
     </TooltipLink>
+  );
+  return badge ? (
+    <Badge variant="outline" className="no-underline" asChild>
+      {link}
+    </Badge>
+  ) : (
+    link
   );
 }
 

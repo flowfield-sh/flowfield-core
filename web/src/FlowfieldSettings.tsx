@@ -1,5 +1,5 @@
 import { ActionTooltip } from "./ActionTooltip";
-import { StatusNotice } from "./StatusNotice";
+import { StatusNotice, StatusNoticeItems } from "./StatusNotice";
 import { NotificationSettings } from "./NotificationSettings";
 import { UpdateSettings } from "./UpdateSettings";
 import { useAnnouncements } from "./Announcements";
@@ -298,7 +298,7 @@ function HarnessEntry({
                 </p>
               )}
               {action !== "check" && (
-                <>
+                <StatusNoticeItems>
                   {!status.native_installed && (
                     <p>
                       Install {names[kind]} on the machine running Flowfield,
@@ -332,7 +332,7 @@ function HarnessEntry({
                       again.
                     </p>
                   )}
-                </>
+                </StatusNoticeItems>
               )}
               <div className="actions">
                 <Button

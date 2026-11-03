@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
 import { TaskLink } from "./TaskLinks";
-import { StatusNotice } from "./StatusNotice";
+import { StatusNotice, StatusNoticeItems } from "./StatusNotice";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { requestHref } from "./requestLinks";
 import type { TaskCard } from "./workspace";
@@ -81,39 +81,42 @@ export function TaskNeeds({
           }
           tone="attention"
         >
-          {pendingCode.map((prerequisite) => (
-            <div className="content-stack" key={prerequisite.key}>
-              <p>
-                <TaskLink
-                  projectId={projectId}
-                  task={prerequisite}
-                  open={open}
-                />{" "}
-                {prerequisite.title}
-              </p>
-              {pendingCode.some(
-                (item) => item.reuse_action?.action === "revalidate",
-              ) &&
-                pendingCode.some(
-                  (item) => item.reuse_action?.action !== "revalidate",
-                ) && (
-                  <p>
-                    {prerequisite.reuse_action?.action === "revalidate"
-                      ? "Needs checking"
-                      : "Code unavailable"}
-                  </p>
+          <StatusNoticeItems>
+            {pendingCode.map((prerequisite) => (
+              <div className="content-stack" key={prerequisite.key}>
+                <p>
+                  <TaskLink
+                    projectId={projectId}
+                    task={prerequisite}
+                    badge
+                    open={open}
+                  />{" "}
+                  {prerequisite.title}
+                </p>
+                {pendingCode.some(
+                  (item) => item.reuse_action?.action === "revalidate",
+                ) &&
+                  pendingCode.some(
+                    (item) => item.reuse_action?.action !== "revalidate",
+                  ) && (
+                    <p>
+                      {prerequisite.reuse_action?.action === "revalidate"
+                        ? "Needs checking"
+                        : "Code unavailable"}
+                    </p>
+                  )}
+                {prerequisite.result_href && (
+                  <div className="actions">
+                    <Button variant="outline" size="sm" asChild>
+                      <WorkspaceLink to={prerequisite.result_href}>
+                        View prerequisite result
+                      </WorkspaceLink>
+                    </Button>
+                  </div>
                 )}
-              {prerequisite.result_href && (
-                <div className="actions">
-                  <Button variant="outline" size="sm" asChild>
-                    <WorkspaceLink to={prerequisite.result_href}>
-                      View prerequisite result
-                    </WorkspaceLink>
-                  </Button>
-                </div>
-              )}
-            </div>
-          ))}
+              </div>
+            ))}
+          </StatusNoticeItems>
         </StatusNotice>
       )}
     </>

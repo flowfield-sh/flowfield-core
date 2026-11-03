@@ -3,7 +3,7 @@ export { CheckEvidence } from "./CheckEvidence";
 import { ConfirmButton } from "./ConfirmButton";
 import { ValidationProgress, type IntegrationRead } from "./ValidationProgress";
 import { ProjectCheckPermission } from "./ProjectCheckPermission";
-import { StatusNotice } from "./StatusNotice";
+import { StatusNotice, StatusNoticeItems } from "./StatusNotice";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
@@ -422,24 +422,28 @@ function SetupValidation({
             }
             actions={validateAction}
           >
-            <p>
-              {value.stale
-                ? "Settings or destination changed; validate again."
-                : value.status === "passed"
-                  ? "Setup and checks passed in the managed environment."
-                  : value.status === "checking"
-                    ? "Running the saved commands in a managed copy."
-                    : value.status === "uncertain"
-                      ? "Validation stopped without a confirmed outcome. Inspect the retained evidence before continuing."
-                      : "Review the failure below, update the settings, then validate again."}
-            </p>
-            {value.problem && <p>{value.problem.split("\n")[0]}</p>}
-            {value.checkout_problem && (
-              <p>
-                <strong>Checkout is not ready for delivery.</strong>{" "}
-                {value.checkout_problem}
-              </p>
-            )}
+            <StatusNoticeItems>
+              <ContentStack>
+                <p>
+                  {value.stale
+                    ? "Settings or destination changed; validate again."
+                    : value.status === "passed"
+                      ? "Setup and checks passed in the managed environment."
+                      : value.status === "checking"
+                        ? "Running the saved commands in a managed copy."
+                        : value.status === "uncertain"
+                          ? "Validation stopped without a confirmed outcome. Inspect the retained evidence before continuing."
+                          : "Review the failure below, update the settings, then validate again."}
+                </p>
+                {value.problem && <p>{value.problem.split("\n")[0]}</p>}
+              </ContentStack>
+              {value.checkout_problem && (
+                <p>
+                  <strong>Checkout is not ready for delivery.</strong>{" "}
+                  {value.checkout_problem}
+                </p>
+              )}
+            </StatusNoticeItems>
           </StatusNotice>
           {value.problem?.includes("\n") && (
             <Disclosure summary="Failure details">
