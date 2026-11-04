@@ -111,8 +111,8 @@ export function RuntimeDetails({
           )}
           {value && (
             <>
-              <div className="actions">
-                {value.runtime_output && (
+              {value.runtime_output && (
+                <div className="actions">
                   <Button size="sm" variant="outline" asChild>
                     <a
                       href={`/api/${path}/inspections/${value.id}/runtime/log`}
@@ -121,8 +121,8 @@ export function RuntimeDetails({
                       Download log
                     </a>
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
               <div
                 ref={outputRef}
                 className="run-activity-output"
