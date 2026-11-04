@@ -266,3 +266,31 @@ def test_first_scoped_save_freezes_displayed_destination(tmp_path, monkeypatch, 
         assert integration._settings(db, "project").target_branch == "main"
     git(root, "switch", "delivery")
     assert integration.settings("project").target_branch == "main"
+
+
+@pytest.mark.parametrize("active_at_read", [True, False])
+def test_completion_during_status_read_is_not_reported_as_interrupted(
+    tmp_path, monkeypatch, active_at_read
+):
+    from flowfield.adapters import git_checkout
+
+    _, service, settings = configured(tmp_path, monkeypatch)
+    finished = asyncio.run(
+        service.check("project", SetupCheckRequest(expected_revision=settings.revision))
+    )
+    assert finished.status == "passed"
+    service._save(finished.model_copy(update={"status": "checking", "problem": None}))
+    if active_at_read:
+        service.active.add("project")
+    verify = git_checkout.verify
+
+    def finish_during_probe(*args, **kwargs):
+        service._save(finished)
+        service.active.discard("project")
+        return verify(*args, **kwargs)
+
+    monkeypatch.setattr(git_checkout, "verify", finish_during_probe)
+    observed = service.get("project")
+    assert observed.status in ("checking", "passed")
+    assert not observed.problem
+    assert service.get("project").status == "passed"

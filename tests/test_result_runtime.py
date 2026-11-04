@@ -620,3 +620,34 @@ def test_cancel_before_readiness_guardian_launch_still_records_cleanup(tmp_path,
             await runtime.close()
 
     asyncio.run(exercise())
+
+
+def test_unavailable_environment_resources_fail_visibly_and_can_be_reprepared(
+    tmp_path, monkeypatch
+):
+    from flowfield.adapters.local_result import LocalResultEnvironment
+
+    async def exercise():
+        service, version = await asyncio.to_thread(configured, tmp_path, "echo worked")
+        runtime = service.result_runtimes
+        try:
+            value = await prepared(service, version)
+
+            def unavailable(*args, **kwargs):
+                raise PermissionError("Project download cache is unavailable")
+
+            with monkeypatch.context() as patch:
+                patch.setattr(LocalResultEnvironment, "__init__", unavailable)
+                await runtime.run("harbor", value.id)
+                failed = await settled(runtime, value, {"failed"})
+                assert "download cache" in failed.runtime_problem
+                assert not failed.runtime_prepared
+            fresh = await prepared(service, version)
+            assert fresh.runtime_state == "ready"
+            await runtime.run("harbor", fresh.id)
+            finished = await settled(runtime, fresh, {"finished"})
+            assert "worked" in finished.runtime_output
+        finally:
+            await runtime.close()
+
+    asyncio.run(exercise())

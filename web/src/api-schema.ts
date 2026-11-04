@@ -4070,8 +4070,6 @@ export interface components {
        * @default 60
        */
       run_timeout_seconds: number;
-      /** Outputs */
-      outputs?: components["schemas"]["OutputSelection"][];
     };
     /** InspectionPrepare */
     InspectionPrepare: {
@@ -4127,8 +4125,6 @@ export interface components {
        * @default 60
        */
       run_timeout_seconds: number;
-      /** Outputs */
-      outputs: components["schemas"]["OutputSelection"][];
     };
     /** IntegrationConfig */
     IntegrationConfig: {

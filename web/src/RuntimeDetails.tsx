@@ -6,7 +6,7 @@ import type { components } from "./api-schema";
 import type { AdjacentSnapshot } from "./AdjacentView";
 import { ContentStack, DetailHeading } from "./DetailLayout";
 import { EntityPane } from "./EntityPane";
-import { runtimeTitles } from "./Inspection";
+import { RuntimeState } from "./Inspection";
 import { resultHref, taskHref } from "./navigation";
 import { DetailHeader } from "./Presentation";
 import { ResourceRetry } from "./ResourceRetry";
@@ -110,7 +110,9 @@ export function RuntimeDetails({
           {version && (
             <DetailHeading
               title={task?.title ?? `Result ${version.version}`}
-              metadata={value ? runtimeTitles[value.runtime_state] : undefined}
+              metadata={
+                value ? <RuntimeState state={value.runtime_state} /> : undefined
+              }
             />
           )}
           {!value && runtime.loading && <p>Loading runtime…</p>}

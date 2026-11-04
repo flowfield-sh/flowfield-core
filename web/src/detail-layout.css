@@ -2,9 +2,23 @@
   background: var(--muted);
   row-gap: 8px;
 }
+/* Conditional React children may render nothing; empty rows must not add a gap. */
+[data-slot="alert-description"]:empty,
+.status-notice [data-slot="alert-description"]:has(> .notice-content:empty),
+.status-notice
+  [data-slot="alert-description"]:has(
+    > .notice-content > .actions:only-child:empty
+  ),
+.status-notice .actions:empty {
+  display: none;
+}
 .status-notice [data-slot="alert-title"] {
   font-weight: 600;
   line-height: 1.6;
+}
+.status-notice [data-slot="alert-title"] .work-state {
+  font-size: inherit;
+  line-height: inherit;
 }
 .status-notice[data-tone="success"] > svg {
   color: var(--success-foreground);

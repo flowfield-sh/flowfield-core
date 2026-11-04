@@ -38,13 +38,32 @@ def enrich(db: sqlite3.Connection, run: Run, sections: dict[str, str]) -> None:
             "SELECT data FROM inspection_settings WHERE project_id=?", (run.project_id,)
         ).fetchone()
         preview = json.loads(row[0]) if row else {}
-        sections["preview"] = json.dumps(
-            {
+        from flowfield.runtime_models import ResultRecipe
+
+        defaults = ResultRecipe(
+            setup_commands=run.setup_commands,
+            setup_timeout_seconds=run.setup_timeout_seconds,
+            **{
                 "run_command": preview.get("run_command", ""),
                 "no_preview_reason": preview.get("no_preview_reason", ""),
                 "ready_command": preview.get("ready_command", ""),
                 "run_timeout_seconds": preview.get("run_timeout_seconds", 60),
-                "outputs": preview.get("outputs", []),
+            },
+        ).model_dump()
+        sections["preview"] = json.dumps(defaults)
+        previous = json.loads(sections.get("predecessor", "null") or "null")
+        prior_recipe = previous.get("recipe") if previous else None
+        sections["recipe_context"] = json.dumps(
+            {
+                "defaults_source": "preview: current project defaults frozen for this attempt",
+                "previous_recipe": prior_recipe,
+                "different_fields": [
+                    key for key, value in (prior_recipe or {}).items() if defaults.get(key) != value
+                ],
+                "resolution": "Omitted submit_result.recipe fields use preview defaults. "
+                "The previous recipe is comparison evidence, never automatic inheritance. "
+                "For corrections, explicitly resubmit still-needed previous overrides, including "
+                "setup, readiness, URL and generated files; reconcile intentional project changes.",
             }
         )
     runtime = db.execute(
@@ -192,6 +211,8 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
         "contribution",
         "correction",
         "validation",
+        "preview",
+        "recipe_context",
         "documentation",
         "project",
         "prerequisites",

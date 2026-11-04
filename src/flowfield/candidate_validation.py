@@ -54,7 +54,9 @@ def validate(
 
     try:
         check_cancelled()
-        environment = LocalHost(os.environ).prepare(directory, repository, identity, commit)
+        environment = LocalHost(os.environ, cache_root=directory.parent / "setup-cache").prepare(
+            directory, repository, identity, commit
+        )
         value.workspace = str(environment.checkout)
         value.setup_checks = gitops.run_checks(
             environment,

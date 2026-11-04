@@ -9,7 +9,7 @@ from flowfield.adapters.local_execution import LocalAttempt
 
 def write_launcher(environment: LocalAttempt, setup: list[str], run: str) -> Path:
     launcher = environment.root / "try-result.sh"
-    # Save only per-copy paths. The terminal supplies host credentials and native settings.
+    # Save only managed paths. The terminal supplies host credentials and native settings.
     variables = environment.launch_environment()
     variables = {
         key: variables[key]
@@ -22,7 +22,9 @@ def write_launcher(environment: LocalAttempt, setup: list[str], run: str) -> Pat
             "FLOWFIELD_WORKSPACE",
             "FLOWFIELD_RUNTIME_DIR",
             "FLOWFIELD_OUTPUT_DIR",
+            "FLOWFIELD_CACHE_DIR",
         )
+        if key in variables
     }
     exports = "".join(f"export {key}={shlex.quote(value)}\n" for key, value in variables.items())
     # Outside the worktree: preview edits and generated launcher files cannot enter delivery.

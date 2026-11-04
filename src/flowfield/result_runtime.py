@@ -290,9 +290,22 @@ class ResultRuntimes:
             value.runtime_truncated |= len(combined) > 16000
             value.runtime_output = combined[-16000:].decode(errors="ignore")
 
-        environment = LocalResultEnvironment(
-            value.id, Path(value.workspace), value.runtime_generation, output
-        )
+        try:
+            environment = LocalResultEnvironment(
+                value.id,
+                Path(value.workspace),
+                value.runtime_generation,
+                output,
+                cache_root=self.workspace.directory / "setup-cache",
+            )
+        except Exception as error:
+            # Construction starts no project process. Report unavailable cache/checkout/port
+            # resources instead of leaving a completed job looking permanently in progress.
+            value.runtime_state = "failed"
+            value.runtime_prepared = False
+            value.runtime_problem = f"Could not create the local environment: {error}"
+            self.copies._save(value)
+            return
         value.resolved_url = environment.resolve_url(value.url)
         value.artifact_problem = None
 

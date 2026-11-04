@@ -150,12 +150,11 @@ def test_partial_worker_override_survives_submission_and_keeps_frozen_defaults(t
         tmp_path,
         recipe=ResultRecipe(
             run_command='test -f "$FLOWFIELD_RUNTIME_DIR/installed"; '
-            'echo result > "$FLOWFIELD_OUTPUT_DIR/report.txt"'
+            'echo result > "$FLOWFIELD_OUTPUT_DIR/report.txt"',
+            outputs=[OutputSelection(path="report.txt")],
         ),
         setup_commands=['touch "$FLOWFIELD_RUNTIME_DIR/installed"'],
-        preview=InspectionConfig(
-            expected_revision=2, run_command="exit 12", outputs=[OutputSelection(path="report.txt")]
-        ),
+        preview=InspectionConfig(expected_revision=2, run_command="exit 12"),
     )
     result = current(service)
     assert result.recipe.setup_commands == ['touch "$FLOWFIELD_RUNTIME_DIR/installed"']
@@ -305,3 +304,32 @@ def test_verification_rejects_generated_files_that_cannot_be_retained(tmp_path):
     result = current(service)
     assert result.status == "blocked" and "128 MiB" in result.problem
     assert result.next_action.action == "correct"
+
+
+def test_correction_context_distinguishes_current_defaults_and_previous_effective_recipe(tmp_path):
+    from flowfield.worker_context import brief_context, enrich
+
+    old = ResultRecipe(
+        run_command="echo previous",
+        ready_command="true",
+        url="http://localhost:1234",
+        outputs=[OutputSelection(path="old.csv")],
+    )
+    service, _, run = fixture(tmp_path, recipe=old, setup_commands=["echo reusable-setup"])
+    Inspections(service.workspace).configure(
+        "harbor", InspectionConfig(expected_revision=2, run_command="echo new-default")
+    )
+    previous = current(service).recipe
+    sections = {"predecessor": json.dumps({"recipe": previous.model_dump()})}
+    with service.workspace.connection() as db:
+        enrich(db, run, sections)
+    defaults = json.loads(sections["preview"])
+    context = json.loads(sections["recipe_context"])
+    assert defaults["run_command"] == "echo new-default"
+    assert defaults["setup_commands"] == ["echo reusable-setup"]
+    assert defaults["outputs"] == [] and defaults["url"] == ""
+    assert context["previous_recipe"] == previous.model_dump()
+    assert {"run_command", "ready_command", "url", "outputs"} <= set(context["different_fields"])
+    assert "recipe_context" in brief_context(sections)["context"]
+    assert "preview" in brief_context(sections)["context"]
+    assert current(service).recipe == previous

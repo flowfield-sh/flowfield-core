@@ -208,14 +208,14 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     .getByRole("link", { name: "Access results", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Run result", exact: true }),
+    page.getByRole("heading", { name: "Unprepared", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Harbor", exact: true }),
   ).toBeVisible();
   await expect(
     page.locator(".status-notice").filter({
-      has: page.getByRole("heading", { name: "Run result", exact: true }),
+      has: page.getByRole("heading", { name: "Unprepared", exact: true }),
     }),
   ).toBeVisible();
   await page.getByText("Guidance", { exact: true }).click();

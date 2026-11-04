@@ -1151,7 +1151,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
       )
       .filter({
         has: page.getByRole("heading", {
-          name: /Run result|Result ready to run|Result running|Result stopped|Result finished/,
+          name: /Unprepared|Ready|Running|Stopped|Finished/,
         }),
       });
   await expect(preview()).toBeVisible();
@@ -1181,11 +1181,16 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await runButton.click();
   await expect(preview()).not.toContainText("First greeting");
   await expect(
-    preview().getByRole("heading", { name: "Result finished", exact: true }),
+    preview().getByRole("heading", { name: "Finished", exact: true }),
   ).toBeVisible();
   await expect(
     preview().getByRole("button", { name: "Run result", exact: true }),
   ).toBeEnabled();
+  await expect(preview().locator(".work-state-dot")).toHaveCount(1);
+  await expect(preview().locator(".work-state")).toHaveAttribute(
+    "data-tone",
+    "complete",
+  );
   const retainedNotice = await preview().elementHandle();
   const openResources = page.getByRole("tablist", { name: "Open resources" });
   const tabCount = await openResources.getByRole("tab").count();
@@ -1609,7 +1614,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   // not an empty Run result notice implying another ready result exists.
   await expect(
     page.locator(".status-notice").filter({
-      has: page.getByRole("heading", { name: "Run result", exact: true }),
+      has: page.getByRole("heading", { name: "Unprepared", exact: true }),
     }),
   ).toHaveCount(0);
   await expect(

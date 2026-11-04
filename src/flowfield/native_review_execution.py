@@ -177,7 +177,7 @@ class NativeReviewExecution[J: ReviewJob](ABC):
 
         try:
             launch = self.launch(review, attempt)
-            host = LocalHost(os.environ)
+            host = LocalHost(os.environ, cache_root=service.workspace.directory / "setup-cache")
             if launch.candidate_commit and not launch.project_id:
                 raise ApplicationError(
                     "repository_required", "Code review requires a project.", 409
@@ -300,7 +300,12 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 service.workspace, review.workspace_id, attempt, store=self.reviews
             )
             client.on_activity = activity.emit
-            brief = {**launch.brief, "flowfield_connection": server.name, "input_files": files}
+            brief = {
+                **launch.brief,
+                "flowfield_connection": server.name,
+                "input_files": files,
+                "execution_environment": environment.describe(),
+            }
             if launch.verification:
                 brief.update(
                     runtime_directory=str(environment.runtime),

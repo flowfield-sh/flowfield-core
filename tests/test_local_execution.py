@@ -435,3 +435,52 @@ def test_service_wrappers_isolate_ports_and_cleanup_without_stopping_borrowed_se
         asyncio.run(exercise())
     finally:
         borrowed.close()
+
+
+def test_project_download_cache_reuses_data_without_reusing_candidate_builds(tmp_path):
+    from pathlib import Path
+
+    from flowfield.adapters.local_checks import run_checks
+    from flowfield.adapters.local_result import LocalResultEnvironment
+
+    repo, base = repository(tmp_path)
+    state = tmp_path / "state"
+    host = LocalHost(
+        {**os.environ, "TEST_SECRET": "never-disclose"}, cache_root=state / "setup-cache"
+    )
+    worker = host.prepare(state, repo, "worker", base)
+    checked = LocalResultEnvironment.prepare_copy(
+        state / "result-verification", repo, "checked", base
+    )
+    preview = LocalResultEnvironment.prepare_copy(state / "inspection-work", repo, "preview", base)
+    caches = [
+        attempt.launch_environment()["FLOWFIELD_CACHE_DIR"]
+        for attempt in (worker, checked, preview)
+    ]
+    assert len(set(caches)) == 1
+    assert str(repo) not in caches[0]
+    assert "never-disclose" not in json.dumps(worker.describe())
+    assert worker.describe()["tools_on_service_path"].get("git")
+    command = (
+        'if test ! -f "$FLOWFIELD_CACHE_DIR/package-v1"; then '
+        'echo downloaded > "$FLOWFIELD_CACHE_DIR/package-v1"; echo miss; else echo hit; fi; '
+        'cp "$FLOWFIELD_CACHE_DIR/package-v1" "$FLOWFIELD_RUNTIME_DIR/build"'
+    )
+    for index, attempt in enumerate((worker, checked, preview)):
+        assert not (attempt.runtime / "build").exists()
+        report = asyncio.run(run_checks(attempt, [command], 10))[0]
+        assert report.exit_code == 0
+        assert report.output.strip() == ("miss" if index == 0 else "hit")
+        assert (attempt.runtime / "build").read_text() == "downloaded\n"
+        assert git(attempt.checkout, "status", "--porcelain") == b""
+    # Restarting the host keeps downloads, but a different repository never shares them.
+    restarted = LocalHost(os.environ, cache_root=state / "setup-cache").prepare(
+        state, repo, "restart", base
+    )
+    assert restarted.launch_environment()["FLOWFIELD_CACHE_DIR"] == caches[0]
+    other = tmp_path / "other"
+    other.mkdir()
+    other_repo, other_base = repository(other)
+    isolated = host.prepare(state, other_repo, "other", other_base)
+    assert isolated.launch_environment()["FLOWFIELD_CACHE_DIR"] != caches[0]
+    assert list(Path(isolated.launch_environment()["FLOWFIELD_CACHE_DIR"]).iterdir()) == []

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "./ConfirmButton";
+import { WorkState } from "./WorkState";
 import { StatusNotice } from "./StatusNotice";
 import { ResourceRetry } from "./ResourceRetry";
 import { Disclosure } from "./DetailLayout";
@@ -15,17 +16,35 @@ type Copy = components["schemas"]["Inspection"];
 type Version = components["schemas"]["ResultVersion"];
 
 export const runtimeTitles: Record<Copy["runtime_state"], string> = {
-  cold: "Run result",
-  preparing: "Preparing result",
-  ready: "Result ready to run",
-  starting: "Starting result",
-  running: "Result running",
-  stopping: "Stopping result",
-  stopped: "Result stopped",
-  finished: "Result finished",
-  failed: "Result could not run",
-  uncertain: "Runtime needs attention",
+  cold: "Unprepared",
+  preparing: "Preparing",
+  ready: "Ready",
+  starting: "Starting",
+  running: "Running",
+  stopping: "Stopping",
+  stopped: "Stopped",
+  finished: "Finished",
+  failed: "Failed",
+  uncertain: "Needs attention",
 };
+
+export function runtimeStatus(state: Copy["runtime_state"]) {
+  const tone: components["schemas"]["WorkState"]["tone"] =
+    state === "running" || state === "finished"
+      ? "complete"
+      : state === "failed" || state === "uncertain"
+        ? "attention"
+        : state === "preparing" || state === "starting" || state === "stopping"
+          ? "active"
+          : state === "ready"
+            ? "waiting"
+            : "idle";
+  return { label: runtimeTitles[state], tone };
+}
+
+export function RuntimeState({ state }: { state: Copy["runtime_state"] }) {
+  return <WorkState state={runtimeStatus(state)} />;
+}
 
 export function Inspection({
   projectId,
@@ -85,6 +104,7 @@ export function Inspection({
   return (
     <StatusNotice
       title={runtimeTitles[state]}
+      state={runtimeStatus(state)}
       tone={
         state === "failed" || state === "uncertain"
           ? "attention"

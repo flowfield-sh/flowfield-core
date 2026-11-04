@@ -528,7 +528,9 @@ class Supervisor:
                     if prior.result:
                         predecessor = None  # Submitted files are already frozen as inputs.
                 environment = await asyncio.to_thread(
-                    LocalHost(os.environ).prepare_files,
+                    LocalHost(
+                        os.environ, cache_root=self.workspace.directory / "setup-cache"
+                    ).prepare_files,
                     self.workspace.directory,
                     run.workspace_id,
                     run.id,
@@ -536,7 +538,9 @@ class Supervisor:
                 )
             else:
                 environment = await asyncio.to_thread(
-                    LocalHost(os.environ).prepare,
+                    LocalHost(
+                        os.environ, cache_root=self.workspace.directory / "setup-cache"
+                    ).prepare,
                     self.workspace.directory,
                     repository,
                     run.id,
@@ -640,6 +644,7 @@ class Supervisor:
             )
             sections = self.execution.assignment(run.workspace_id, run.id)
             brief: dict[str, Any] = {
+                "execution_environment": environment.describe(),
                 "output_directory": str(environment.runtime / "output"),
                 "input_files": inputs,
                 "task": sections["title"],
@@ -989,7 +994,9 @@ class Supervisor:
         if not data:
             return None
         if data.get("runtime_kind") == "local":
-            return LocalHost(os.environ).restore(
+            return LocalHost(
+                os.environ, cache_root=self.workspace.directory / "setup-cache"
+            ).restore(
                 run_id,
                 GitWorkspace(Path(data["root"]), Path(data["checkout"]), Path(data["common_git"]))
                 if data.get("common_git")

@@ -11,6 +11,7 @@ import shlex
 import shutil
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType
 
@@ -39,6 +40,28 @@ class LocalAttempt:
     runtime: Path
     # May include credentials. Never serialize/log the host process environment.
     _environment: Mapping[str, str] = field(repr=False)
+
+    def describe(self) -> dict[str, object]:
+        """Safe observed host capabilities, never environment values or permission claims."""
+        return {
+            "kind": "local",
+            "tools_on_service_path": {
+                name: path
+                for name in ("git", "node", "npm", "pnpm", "python3", "uv")
+                if (path := shutil.which(name, path=self._environment.get("PATH", "")))
+            },
+            "cache_directory": self._environment.get("FLOWFIELD_CACHE_DIR"),
+            "runtime_directory": str(self.runtime),
+            "output_directory": str(self.runtime / "output"),
+            "access": "Service-host observations, not proof of native harness access. "
+            "Saved validation commands run through run_project_checks; other native "
+            "commands retain harness permissions. No browser or display access is inferred.",
+            "setup": "Setup runs in each fresh copy. When supplied, FLOWFIELD_CACHE_DIR is shared "
+            "by "
+            "this repository in this store for disposable downloads only; use lockfile/tool "
+            "keys and concurrency-safe caches. Never store credentials, candidate builds, "
+            "mutable application data or verification evidence there.",
+        }
 
     def launch_environment(self) -> dict[str, str]:
         """Independent copy for launch; retain the selected host's HOME/PATH/config."""
@@ -80,8 +103,9 @@ class LocalHost:
     must use separate resources or the caller must serialize that work.
     """
 
-    def __init__(self, environment: Mapping[str, str]):
+    def __init__(self, environment: Mapping[str, str], *, cache_root: Path | None = None):
         self._environment = dict(environment)
+        self.cache_root = cache_root
 
     def prepare(self, directory: Path, repository: Path, run_id: str, commit: str) -> LocalAttempt:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", run_id):
@@ -127,6 +151,12 @@ class LocalHost:
             FLOWFIELD_RUNTIME_DIR=str(runtime),
             FLOWFIELD_OUTPUT_DIR=str(runtime / "output"),
         )
+        variables.pop("FLOWFIELD_CACHE_DIR", None)
+        if self.cache_root is not None and workspace.common_git is not None:
+            identity = sha256(str(workspace.common_git.resolve()).encode()).hexdigest()[:32]
+            cache = self.cache_root.resolve() / identity
+            cache.mkdir(parents=True, exist_ok=True)
+            variables["FLOWFIELD_CACHE_DIR"] = str(cache)
         return LocalAttempt(run_id, workspace, runtime, MappingProxyType(variables))
 
     def launch_environment(self, cwd: Path, temporary: Path) -> dict[str, str]:

@@ -13,6 +13,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from flowfield.adapters import result_process
+from flowfield.adapters.git_workspace import git
 from flowfield.adapters.local_execution import FileWorkspace, LocalAttempt, LocalHost
 from flowfield.adapters.local_process import LocalProcess
 
@@ -20,14 +21,27 @@ from flowfield.adapters.local_process import LocalProcess
 class LocalResultEnvironment:
     @staticmethod
     def prepare_copy(directory: Path, repository: Path, identity: str, commit: str) -> LocalAttempt:
-        return LocalHost(os.environ).prepare(directory, repository, identity, commit)
+        return LocalHost(os.environ, cache_root=directory.parent / "setup-cache").prepare(
+            directory, repository, identity, commit
+        )
 
     def __init__(
-        self, identity: str, checkout: Path, generation: str, output: Callable[[str], None]
+        self,
+        identity: str,
+        checkout: Path,
+        generation: str,
+        output: Callable[[str], None],
+        *,
+        cache_root: Path | None = None,
     ):
         self.runtime = checkout.parent / "runtime"
-        self.environment = LocalHost(os.environ).restore(
-            identity, FileWorkspace(checkout.parent, checkout), self.runtime
+        common = Path(
+            git(checkout, "rev-parse", "--path-format=absolute", "--git-common-dir")
+            .decode()
+            .strip()
+        )
+        self.environment = LocalHost(os.environ, cache_root=cache_root).restore(
+            identity, FileWorkspace(checkout.parent, checkout, common), self.runtime
         )
         self.generation = generation
         self.output = output

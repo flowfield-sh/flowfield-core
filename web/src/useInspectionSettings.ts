@@ -16,7 +16,6 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     autoPrepare: boolean;
     readyCommand: string;
     runTimeout: number;
-    outputPaths: string;
     reason: string;
     noPreview: boolean;
     revision: number;
@@ -26,8 +25,6 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     autoPrepare: resource.data?.auto_prepare ?? true,
     readyCommand: resource.data?.ready_command ?? "",
     runTimeout: resource.data?.run_timeout_seconds ?? 60,
-    outputPaths:
-      resource.data?.outputs.map((file) => file.path).join("\n") ?? "",
     reason: resource.data?.no_preview_reason ?? "",
     noPreview: !!resource.data?.no_preview_reason,
     revision: resource.data?.revision ?? 1,
@@ -38,13 +35,9 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     autoPrepare: fields.autoPrepare,
     readyCommand: fields.readyCommand,
     runTimeout: fields.runTimeout,
-    outputPaths: fields.outputPaths,
     changeRuntime(
       values: Partial<
-        Pick<
-          typeof fields,
-          "autoPrepare" | "readyCommand" | "runTimeout" | "outputPaths"
-        >
+        Pick<typeof fields, "autoPrepare" | "readyCommand" | "runTimeout">
       >,
     ) {
       if (resource.data) setDraft({ ...fields, ...values });
@@ -84,18 +77,6 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
           auto_prepare: draft.autoPrepare,
           ready_command: draft.readyCommand,
           run_timeout_seconds: draft.runTimeout,
-          outputs: draft.noPreview
-            ? []
-            : draft.outputPaths
-                .split("\n")
-                .map((path) => path.trim())
-                .filter(Boolean)
-                .map((path) => ({
-                  path,
-                  description:
-                    resource.data?.outputs.find((file) => file.path === path)
-                      ?.description ?? "",
-                })),
           no_preview_reason: draft.noPreview ? draft.reason : "",
         });
         resource.invalidate();

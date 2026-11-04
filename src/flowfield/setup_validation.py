@@ -109,6 +109,7 @@ class SetupValidation:
             if check_id:
                 raise ApplicationError("setup_check_missing", "Setup check not found.", 404)
             return None
+        active_at_read = project_id in self.active
         value = SetupCheck.model_validate_json(path.read_text())
         if check_id and value.id != check_id:
             path = path.parent / "setup-history" / project_id / f"{check_id}.json"
@@ -141,7 +142,14 @@ class SetupValidation:
                 value.stale = head != value.commit
             except ApplicationError:
                 value.stale = True
-        if value.status == "checking" and project_id not in self.active:
+        if value.status == "checking" and not (active_at_read or project_id in self.active):
+            # A command can finish while the read-only Git probes above run in another
+            # thread. Recheck the same receipt before diagnosing an interrupted owner.
+            latest = SetupCheck.model_validate_json(path.read_text())
+            if latest.id == value.id and latest.status != "checking":
+                return latest.model_copy(
+                    update={"stale": value.stale, "checkout_problem": value.checkout_problem}
+                )
             value.status = "uncertain" if value.pid else "failed"
             value.problem = (
                 (
@@ -215,7 +223,9 @@ class SetupValidation:
                 self._save(value)
                 try:
                     prepare = partial(
-                        LocalHost(os.environ).prepare,
+                        LocalHost(
+                            os.environ, cache_root=self.workspace.directory / "setup-cache"
+                        ).prepare,
                         self.workspace.directory / "setup-work",
                         repo,
                         value.id,

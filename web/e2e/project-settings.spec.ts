@@ -248,6 +248,34 @@ test("project tabs save independently and place scoped validation below actions"
   await expect(
     panel().getByRole("heading", { name: "Validation passed", exact: true }),
   ).toBeVisible();
+  const passedNotice = panel()
+    .locator(".status-notice")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "Validation passed",
+        exact: true,
+      }),
+    });
+  // A passed command with a checkout warning still needs its explanatory body.
+  await expect(passedNotice).toContainText("Switch the project checkout");
+  expect(git("symbolic-ref", "--short", "HEAD")).toBe("main");
+  git("switch", "delivery");
+  await panel().getByRole("button", { name: "Validate", exact: true }).click();
+  await expect(passedNotice).toBeVisible();
+  await expect(
+    passedNotice.locator('[data-slot="alert-description"]'),
+  ).toBeHidden();
+  const padding = await passedNotice.evaluate((element) => {
+    const title = element
+      .querySelector('[data-slot="alert-title"]')!
+      .getBoundingClientRect();
+    const bounds = element.getBoundingClientRect();
+    return {
+      top: title.top - bounds.top,
+      bottom: bounds.bottom - title.bottom,
+    };
+  });
+  expect(Math.abs(padding.top - padding.bottom)).toBeLessThan(1);
   const actions = await panel()
     .getByRole("button", { name: "Validate", exact: true })
     .boundingBox();
@@ -312,7 +340,7 @@ test("project tabs save independently and place scoped validation below actions"
     checks: ["echo test-failure; exit 4"],
   });
   expect(git("rev-parse", "refs/heads/delivery")).toBe(head);
-  expect(git("symbolic-ref", "--short", "HEAD")).toBe("main");
+  expect(git("symbolic-ref", "--short", "HEAD")).toBe("delivery");
   await panel().getByLabel("Result execution").selectOption("none");
   await expect(
     panel().getByRole("button", { name: "Save changes", exact: true }),

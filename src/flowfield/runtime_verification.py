@@ -56,7 +56,9 @@ async def verify(
         nonlocal output
         output = (output + block)[-16000:]
 
-    environment = LocalResultEnvironment(identity, copy.checkout, uuid4().hex, receive)
+    environment = LocalResultEnvironment(
+        identity, copy.checkout, uuid4().hex, receive, cache_root=directory.parent / "setup-cache"
+    )
     work = asyncio.current_task()
 
     async def watch() -> None:

@@ -16,7 +16,6 @@ class InspectionSettings(Record):
     auto_prepare: bool = True
     ready_command: str = ""
     run_timeout_seconds: int = 60
-    outputs: list[OutputSelection] = Field(default_factory=list, max_length=32)
 
 
 class InspectionConfig(Record):
@@ -26,7 +25,6 @@ class InspectionConfig(Record):
     auto_prepare: bool = True
     ready_command: str = Field(default="", max_length=4000)
     run_timeout_seconds: int = Field(default=60, ge=1, le=900)
-    outputs: list[OutputSelection] = Field(default_factory=list, max_length=32)
 
     @model_validator(mode="after")
     def preview_choice(self) -> Self:

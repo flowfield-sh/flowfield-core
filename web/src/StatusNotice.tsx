@@ -2,6 +2,8 @@ import { Children, Fragment, type ReactNode } from "react";
 import { Separator } from "@/components/ui/separator";
 import { CircleCheck, CircleAlert, Info, LoaderCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { WorkState } from "./WorkState";
+import type { ComponentProps } from "react";
 import { ContentStack } from "./DetailLayout";
 
 /** Persistent state, its explanation, and its next actions share one visual owner. */
@@ -10,8 +12,10 @@ export function StatusNotice({
   tone = "neutral",
   children,
   actions,
+  state,
 }: {
   title: string;
+  state?: ComponentProps<typeof WorkState>["state"];
   tone?: "neutral" | "success" | "attention" | "progress";
   children?: ReactNode;
   actions?: ReactNode;
@@ -24,13 +28,13 @@ export function StatusNotice({
   }[tone];
   return (
     <Alert role="status" className="status-notice" data-tone={tone}>
-      <Icon aria-hidden="true" />
+      {!state && <Icon aria-hidden="true" />}
       <AlertTitle role="heading" aria-level={3}>
-        {title}
+        {state ? <WorkState state={state} /> : title}
       </AlertTitle>
       {(children || actions) && (
         <AlertDescription>
-          <ContentStack className="w-full">
+          <ContentStack className="notice-content w-full">
             {children}
             {actions && <div className="actions">{actions}</div>}
           </ContentStack>

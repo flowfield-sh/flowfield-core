@@ -56,7 +56,6 @@ class Inspections:
                 auto_prepare=request.auto_prepare,
                 ready_command=request.ready_command.strip(),
                 run_timeout_seconds=request.run_timeout_seconds,
-                outputs=request.outputs,
             )
             db.execute(
                 "INSERT INTO inspection_settings VALUES (?,?) ON CONFLICT(project_id) "

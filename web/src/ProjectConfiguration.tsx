@@ -537,24 +537,6 @@ export function ProjectConfiguration({
                     completion. Running services can continue afterward.
                   </p>
                 </ContentStack>
-                <ContentStack space="tight">
-                  <Label className="field block">
-                    Generated files
-                    <Textarea
-                      aria-label="Generated files"
-                      aria-describedby={`${id}-files-help`}
-                      rows={3}
-                      value={execution.outputPaths}
-                      onChange={(e) =>
-                        execution.changeRuntime({ outputPaths: e.target.value })
-                      }
-                    />
-                  </Label>
-                  <p id={`${id}-files-help`} className="detail-metadata">
-                    Optional paths inside FLOWFIELD_OUTPUT_DIR, one per line.
-                    Runs retain these files for preview and download.
-                  </p>
-                </ContentStack>
               </>
             )}
             {execution.stale && (

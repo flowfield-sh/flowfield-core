@@ -131,7 +131,11 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         )
     if repository and present("preview"):
         rules.append(
-            "Read preview before implementing. Keep its run command usable in a fresh worktree; "
+            "Read preview and recipe_context before implementing. preview is the complete frozen "
+            "default recipe, including reusable project setup. recipe_context compares the "
+            "previous effective recipe: explicitly resubmit still-needed overrides in a "
+            "correction; omitted fields revert to current defaults. "
+            "Keep its run command usable in a fresh worktree; "
             "verify startup within your assigned scope with isolated state/ports, retain evidence "
             "and stop your processes. Report unavailable sibling behavior as a handoff. "
             "For a batch command, verify successful completion and its output instead of "
@@ -167,6 +171,12 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "access and automatically retains output. Use returned log_section values with "
             "read_context to inspect full retained logs; project_checks contains receipts and "
             "previews. Reference these receipts instead of attaching duplicate logs. "
+            "Read execution_environment in the brief for observed service tools and cache/runtime "
+            "paths. Put repeatable headless browser checks in repository-owned scripts covered "
+            "by saved validation commands and run_project_checks. Do not repeatedly request "
+            "native browser access for the same saved check. Host availability does not prove "
+            "native permissions. Setup may use FLOWFIELD_CACHE_DIR for concurrency-safe "
+            "lockfile-keyed download caches; it must still install/build for each fresh copy. "
             "Use native tools for other checks. Capture native check output on the FIRST "
             "invocation when evidence is needed: redirect stdout/stderr to a unique file under "
             "output_directory, preserve the command's exit code, then read the saved file. "
