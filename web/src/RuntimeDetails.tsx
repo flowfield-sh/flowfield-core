@@ -7,12 +7,13 @@ import type { AdjacentSnapshot } from "./AdjacentView";
 import { ContentStack, DetailHeading } from "./DetailLayout";
 import { EntityPane } from "./EntityPane";
 import { runtimeTitles } from "./Inspection";
-import { resultHref } from "./navigation";
+import { resultHref, taskHref } from "./navigation";
 import { DetailHeader } from "./Presentation";
 import { ResourceRetry } from "./ResourceRetry";
 import { useActivityFollow } from "./useActivityFollow";
 import { useResource } from "./useResource";
 import { ResourceTitles } from "./WorkspaceTabs";
+import { WorkspaceLink } from "./WorkspaceLink";
 import type { WorkspaceBoard } from "./workspace";
 
 export function RuntimeDetails({
@@ -91,7 +92,14 @@ export function RuntimeDetails({
         <DetailHeader
           title={
             <span className="feed-event-title">
-              {version && <Badge variant="outline">{version.task_key}</Badge>}
+              {version && (
+                <WorkspaceLink
+                  to={taskHref(workspaceId, { key: version.task_key })}
+                  aria-label={`${version.task_key}: ${task?.title ?? "View task"}`}
+                >
+                  <Badge variant="outline">{version.task_key}</Badge>
+                </WorkspaceLink>
+              )}
               <span>Result output</span>
             </span>
           }

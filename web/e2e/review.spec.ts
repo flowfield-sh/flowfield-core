@@ -1206,8 +1206,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await expect(openResources.getByRole("tab")).toHaveCount(tabCount);
   await expect(
     runtimeDetails.getByRole("heading", {
-      name: "T-1 Result output",
-      exact: true,
+      name: /^T-1: .+ Result output$/,
     }),
   ).toBeVisible();
   await expect(runtimeDetails.locator(".detail-metadata")).not.toContainText(
