@@ -7,6 +7,7 @@ from pydantic import Field, model_validator
 from flowfield.document_models import DocumentSnapshot
 from flowfield.execution_models import Correction, Record, WorkerResult
 from flowfield.output_models import OutputFile
+from flowfield.runtime_models import ResultRecipe
 
 
 class ResultAction(Record):
@@ -37,6 +38,7 @@ class IndependentAssessment(Record):
 
 
 class ResultVersion(Record):
+    recipe: ResultRecipe | None = None
     # Service-applied reconciliation binds this result to a saved definition;
     # the producing Worker's original assignment stays immutable.
     reconciled_task_revision: int | None = None

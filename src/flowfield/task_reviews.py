@@ -453,8 +453,10 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 .model_dump_json()
             )
         with self.store.connection() as db:
-            report = Results(self.store)._get(db, project, review.result_id).report
+            version = Results(self.store)._get(db, project, review.result_id)
+            report = version.report
             context = report.model_dump(exclude={"files"})
+            context["recipe"] = version.recipe.model_dump() if version.recipe else None
             context["files"] = [
                 file.model_dump(
                     include={"id", "name", "description", "media_type", "size", "sha256"}

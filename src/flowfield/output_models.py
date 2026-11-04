@@ -32,6 +32,8 @@ class OutputFile(BaseModel):
 
     run_id: str | None = None
     review_attempt_id: str | None = None
+    inspection_id: str | None = None
+    runtime_generation: str | None = None
     name: str
     description: str
     media_type: str

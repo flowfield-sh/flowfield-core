@@ -78,6 +78,7 @@ function FileDetails({ file }: { file: OutputFile }) {
         </WorkspaceLink>
         {" · "}
         {sizeLabel(file.size)} · <Timestamp date={file.created_at} />
+        {file.inspection_id && " · Run output"}
       </p>
       <div className="actions">
         <Button size="sm" variant="outline" asChild>
@@ -298,6 +299,7 @@ export function Files({
                               )}
                               {sizeLabel(item.file.size)} ·{" "}
                               <Timestamp date={item.file.created_at} />
+                              {item.file.inspection_id && " · Run output"}
                             </span>
                           )}
                         </span>

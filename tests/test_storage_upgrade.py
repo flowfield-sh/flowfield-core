@@ -45,7 +45,7 @@ def rows(database):
                 "AND name!='task_deletions'"
             )
         ]
-        return {
+        values = {
             name: db.execute(
                 (
                     f'SELECT number,id,workspace_id,run_id,data FROM "{name}"'
@@ -56,6 +56,20 @@ def rows(database):
             ).fetchall()
             for name in names
         }
+        # The runtime upgrade adds a frozen recipe, not new authored/approval evidence.
+        # Compare every existing field; recipe provenance is tested independently below.
+        if "result_versions" in values:
+            normalized = []
+            columns = [row[1] for row in db.execute("PRAGMA table_info(result_versions)")]
+            index = columns.index("data")
+            for row in values["result_versions"]:
+                cells = list(row)
+                value = json.loads(cells[index])
+                value.pop("recipe", None)
+                cells[index] = json.dumps(value, sort_keys=True)
+                normalized.append(tuple(cells))
+            values["result_versions"] = normalized
+        return values
 
 
 @pytest.mark.parametrize("version", [86, 87])

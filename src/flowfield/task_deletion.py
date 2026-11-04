@@ -180,6 +180,11 @@ class TaskDeletionService:
                 "(SELECT id FROM runs WHERE workspace_id=? AND task_id=?)",
             ),
             (
+                "result-verification/",
+                "SELECT id FROM integrations WHERE run_id IN "
+                "(SELECT id FROM runs WHERE workspace_id=? AND task_id=?)",
+            ),
+            (
                 "inspection-work/",
                 "SELECT id FROM inspections WHERE result_id IN "
                 "(SELECT id FROM result_versions WHERE workspace_id=? AND task_id=?)",
@@ -309,7 +314,7 @@ class TaskDeletionService:
         relative = Path(item.relative)
         name = r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}"
         allowed = (
-            rf"(?:(?:(?:inspection|integration)-work/)?local-attempts/{name}|"
+            rf"(?:(?:(?:(?:inspection|integration)-work|result-verification)/)?local-attempts/{name}|"
             rf"workspaces/{name}/(?:attempts/{name}|outputs/{name}(?:\.partial)?))"
         )
         if not re.fullmatch(allowed, item.relative):

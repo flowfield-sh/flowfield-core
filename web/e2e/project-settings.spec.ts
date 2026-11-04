@@ -209,13 +209,12 @@ test("integration settings create an explicit local target without changing the 
     settings.getByRole("checkbox", { name: "Create this branch" }),
   ).toHaveCount(0);
   await expect(settings.getByLabel("Executable paths")).toHaveCount(0);
+  await settings.getByText("Time limits", { exact: true }).click();
   await expect(settings.getByLabel("Seconds per setup command")).toBeVisible();
   await settings
     .getByLabel("Validation commands", { exact: true })
     .fill("python -m unittest -v");
-  await settings
-    .getByRole("checkbox", { name: "No runnable preview" })
-    .uncheck();
+  await settings.getByLabel("Result preview").selectOption("command");
   await settings
     .getByLabel("Run command", { exact: true })
     .fill("python app.py");
@@ -357,7 +356,7 @@ test("integration settings create an explicit local target without changing the 
   await expect(
     settings.getByLabel("Validation commands", { exact: true }),
   ).toHaveValue("python -m unittest -v");
-  await settings.getByRole("checkbox", { name: "No runnable preview" }).check();
+  await settings.getByLabel("Result preview").selectOption("none");
   await settings.getByLabel("No preview reason").fill("");
   await expect(
     settings.getByRole("button", {
@@ -382,9 +381,7 @@ test("integration settings create an explicit local target without changing the 
     )
     .toBe("Library verified through automated tests.");
   await page.reload();
-  await expect(
-    settings.getByRole("checkbox", { name: "No runnable preview" }),
-  ).toBeChecked();
+  await expect(settings.getByLabel("Result preview")).toHaveValue("none");
   await expect(settings.getByLabel("No preview reason")).toHaveValue(
     "Library verified through automated tests.",
   );

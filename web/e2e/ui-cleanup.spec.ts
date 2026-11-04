@@ -62,9 +62,7 @@ test("failed resource reads and a broken event stream stay local while health is
   await expect(
     integration.getByLabel("Validation commands", { exact: true }),
   ).toBeEnabled();
-  await expect(
-    integration.getByRole("checkbox", { name: "No runnable preview" }),
-  ).toBeEnabled();
+  await expect(integration.getByLabel("Result preview")).toBeEnabled();
 });
 
 test("a service outage blocks once, preserves drafts, and recovers without replaying a save", async ({

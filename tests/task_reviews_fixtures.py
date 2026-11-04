@@ -8,8 +8,8 @@ from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 from flowfield.task_reviews import ReviewVerdict, TaskReviews
 
 
-def configured(tmp_path):
-    service, repo, run = fixture(tmp_path)
+def configured(tmp_path, *, recipe=None):
+    service, repo, run = fixture(tmp_path, recipe=recipe)
     service.results.process("harbor")
     reviewers = Reviewers(service.workspace)
     reviewers.configure(

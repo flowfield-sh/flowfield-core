@@ -164,9 +164,9 @@ class Results:
             if output_ids is None
             else Outputs.selected(db, run.workspace_id, output_ids)
         )
-        if any(file.task_id != run.task_id for file in selected):
+        if any(file.task_id != run.task_id or file.inspection_id for file in selected):
             raise ApplicationError(
-                "output_owner", "Task results can only include this task's outputs."
+                "output_owner", "Task results can only include this task's submitted outputs."
             )
         number = db.execute(
             "SELECT coalesce(max(version),0)+1 FROM result_versions "
@@ -184,7 +184,10 @@ class Results:
                 reconciled_task_revision = prior.reconciled_task_revision
             if guidance_documents is None:
                 guidance_documents = prior.guidance_documents
+        from flowfield.result_recipes import capture
+
         version = ResultVersion(
+            recipe=prior.recipe if prior and prior.run_id == run.id else capture(db, run),
             reconciled_task_revision=reconciled_task_revision,
             guidance_documents=guidance_documents,
             id=uuid4().hex,
@@ -577,6 +580,9 @@ class Results:
                 "Request correction for a blocked or stale code result.",
                 409,
             )
+        from flowfield.runtime_verification import require_cleanup
+
+        require_cleanup(self.workspace, workspace_id, version.task_id)
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
             run = self._current(db, version)
             task = self.workspace._task(db, workspace_id, run.task_id)

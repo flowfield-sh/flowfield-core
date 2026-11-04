@@ -143,6 +143,15 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "fail and stop its siblings when a required service exits. "
             "Repair a missing launcher within the agreed scope, or ask about "
             "a concrete scope conflict. "
+            "Submit recipe fields in submit_result when this result needs different run defaults. "
+            "The service freezes that recipe with the candidate and verifies prepare, Run, "
+            "cleanup and a second Run before review. A service needs a ready_command that "
+            "exits successfully when usable; omit it for a finite batch command. "
+            "Use $FLOWFIELD_PORT for an allocated local port and ${FLOWFIELD_PORT} in its URL. "
+            "Result environments supply these variables. When testing in a native shell, "
+            "set runtime/output paths explicitly from the supplied directories if absent. "
+            "Select generated files in recipe.outputs with paths relative to FLOWFIELD_OUTPUT_DIR; "
+            "they are run outputs, not submitted delivery files. "
             "A no_preview_reason means this project has no runnable preview to prepare."
         )
     if repository and present("validation"):

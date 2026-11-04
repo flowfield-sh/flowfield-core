@@ -1,6 +1,5 @@
 """Prepare and inspect exact-result copies without running project commands."""
 
-import os
 import shlex
 import sqlite3
 from pathlib import Path
@@ -9,7 +8,7 @@ from uuid import uuid4
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.inspection_launcher import write_launcher
-from flowfield.adapters.local_execution import LocalHost
+from flowfield.adapters.local_result import LocalResultEnvironment
 from flowfield.application import Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.inspection_models import (
@@ -57,6 +56,7 @@ class Inspections:
                 auto_prepare=request.auto_prepare,
                 ready_command=request.ready_command.strip(),
                 url=request.url.strip(),
+                outputs=request.outputs,
             )
             db.execute(
                 "INSERT INTO inspection_settings VALUES (?,?) ON CONFLICT(project_id) "
@@ -87,15 +87,7 @@ class Inspections:
         return self._observe(Inspection.model_validate_json(row[0]))
 
     def _observe(self, value: Inspection) -> Inspection:
-        settings = self.integrations.settings(value.project_id)
-        instructions = self.settings(value.project_id)
-        value.instructions_changed = (
-            settings.runtime != value.runtime
-            or settings.setup_commands != value.setup_commands
-            or instructions.run_command != value.run_command
-            or instructions.ready_command != value.ready_command
-            or instructions.url != value.url
-        )
+        # The result owns its immutable recipe; later project defaults do not retarget it.
         assert value.result_id
         result = Results(self.workspace).get(value.workspace_id, value.result_id)
         page = Results(self.workspace).page(value.workspace_id, result.task_id, limit=1)
@@ -122,9 +114,7 @@ class Inspections:
         return value
 
     def _save(self, value: Inspection, *, insert: bool = False) -> None:
-        data = value.model_dump_json(
-            exclude={"locally_changed", "source_changed", "instructions_changed"}
-        )
+        data = value.model_dump_json(exclude={"locally_changed", "source_changed"})
         with self.workspace.connection(write=True, workspace_id=value.workspace_id) as db:
             if insert:
                 db.execute(
@@ -144,8 +134,10 @@ class Inspections:
         # Same repository boundary as delivery; concurrent requests cannot create duplicate copies.
         with gitops.lock(repository):
             settings = self.integrations.settings(project_id)
-            instructions = self.settings(project_id)
             result = Results(self.workspace).get(workspace_id, request.result_id)
+            from flowfield.runtime_models import ResultRecipe
+
+            instructions = result.recipe or ResultRecipe()
             self.workspace._current(result.revision, request.expected_revision)
             if (
                 result.completion != "code"
@@ -163,7 +155,6 @@ class Inspections:
                 and not previous.problem
                 and previous.commit == commit
                 and previous.target_branch == branch
-                and not previous.instructions_changed
                 and not request.new_copy
             ):
                 return previous  # Never reset or overwrite a dirty copy.
@@ -185,7 +176,10 @@ class Inspections:
                 commit=commit,
                 created_at=now(),
                 runtime=settings.runtime,
-                setup_commands=settings.setup_commands,
+                setup_commands=instructions.setup_commands,
+                setup_timeout_seconds=instructions.setup_timeout_seconds,
+                run_timeout_seconds=instructions.run_timeout_seconds,
+                outputs=instructions.outputs,
                 run_command=instructions.run_command,
                 ready_command=instructions.ready_command,
                 url=instructions.url,
@@ -195,7 +189,7 @@ class Inspections:
     def _copy(self, value: Inspection, repository: Path) -> Inspection:
         self._save(value, insert=True)
         try:
-            environment = LocalHost(os.environ).prepare(
+            environment = LocalResultEnvironment.prepare_copy(
                 self.workspace.directory / "inspection-work", repository, value.id, value.commit
             )
             value.workspace = str(environment.checkout)

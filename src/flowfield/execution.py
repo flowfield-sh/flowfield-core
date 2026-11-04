@@ -902,6 +902,11 @@ class Execution:
                     raise ApplicationError("worker_scope_closed", "This report is closed.", 409)
                 Outputs.publish(db, files)
                 run.result = result
+                if result.recipe is not None:
+                    from flowfield.result_recipes import capture
+
+                    # Resolve before serialization loses which override fields were supplied.
+                    result.recipe = capture(db, run)
                 self._save(db, run)
 
     def excluded_files(self, workspace_id: str, run_id: str, paths: list[str]) -> None:

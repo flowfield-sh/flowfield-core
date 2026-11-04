@@ -29,3 +29,4 @@ tests/test_transaction_scaling.py
 tests/test_outputs.py
 
 tests/test_result_runtime.py
+tests/test_result_recipes.py

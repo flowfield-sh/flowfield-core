@@ -23,11 +23,11 @@ export function ProjectCheckPermission({
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<boolean | null>(null);
   return (
-    <DetailSection title="Check execution">
+    <DetailSection settings title="Worker access">
       <SettingsCheckbox
         checked={pending ?? resource.data?.enabled ?? false}
         disabled={disabled || busy || resource.loading || !resource.data}
-        hint="Lets a worker ask Flowfield to run the saved validation commands when its sandbox cannot run them. Commands use this machine’s access on worker-edited code. Ordinary sandboxed tests need no permission here. Saves immediately; changing integration settings revokes permission."
+        hint="Lets Workers request the saved checks on this machine when their sandbox cannot run them. Saves immediately. Changing preparation or validation settings revokes this permission."
         onChange={async (event) => {
           if (!resource.data) return;
           setBusy(true);

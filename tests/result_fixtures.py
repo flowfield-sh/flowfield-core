@@ -23,6 +23,9 @@ def fixture(
     checks=None,
     outcome="complete",
     remaining_work="",
+    recipe=None,
+    setup_commands=None,
+    preview=None,
 ):
     workspace = Workspace(tmp_path / "state")
     repo = tmp_path / "harbor"
@@ -52,9 +55,14 @@ def fixture(
             target_branch="integration",
             create_from="main",
             checks=checks or ["test -f result.txt"],
+            setup_commands=setup_commands or [],
         ),
     )
     git(repo, "switch", "integration")
+    if preview:
+        from flowfield.inspection import Inspections
+
+        Inspections(workspace).configure("harbor", preview)
     task = workspace.create_task(
         "harbor",
         task_request(
@@ -86,16 +94,20 @@ def fixture(
     if changed:
         (env.checkout / "result.txt").write_text("implemented\n")
     commit, _ = env.snapshot(base)
+    report = WorkerResult(
+        recipe=recipe,
+        summary="Outcome",
+        checks="Worker-reported checks",
+        outcome=outcome,
+        remaining_work=remaining_work,
+    )
+    if recipe is not None:
+        service.execution.report_result("harbor", run.id, report)
     run = service.execution.finish(
         "harbor",
         run.id,
         "in_review",
-        result=WorkerResult(
-            summary="Outcome",
-            checks="Worker-reported checks",
-            outcome=outcome,
-            remaining_work=remaining_work,
-        ),
+        result=service.execution.get("harbor", run.id).result if recipe is not None else report,
         commit=commit,
     )
     settings = service.execution.settings("harbor")

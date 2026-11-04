@@ -291,9 +291,18 @@ def result_action(
             reason="Update the failed setup command, then return here to retry checks.",
             settings="integration",
         )
+    if value.problem_code == "runtime_cleanup_uncertain":
+        return ResultAction(
+            owner="human",
+            action="prepare",
+            label="Recheck cleanup",
+            reason="Inspect the retained verification processes before retrying. "
+            "New verification and corrections remain blocked until cleanup is confirmed.",
+        )
     if revised_assignment or value.problem_code in (
         "integration_conflict",
         "checks_failed",
+        "runtime_verification_failed",
         "correction_no_progress",
     ):
         if not settings.selection:

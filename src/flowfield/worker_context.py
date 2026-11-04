@@ -44,6 +44,7 @@ def enrich(db: sqlite3.Connection, run: Run, sections: dict[str, str]) -> None:
                 "no_preview_reason": preview.get("no_preview_reason", ""),
                 "ready_command": preview.get("ready_command", ""),
                 "url": preview.get("url", ""),
+                "outputs": preview.get("outputs", []),
             }
         )
     runtime = db.execute(

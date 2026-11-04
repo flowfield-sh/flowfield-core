@@ -8,6 +8,7 @@ from flowfield.agent_models import AgentChoice, EffectiveAgent
 from flowfield.document_models import DocumentSnapshot
 from flowfield.harness_models import HarnessLaunch
 from flowfield.output_models import OutputSelection
+from flowfield.runtime_models import ResultRecipe
 
 ACTIVE = ("preparing", "running", "stopping", "uncertain")
 RunStatus = Literal[
@@ -63,6 +64,12 @@ class RunAction(Record):
 
 
 class WorkerResult(Record):
+    recipe: ResultRecipe | None = Field(
+        default=None,
+        description="Result run recipe. Omit to use frozen project defaults; supplied fields "
+        "override those defaults for this result only. Use a readiness command for services, "
+        "and select generated files relative to FLOWFIELD_OUTPUT_DIR.",
+    )
     files: list[OutputSelection] = Field(default_factory=list, max_length=32)
     summary: str = Field(min_length=1, max_length=8000)
     checks: str = Field(min_length=1, max_length=8000)

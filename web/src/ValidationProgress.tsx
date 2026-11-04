@@ -15,6 +15,7 @@ export function ValidationProgress({ record }: { record: IntegrationRead }) {
     setup: "Running setup",
     checks: "Running project checks",
     verifying: "Verifying candidate integrity",
+    runtime: "Verifying result: prepare, run, stop and repeat",
   }[progress.phase];
   const quiet = command?.last_output_at
     ? Math.max(

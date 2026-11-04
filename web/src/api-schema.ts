@@ -3958,6 +3958,27 @@ export interface components {
     };
     /** Inspection */
     Inspection: {
+      /**
+       * Setup Timeout Seconds
+       * @default 120
+       */
+      setup_timeout_seconds: number;
+      /**
+       * Run Timeout Seconds
+       * @default 60
+       */
+      run_timeout_seconds: number;
+      /** Outputs */
+      outputs: components["schemas"]["OutputSelection"][];
+      /** Files */
+      files: components["schemas"]["OutputFile"][];
+      /**
+       * Resolved Url
+       * @default
+       */
+      resolved_url: string;
+      /** Artifact Problem */
+      artifact_problem: string | null;
       /** Workspace Id */
       workspace_id: string;
       /** Id */
@@ -4016,11 +4037,6 @@ export interface components {
        * @default false
        */
       source_changed: boolean;
-      /**
-       * Instructions Changed
-       * @default false
-       */
-      instructions_changed: boolean;
       /**
        * Ready Command
        * @default
@@ -4100,6 +4116,8 @@ export interface components {
        * @default
        */
       url: string;
+      /** Outputs */
+      outputs?: components["schemas"]["OutputSelection"][];
     };
     /** InspectionPrepare */
     InspectionPrepare: {
@@ -4155,6 +4173,8 @@ export interface components {
        * @default
        */
       url: string;
+      /** Outputs */
+      outputs: components["schemas"]["OutputSelection"][];
     };
     /** IntegrationConfig */
     IntegrationConfig: {
@@ -4260,6 +4280,7 @@ export interface components {
       purpose: "preparation" | "availability";
       /** Problem Code */
       problem_code: string | null;
+      runtime_verification: components["schemas"]["RuntimeVerification"] | null;
       /** Checks */
       checks: components["schemas"]["CheckResult"][];
       /** Setup Checks */
@@ -4499,6 +4520,10 @@ export interface components {
       run_id: string | null;
       /** Review Attempt Id */
       review_attempt_id: string | null;
+      /** Inspection Id */
+      inspection_id: string | null;
+      /** Runtime Generation */
+      runtime_generation: string | null;
       /** Name */
       name: string;
       /** Description */
@@ -5146,6 +5171,43 @@ export interface components {
       /** Next Before */
       next_before: number | null;
     };
+    /** ResultRecipe */
+    ResultRecipe: {
+      /** Setup Commands */
+      setup_commands: string[];
+      /**
+       * Setup Timeout Seconds
+       * @default 120
+       */
+      setup_timeout_seconds: number;
+      /**
+       * Run Command
+       * @default
+       */
+      run_command: string;
+      /**
+       * Ready Command
+       * @default
+       */
+      ready_command: string;
+      /**
+       * Run Timeout Seconds
+       * @default 60
+       */
+      run_timeout_seconds: number;
+      /**
+       * Url
+       * @default
+       */
+      url: string;
+      /**
+       * No Preview Reason
+       * @default
+       */
+      no_preview_reason: string;
+      /** Outputs */
+      outputs: components["schemas"]["OutputSelection"][];
+    };
     /** ResultReview */
     ResultReview: {
       /** Subtask Id */
@@ -5172,6 +5234,7 @@ export interface components {
     };
     /** ResultVersion */
     ResultVersion: {
+      recipe: components["schemas"]["ResultRecipe"] | null;
       /** Reconciled Task Revision */
       reconciled_task_revision: number | null;
       /** Guidance Documents */
@@ -5639,6 +5702,43 @@ export interface components {
       items: components["schemas"]["Run"][];
       /** Next Before */
       next_before: number | null;
+    };
+    /** RuntimeStep */
+    RuntimeStep: {
+      /** Name */
+      name: string;
+      /** Passed */
+      passed: boolean;
+      /**
+       * Output
+       * @default
+       */
+      output: string;
+      /** Exit Code */
+      exit_code: number | null;
+    };
+    /** RuntimeVerification */
+    RuntimeVerification: {
+      /** Candidate Commit */
+      candidate_commit: string;
+      /** Recipe Digest */
+      recipe_digest: string;
+      /** Workspace */
+      workspace: string | null;
+      /**
+       * Passed
+       * @default false
+       */
+      passed: boolean;
+      /**
+       * Cleanup Confirmed
+       * @default false
+       */
+      cleanup_confirmed: boolean;
+      /** Problem */
+      problem: string | null;
+      /** Steps */
+      steps: components["schemas"]["RuntimeStep"][];
     };
     /** SettingsEdit */
     SettingsEdit: {
@@ -6879,7 +6979,7 @@ export interface components {
        * Phase
        * @enum {string}
        */
-      phase: "preparing" | "setup" | "checks" | "verifying";
+      phase: "preparing" | "setup" | "checks" | "verifying" | "runtime";
       current: components["schemas"]["CommandProgress"] | null;
       /** Setup Checks */
       setup_checks: components["schemas"]["CheckResult"][];
@@ -6920,6 +7020,8 @@ export interface components {
     };
     /** WorkerResult */
     WorkerResult: {
+      /** @description Result run recipe. Omit to use frozen project defaults; supplied fields override those defaults for this result only. Use a readiness command for services, and select generated files relative to FLOWFIELD_OUTPUT_DIR. */
+      recipe: components["schemas"]["ResultRecipe"] | null;
       /** Files */
       files: components["schemas"]["OutputSelection"][];
       /** Summary */

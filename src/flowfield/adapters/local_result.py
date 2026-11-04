@@ -5,17 +5,23 @@ import codecs
 import contextlib
 import json
 import os
+import socket
 import sys
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from uuid import uuid4
 
 from flowfield.adapters import result_process
-from flowfield.adapters.local_execution import FileWorkspace, LocalHost
+from flowfield.adapters.local_execution import FileWorkspace, LocalAttempt, LocalHost
 from flowfield.adapters.local_process import LocalProcess
 
 
 class LocalResultEnvironment:
+    @staticmethod
+    def prepare_copy(directory: Path, repository: Path, identity: str, commit: str) -> LocalAttempt:
+        return LocalHost(os.environ).prepare(directory, repository, identity, commit)
+
     def __init__(
         self, identity: str, checkout: Path, generation: str, output: Callable[[str], None]
     ):
@@ -30,6 +36,46 @@ class LocalResultEnvironment:
         self.log = self.runtime / f"runtime-{generation}.log"
         self.log_bytes = 0
         self.log_truncated = False
+        # Some tools use Unix sockets under TMPDIR; long checkout paths exceed OS limits.
+        # Only this private alias is outside retained state. Its target stays copy-owned.
+        self.temporary = Path(tempfile.mkdtemp(prefix="ff-r-", dir="/tmp"))
+        self.port_lease = socket.socket()
+        self.temporary_receipt = self.runtime / f"temporary-{generation}.json"
+        try:
+            (self.temporary / "t").symlink_to(self.runtime / "tmp", target_is_directory=True)
+            self.temporary_receipt.write_text(json.dumps(str(self.temporary)))
+            self.port_lease.bind(("127.0.0.1", 0))
+        except OSError:
+            self.port_lease.close()
+            (self.temporary / "t").unlink(missing_ok=True)
+            self.temporary.rmdir()
+            self.temporary_receipt.unlink(missing_ok=True)
+            raise
+        self.port = self.port_lease.getsockname()[1]
+
+    @staticmethod
+    def recover_temporary(runtime: Path) -> None:
+        """Remove only recorded aliases whose process receipts already confirm cleanup."""
+        if any(not LocalResultEnvironment.clean(p) for p in runtime.glob("owner-*.json")):
+            return
+        for receipt in runtime.glob("temporary-*.json"):
+            try:
+                alias = Path(json.loads(receipt.read_text()))
+                if alias.parent != Path("/tmp") or not alias.name.startswith("ff-r-"):
+                    continue
+                link = alias / "t"
+                if link.is_symlink() and link.readlink() == runtime / "tmp":
+                    link.unlink()
+                    alias.rmdir()  # Never recursively delete unrecognized contents.
+                if not alias.exists():
+                    receipt.unlink()
+            except (OSError, ValueError, TypeError):
+                continue
+
+    def resolve_url(self, url: str) -> str:
+        return url.replace("${FLOWFIELD_PORT}", str(self.port)).replace(
+            "$FLOWFIELD_PORT", str(self.port)
+        )
 
     @staticmethod
     def clean(receipt: Path) -> bool:
@@ -58,6 +104,16 @@ class LocalResultEnvironment:
                 self.output(decoder.decode(b"", final=True))
 
         try:
+            variables = self.environment.launch_environment()
+            variables.update(
+                TMPDIR=str(self.temporary / "t"),
+                TMP=str(self.temporary / "t"),
+                TEMP=str(self.temporary / "t"),
+                FLOWFIELD_PORT=str(self.port),
+            )
+            # Release immediately before launch. Programs must bind this port themselves;
+            # a bind failure remains a startup failure, never authority to kill its owner.
+            self.port_lease.close()
             launching = asyncio.create_task(
                 LocalProcess.start(
                     [
@@ -67,7 +123,7 @@ class LocalResultEnvironment:
                         command,
                     ],
                     cwd=self.environment.checkout,
-                    env=self.environment.launch_environment(),
+                    env=variables,
                 )
             )
             try:
@@ -115,6 +171,17 @@ class LocalResultEnvironment:
         cleanup = await asyncio.gather(
             *(owner.close() for owner in self.owners), return_exceptions=True
         )
-        return all(item is True for item in cleanup) and all(
+        clean = all(item is True for item in cleanup) and all(
             self.clean(path) for path in self.receipts
         )
+        self.port_lease.close()
+        if clean:
+            try:
+                (self.temporary / "t").unlink(missing_ok=True)
+                self.temporary.rmdir()
+                self.temporary_receipt.unlink(missing_ok=True)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                clean = False
+        return clean

@@ -168,7 +168,8 @@ class Integrations:
             self.workspace._workspace(db, workspace_id)
             limit = max(1, min(limit, 50))
             rows = db.execute(
-                "SELECT number,json_remove(data,'$.checks','$.setup_checks') AS data "
+                "SELECT number,json_remove(data,'$.checks','$.setup_checks',"
+                "'$.runtime_verification') AS data "
                 "FROM integrations "
                 "WHERE workspace_id=? AND (? IS NULL OR "
                 "run_id=?) AND (? IS NULL OR number<?) ORDER BY number DESC LIMIT ?",
@@ -377,8 +378,10 @@ class Integrations:
 
             progress(ValidationProgress(phase="preparing"))
             try:
+                from flowfield.runtime_verification import require_cleanup
                 from flowfield.validation_reuse import matching_receipt
 
+                require_cleanup(self.workspace, workspace_id, run.task_id)
                 previous = matching_receipt(self.workspace, repository, record, settings)
                 if previous:
                     record.candidate_commit = previous.candidate_commit
@@ -413,6 +416,30 @@ class Integrations:
                     if evidence.problem:
                         raise ApplicationError(
                             evidence.problem_code or "validation_failed", evidence.problem, 409
+                        )
+                if version.recipe and version.recipe.run_command and not availability_result:
+                    import asyncio
+
+                    from flowfield.runtime_verification import verify
+
+                    progress(ValidationProgress(phase="runtime"))
+                    record.runtime_verification = asyncio.run(
+                        verify(
+                            self.workspace.directory / "result-verification",
+                            repository,
+                            record.candidate_commit,
+                            version.recipe,
+                            cancelled,
+                            record.id,
+                        )
+                    )
+                    if not record.runtime_verification.passed:
+                        raise ApplicationError(
+                            "runtime_verification_failed"
+                            if record.runtime_verification.cleanup_confirmed
+                            else "runtime_cleanup_uncertain",
+                            record.runtime_verification.problem or "Result verification failed.",
+                            409,
                         )
                 self._accepted(workspace_id, run_id)
                 if (

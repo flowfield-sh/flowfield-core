@@ -88,6 +88,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     },
     source_commit: run.result_commit,
     candidate_commit: run.result_commit,
+    recipe: { run_command: "echo preview" },
     report: run.result,
     status: run.status === "in_review" ? "ready" : run.status,
     created_at: run.created_at,
@@ -143,10 +144,10 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
           command: "echo preview",
           runtime_state: "ready",
           runtime_prepared: true,
+          files: [],
           workspace: "/fixture/worktree",
           locally_changed: false,
           source_changed: true,
-          instructions_changed: false,
         },
       });
     }
@@ -1385,9 +1386,9 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     .click();
   await expect(runCommand).toHaveValue("python app.py --draft");
   await expect(
-    page.getByRole("button", { name: "Load current run command" }),
+    page.getByRole("button", { name: "Load current run settings" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Load current run command" }).click();
+  await page.getByRole("button", { name: "Load current run settings" }).click();
   const runDialog = page.getByRole("alertdialog");
   await expect(
     runDialog.getByRole("button", { name: "Cancel", exact: true }),
@@ -1395,10 +1396,10 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await dialogViews(page, testInfo, "integration-run-reload");
   await page.keyboard.press("Escape");
   await expect(runCommand).toHaveValue("python app.py --draft");
-  await page.getByRole("button", { name: "Load current run command" }).click();
+  await page.getByRole("button", { name: "Load current run settings" }).click();
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: "Load current run command", exact: true })
+    .getByRole("button", { name: "Load current run settings", exact: true })
     .click();
   await expect(runCommand).toHaveValue("python app.py --elsewhere");
   await runCommand.fill("python app.py");
@@ -1608,12 +1609,13 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     actions.getByRole("button", { name: "Request correction" }),
   ).toBeVisible();
   await expect(recovery).toBeVisible();
-  // No runnable preview is configured for this library fixture.
+  // A blocked result without a prepared copy has one actionable recovery,
+  // not an empty Run result notice implying another ready result exists.
   await expect(
     page.locator(".status-notice").filter({
       has: page.getByRole("heading", { name: "Run result", exact: true }),
     }),
-  ).toContainText("without a runnable application");
+  ).toHaveCount(0);
   await expect(
     actions.getByRole("button", { name: "Archive", exact: true }),
   ).toHaveCount(0);

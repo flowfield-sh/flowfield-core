@@ -1,3 +1,4 @@
+import { RuntimeVerification } from "./RuntimeVerification";
 import { ContentStack, Disclosure } from "./DetailLayout";
 import { ValidationProgress, type IntegrationRead } from "./ValidationProgress";
 import { CheckEvidence } from "./CheckEvidence";
@@ -113,6 +114,7 @@ export function ReviewChecks({
           </p>
         )
       )}
+      <RuntimeVerification value={preparation?.runtime_verification ?? null} />
       <Disclosure
         summary={<>Worker’s test report</>}
         className="review-disclosure check-source"

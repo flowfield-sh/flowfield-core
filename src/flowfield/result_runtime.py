@@ -12,6 +12,7 @@ from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import Inspection, InspectionPrepare
+from flowfield.output_models import OutputFile
 from flowfield.results import Results
 
 
@@ -43,6 +44,8 @@ class ResultRuntimes:
                 )
             }
         for value in self._rows():
+            if value.workspace:
+                LocalResultEnvironment.recover_temporary(self._runtime(value))
             previous = value.runtime_state
             was_prepared = value.runtime_prepared
             value.runtime_prepared = False
@@ -172,15 +175,16 @@ class ResultRuntimes:
                 raise ApplicationError(
                     "runtime_not_prepared", "Prepare this result before running it.", 409
                 )
-            if value.locally_changed or value.instructions_changed or value.problem:
+            if value.locally_changed or value.problem:
                 raise ApplicationError(
                     "inspection_changed",
-                    "The copy or instructions changed. Prepare the result again.",
+                    "The copy changed. Prepare the result again.",
                     409,
                 )
             await self._stop_task(workspace_id, result.task_id, except_id=identity)
             self._eligible(workspace_id, result.id)
             value.runtime_state = "starting"
+            value.files = []
             value.runtime_generation = uuid4().hex
             value.runtime_problem = None
             value.runtime_output = ""
@@ -285,6 +289,8 @@ class ResultRuntimes:
         environment = LocalResultEnvironment(
             value.id, Path(value.workspace), value.runtime_generation, output
         )
+        value.resolved_url = environment.resolve_url(value.url)
+        value.artifact_problem = None
 
         async def publish() -> None:
             previous = value.runtime_output
@@ -299,7 +305,7 @@ class ResultRuntimes:
             assert value.result_id
             self._eligible(value.workspace_id, value.result_id)
             if preparing:
-                timeout = self.copies.integrations.settings(value.project_id).setup_timeout_seconds
+                timeout = value.setup_timeout_seconds
                 for command in value.setup_commands:
                     async with asyncio.timeout(timeout):
                         code = await environment.run(command)
@@ -314,26 +320,11 @@ class ResultRuntimes:
                 process = asyncio.create_task(environment.run(value.run_command))
                 try:
                     if value.ready_command:
-                        async with asyncio.timeout(60):
-                            while True:
-                                probe = asyncio.create_task(environment.run(value.ready_command))
-                                try:
-                                    await asyncio.wait(
-                                        (process, probe), return_when=asyncio.FIRST_COMPLETED
-                                    )
-                                    if process.done():
-                                        code = await process
-                                        raise ApplicationError(
-                                            "runtime_not_ready",
-                                            f"Run command exited before readiness (exit {code}).",
-                                        )
-                                    if await probe == 0:
-                                        break
-                                finally:
-                                    if not probe.done():
-                                        probe.cancel()
-                                    await asyncio.gather(probe, return_exceptions=True)
-                                await asyncio.sleep(0.5)
+                        from flowfield.adapters.result_environment import wait_ready
+
+                        await wait_ready(
+                            environment, process, value.ready_command, value.run_timeout_seconds
+                        )
                     else:
                         await asyncio.sleep(0.1)
                     if not process.done():
@@ -369,6 +360,40 @@ class ResultRuntimes:
                 value.runtime_problem = (
                     "Could not confirm runtime cleanup. Inspect owned processes before retrying."
                 )
+            elif not preparing and value.outputs:
+                from flowfield.outputs import Outputs
+
+                def capture_files() -> list[OutputFile]:
+                    assert value.result_id
+                    result = Results(self.workspace).get(value.workspace_id, value.result_id)
+                    with Outputs(self.workspace).capture_owned(
+                        value.workspace_id,
+                        result.task_id,
+                        value.outputs,
+                        {"runtime": str(environment.runtime)},
+                        result_id=value.result_id,
+                        inspection_id=value.id,
+                        runtime_generation=value.runtime_generation,
+                    ) as files:
+                        with self.workspace.connection(
+                            write=True, workspace_id=value.workspace_id
+                        ) as db:
+                            Outputs.publish(db, files)
+                        return files
+
+                capturing = asyncio.create_task(asyncio.to_thread(capture_files))
+                try:
+                    # Large files must not block event delivery to other browser tabs. Finish
+                    # this capture even if Stop arrives again; it owns immutable file bytes.
+                    while True:
+                        try:
+                            value.files = await asyncio.shield(capturing)
+                            break
+                        except asyncio.CancelledError:
+                            if capturing.cancelled():
+                                raise
+                except (ApplicationError, OSError) as error:
+                    value.artifact_problem = str(error)
             self.copies._save(value)
 
     async def schedule(self) -> None:

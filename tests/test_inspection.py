@@ -23,6 +23,7 @@ from flowfield.inspection import Inspections
 from flowfield.inspection_models import InspectionConfig, InspectionPrepare
 from flowfield.integration_models import IntegrationConfig
 from flowfield.result_models import ResultReview
+from flowfield.runtime_models import ResultRecipe
 
 
 def prepare(inspections, version, **kwargs):
@@ -153,7 +154,7 @@ def test_feedback_successor_preserves_earlier_copy_and_approval_binding(tmp_path
 def test_settings_revisions_stale_requests_and_failed_preparation_preserve_evidence(
     tmp_path, monkeypatch
 ):
-    service, _, _ = fixture(tmp_path)
+    service, _, _ = fixture(tmp_path, recipe=ResultRecipe(run_command="echo first"))
     service.results.process("harbor")
     version = current(service)
     inspections = Inspections(service.workspace)
@@ -191,13 +192,12 @@ def test_settings_revisions_stale_requests_and_failed_preparation_preserve_evide
     inspections.configure(
         "harbor", InspectionConfig(expected_revision=saved.revision, run_command="echo new")
     )
-    assert inspections.get("harbor", recovered.id).instructions_changed
     assert service.results.get("harbor", version.id).revision == version.revision
     original = inspections.get("harbor", recovered.id)
     assert subprocess.check_output(["/bin/sh", "-c", original.command], text=True) == "first\n"
     newest = prepare(inspections, version)
-    assert subprocess.check_output(["/bin/sh", "-c", newest.command], text=True) == "new\n"
-    assert newest.id != recovered.id
+    assert subprocess.check_output(["/bin/sh", "-c", newest.command], text=True) == "first\n"
+    assert newest.id == recovered.id
     Path(newest.launcher).unlink()
     assert "launcher is unavailable" in inspections.get("harbor", newest.id).problem
     assert Path(newest.workspace).exists()
@@ -232,7 +232,14 @@ def test_node_setup_and_run_artifacts_stay_in_inspection_copy(tmp_path):
     npm = shutil.which("npm")
     if not npm:
         pytest.skip("Node/npm toolchain needed for the explicit Node inspection test")
-    service, repo, original = fixture(tmp_path, checks=["test -f package.json"])
+    service, repo, original = fixture(
+        tmp_path,
+        checks=["test -f package.json"],
+        recipe=ResultRecipe(
+            run_command="npm start",
+            setup_commands=["npm ci --offline --ignore-scripts --no-audit --no-fund"],
+        ),
+    )
     env = LocalHost(os.environ).prepare(
         service.workspace.directory, repo, "node-source", original.result_commit
     )
@@ -315,7 +322,9 @@ def test_real_mcp_and_http_inspect_the_same_candidate_without_running_commands(t
     from mcp.client.streamable_http import streamable_http_client
     from service_fixtures import running_service
 
-    service, _, _ = fixture(tmp_path)
+    service, _, _ = fixture(
+        tmp_path, recipe=ResultRecipe(run_command="true", setup_commands=["#" + "x" * 3900] * 3)
+    )
     service.results.process("harbor")
     version = current(service)
 
@@ -428,24 +437,14 @@ def test_report_has_no_try_candidate(tmp_path):
 def test_saved_launcher_quotes_paths_and_environment_and_preserves_setup_failure(tmp_path):
     directory = tmp_path / "copy with ' quotes $(literal)"
     directory.mkdir()
-    service, repo, _ = fixture(directory)
-    settings = service.integrations.settings("harbor")
     value = "a 'quoted' value; $(touch injected)"
-    service.integrations.configure(
-        "harbor",
-        IntegrationConfig(
-            runtime="local",
-            expected_revision=settings.revision,
-            target_branch=settings.target_branch,
-            checks=settings.checks,
-            setup_commands=[f"printf %s {shlex.quote(value)} > setup-output"],
-        ),
+    recipe = ResultRecipe(
+        run_command='cat "$FLOWFIELD_RUNTIME_DIR/setup-output"',
+        setup_commands=[f'printf %s {shlex.quote(value)} > "$FLOWFIELD_RUNTIME_DIR/setup-output"'],
     )
+    service, repo, _ = fixture(directory, recipe=recipe)
     service.results.process("harbor")
     inspections = Inspections(service.workspace)
-    inspections.configure(
-        "harbor", InspectionConfig(expected_revision=2, run_command="cat setup-output")
-    )
     copy = prepare(inspections, current(service))
     checkout, launcher = Path(copy.workspace), Path(copy.launcher)
     assert not (checkout / "setup-output").exists()
@@ -458,49 +457,44 @@ def test_saved_launcher_quotes_paths_and_environment_and_preserves_setup_failure
     assert prepare(inspections, current(service)).id == copy.id
     assert launcher.read_bytes() == saved
 
-    settings = service.integrations.settings("harbor")
-    service.integrations.configure(
-        "harbor",
-        IntegrationConfig(
-            runtime="local",
-            expected_revision=settings.revision,
-            target_branch=settings.target_branch,
-            checks=settings.checks,
-            setup_commands=["exit 23"],
-        ),
+    from flowfield.adapters.inspection_launcher import write_launcher
+
+    failed_environment = LocalHost(os.environ).prepare(
+        service.workspace.directory / "failed-launcher", repo, "failed", copy.commit
     )
-    inspections.configure(
-        "harbor", InspectionConfig(expected_revision=3, run_command="touch should-not-run")
-    )
-    failed = prepare(inspections, current(service))
-    result = subprocess.run(["/bin/sh", "-c", failed.command], timeout=10)
-    assert result.returncode == 23
-    assert not (Path(failed.workspace) / "should-not-run").exists()
+    failed_launcher = write_launcher(failed_environment, ["exit 23"], "touch should-not-run")
+    failed = subprocess.run(["/bin/sh", str(failed_launcher)], timeout=10)
+    assert failed.returncode == 23
+    assert not (failed_environment.checkout / "should-not-run").exists()
     assert subprocess.check_output(["/bin/sh", "-c", copy.command], text=True) == value
-    assert inspections.get("harbor", copy.id).instructions_changed
 
 
 def test_launcher_stops_with_its_terminal_process_group(tmp_path):
     service, _, _ = fixture(tmp_path)
     service.results.process("harbor")
-    inspections = Inspections(service.workspace)
     # Block before announcing readiness so the group interrupt stays pending even
     # if it arrives before the child enters its wait. signal.pause has no such handoff.
-    inspections.configure(
-        "harbor",
-        InspectionConfig(
-            expected_revision=2,
-            run_command="trap 'exit 130' INT\n"
-            "python -c 'import signal; "
-            "signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT}); "
-            'print("ready", flush=True); '
-            "signal.sigwait({signal.SIGINT}); raise SystemExit(130)'\n"
-            "touch survived",
-        ),
+    from flowfield.adapters.inspection_launcher import write_launcher
+
+    version = current(service)
+    env = LocalHost(os.environ).prepare(
+        service.workspace.directory / "terminal",
+        Path(service.workspace.project("harbor").path),
+        "terminal",
+        version.candidate_commit,
     )
-    copy = prepare(inspections, current(service))
+    launcher = write_launcher(
+        env,
+        [],
+        "trap 'exit 130' INT\n"
+        "python -c 'import signal; "
+        "signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT}); "
+        'print("ready", flush=True); '
+        "signal.sigwait({signal.SIGINT}); raise SystemExit(130)'\n"
+        "touch survived",
+    )
     process = subprocess.Popen(
-        shlex.split(copy.command),
+        ["/bin/sh", str(launcher)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         start_new_session=True,
@@ -512,7 +506,7 @@ def test_launcher_stops_with_its_terminal_process_group(tmp_path):
         os.killpg(process.pid, signal.SIGINT)
         process.communicate(timeout=5)
         assert process.returncode == 130
-        assert not (Path(copy.workspace) / "survived").exists()
+        assert not (env.checkout / "survived").exists()
     finally:
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGKILL)
@@ -520,7 +514,10 @@ def test_launcher_stops_with_its_terminal_process_group(tmp_path):
 
 
 def test_saved_launcher_owns_output_directory_instead_of_inheriting_it(tmp_path):
-    service, repo, _ = fixture(tmp_path)
+    service, repo, _ = fixture(
+        tmp_path,
+        recipe=ResultRecipe(run_command='printf report > "$FLOWFIELD_OUTPUT_DIR/report.txt"'),
+    )
     service.results.process("harbor")
     inspections = Inspections(service.workspace)
     inspections.configure(

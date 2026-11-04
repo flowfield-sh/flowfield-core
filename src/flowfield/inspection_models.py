@@ -5,6 +5,7 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from flowfield.execution_models import Record
+from flowfield.output_models import OutputFile, OutputSelection
 
 
 class InspectionSettings(Record):
@@ -15,6 +16,7 @@ class InspectionSettings(Record):
     auto_prepare: bool = False
     ready_command: str = ""
     url: str = ""
+    outputs: list[OutputSelection] = Field(default_factory=list, max_length=32)
 
 
 class InspectionConfig(Record):
@@ -24,6 +26,7 @@ class InspectionConfig(Record):
     auto_prepare: bool = False
     ready_command: str = Field(default="", max_length=4000)
     url: str = Field(default="", max_length=2000, pattern=r"^(https?://[^\s]+)?$")
+    outputs: list[OutputSelection] = Field(default_factory=list, max_length=32)
 
     @model_validator(mode="after")
     def preview_choice(self) -> Self:
@@ -40,6 +43,12 @@ class InspectionPrepare(Record):
 
 
 class Inspection(Record):
+    setup_timeout_seconds: int = 120
+    run_timeout_seconds: int = 60
+    outputs: list[OutputSelection] = Field(default_factory=list)
+    files: list[OutputFile] = Field(default_factory=list)
+    resolved_url: str = ""
+    artifact_problem: str | None = None
     workspace_id: str
     id: str
     project_id: str
@@ -60,7 +69,6 @@ class Inspection(Record):
     # Observations, not saved evidence or instructions to change the original copy.
     locally_changed: bool = False
     source_changed: bool = False
-    instructions_changed: bool = False
     ready_command: str = ""
     url: str = ""
     runtime_state: Literal[

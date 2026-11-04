@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import Field
 
 from flowfield.execution_models import CheckResult, Record
+from flowfield.runtime_models import RuntimeVerification
 
 DELIVERY_BLOCKERS = frozenset(
     {
@@ -95,6 +96,7 @@ class IntegrationSummary(Record):
 
 
 class Integration(IntegrationSummary):
+    runtime_verification: RuntimeVerification | None = None
     checks: list[CheckResult] = Field(default_factory=list)
     setup_checks: list[CheckResult] = Field(default_factory=list)
 
@@ -112,7 +114,7 @@ class CommandProgress(Record):
 
 
 class ValidationProgress(Record):
-    phase: Literal["preparing", "setup", "checks", "verifying"]
+    phase: Literal["preparing", "setup", "checks", "verifying", "runtime"]
     current: CommandProgress | None = None
     setup_checks: list[CheckResult] = Field(default_factory=list)
     checks: list[CheckResult] = Field(default_factory=list)

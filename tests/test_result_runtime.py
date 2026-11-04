@@ -18,6 +18,7 @@ from flowfield.inspection import Inspections
 from flowfield.inspection_models import InspectionConfig, InspectionPrepare
 from flowfield.result_models import ResultReview
 from flowfield.result_runtime import ResultRuntimes
+from flowfield.runtime_models import ResultRecipe
 
 
 async def settled(runtimes, value, states):
@@ -35,6 +36,16 @@ def configured(tmp_path, command="sleep 60", **settings):
     Inspections(service.workspace).configure(
         "harbor", InspectionConfig(expected_revision=2, run_command=command, **settings)
     )
+    # Seed an already-reviewed recipe to isolate the human runtime lifecycle, including
+    # deliberately failing launchers. Full pre-review verification is exercised separately.
+    with service.workspace.connection(write=True) as db:
+        version = service.results._get(db, "harbor", current(service).id)
+        version.recipe = ResultRecipe(
+            run_command=command,
+            ready_command=settings.get("ready_command", ""),
+            url=settings.get("url", ""),
+        )
+        service.results._save(db, version)
     return service, current(service)
 
 

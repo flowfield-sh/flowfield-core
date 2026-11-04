@@ -21,7 +21,16 @@ with socket.socket() as listener:
     pending_address.write_text(json.dumps({"port": listener.getsockname()[1], "pid": os.getpid()}))
     pending_address.replace(address)
     server = uvicorn.Server(
-        uvicorn.Config(create_app(data_dir=state), host="127.0.0.1", log_level="warning")
+        uvicorn.Config(
+            create_app(
+                data_dir=state,
+                web_dir=Path(os.environ["FLOWFIELD_SMOKE_WEB_DIR"])
+                if os.environ.get("FLOWFIELD_SMOKE_WEB_DIR")
+                else None,
+            ),
+            host="127.0.0.1",
+            log_level="warning",
+        )
     )
 
     def watch_owner() -> None:

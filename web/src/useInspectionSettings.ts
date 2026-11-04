@@ -16,6 +16,7 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     autoPrepare: boolean;
     readyCommand: string;
     url: string;
+    outputPaths: string;
     reason: string;
     noPreview: boolean;
     revision: number;
@@ -25,6 +26,8 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     autoPrepare: resource.data?.auto_prepare ?? false,
     readyCommand: resource.data?.ready_command ?? "",
     url: resource.data?.url ?? "",
+    outputPaths:
+      resource.data?.outputs.map((file) => file.path).join("\n") ?? "",
     reason: resource.data?.no_preview_reason ?? "",
     noPreview: !!resource.data?.no_preview_reason,
     revision: resource.data?.revision ?? 1,
@@ -35,9 +38,13 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     autoPrepare: fields.autoPrepare,
     readyCommand: fields.readyCommand,
     url: fields.url,
+    outputPaths: fields.outputPaths,
     changeRuntime(
       values: Partial<
-        Pick<typeof fields, "autoPrepare" | "readyCommand" | "url">
+        Pick<
+          typeof fields,
+          "autoPrepare" | "readyCommand" | "url" | "outputPaths"
+        >
       >,
     ) {
       if (resource.data) setDraft({ ...fields, ...values });
@@ -77,6 +84,18 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
           auto_prepare: !draft.noPreview && draft.autoPrepare,
           ready_command: draft.readyCommand,
           url: draft.url,
+          outputs: draft.noPreview
+            ? []
+            : draft.outputPaths
+                .split("\n")
+                .map((path) => path.trim())
+                .filter(Boolean)
+                .map((path) => ({
+                  path,
+                  description:
+                    resource.data?.outputs.find((file) => file.path === path)
+                      ?.description ?? "",
+                })),
           no_preview_reason: draft.noPreview ? draft.reason : "",
         });
         resource.invalidate();

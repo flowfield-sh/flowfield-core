@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "./ConfirmButton";
 import { StatusNotice } from "./StatusNotice";
 import { ResourceRetry } from "./ResourceRetry";
+import { Disclosure } from "./DetailLayout";
+import { OutputFiles } from "./Files";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { reportError } from "./requestFeedback";
 import { useResource } from "./useResource";
@@ -39,10 +41,6 @@ export function Inspection({
   current: boolean;
 }) {
   const path = `workspaces/${projectId}`;
-  const instructions = useResource<components["schemas"]["InspectionSettings"]>(
-    repositoryId ? `projects/${repositoryId}/inspection/settings` : null,
-    refresh,
-  );
   const resource = useResource<Copy | null>(
     `${path}/inspection?result_id=${encodeURIComponent(result.id)}`,
     refresh,
@@ -83,6 +81,7 @@ export function Inspection({
       setBusy(false);
     }
   }
+  if (!eligible && !value && !resource.error) return null;
   return (
     <StatusNotice
       title={runtimeTitles[state]}
@@ -111,7 +110,7 @@ export function Inspection({
             </ConfirmButton>
           )}
           {eligible &&
-            instructions.data?.run_command &&
+            result.recipe?.run_command &&
             !active &&
             state !== "uncertain" && (
               <Button
@@ -120,20 +119,12 @@ export function Inspection({
                 disabled={busy}
                 onClick={() =>
                   void act(
-                    prepared &&
-                      !value?.instructions_changed &&
-                      !value?.locally_changed
-                      ? "run"
-                      : "prepare",
-                    !!value?.locally_changed ||
-                      !!value?.instructions_changed ||
-                      !!value?.problem,
+                    prepared && !value?.locally_changed ? "run" : "prepare",
+                    !!value?.locally_changed || !!value?.problem,
                   )
                 }
               >
-                {prepared &&
-                !value?.instructions_changed &&
-                !value?.locally_changed
+                {prepared && !value?.locally_changed
                   ? "Run result"
                   : value
                     ? "Prepare again"
@@ -142,7 +133,11 @@ export function Inspection({
             )}
           {state === "running" && value?.url && (
             <Button size="sm" variant="outline" asChild>
-              <a href={value.url} target="_blank" rel="noreferrer">
+              <a
+                href={value.resolved_url || value.url}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Open result
               </a>
             </Button>
@@ -167,36 +162,47 @@ export function Inspection({
             </Button>
           )}
           {eligible &&
-            instructions.data &&
-            !instructions.data.run_command &&
-            !instructions.data.no_preview_reason && (
+            !result.recipe?.run_command &&
+            !result.recipe?.no_preview_reason && (
               <Button size="sm" variant="outline" asChild>
                 <WorkspaceLink
                   to={`/projects/${repositoryId}/edit/integration`}
                 >
-                  Configure preview
+                  Project run defaults
                 </WorkspaceLink>
               </Button>
             )}
         </>
       }
     >
-      <ResourceRetry resources={[resource, instructions]} />
-      {instructions.data?.no_preview_reason && (
-        <p>{instructions.data.no_preview_reason}</p>
+      <ResourceRetry resources={[resource]} />
+      {result.recipe?.no_preview_reason && (
+        <p>{result.recipe.no_preview_reason}</p>
+      )}
+      {!result.recipe?.run_command && !result.recipe?.no_preview_reason && (
+        <p>
+          No run recipe was saved with this result. Project run defaults apply
+          to new results.
+        </p>
       )}
       {value?.runtime_problem && <p>{value.runtime_problem}</p>}
       {value?.problem && <p>{value.problem}</p>}
+      {value?.artifact_problem && <p>{value.artifact_problem}</p>}
+      {!!value?.files.length && (
+        <Disclosure summary="Generated files">
+          <OutputFiles files={value.files} />
+          <p className="detail-metadata">
+            From the latest run. Earlier files remain in Files.
+          </p>
+        </Disclosure>
+      )}
       {value?.locally_changed && (
         <p>
           This copy has local edits. Preparing again preserves them in the
           previous copy.
         </p>
       )}
-      {value?.instructions_changed && (
-        <p>Run settings changed. Prepare again to use them.</p>
-      )}
-      {!eligible && (
+      {!eligible && !current && (
         <p>
           This result is retained for inspection. Run the current ready result.
         </p>

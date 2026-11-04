@@ -33,6 +33,10 @@ def test_local_workers_validate_and_inspect_with_host_tools(tmp_path, monkeypatc
             "harbor", SetupCheckRequest(expected_revision=settings.revision)
         )
         assert checked.status == "passed", checked.problem
+        Inspections(service.workspace).configure(
+            "harbor",
+            InspectionConfig(expected_revision=2, run_command='test -n "$FLOWFIELD_RUNTIME_DIR"'),
+        )
         runs = [service.execution.claim("harbor", base, {base: set()}) for _ in range(2)]
         assert all(runs)
         await asyncio.gather(*(service._execute(run, repo) for run in runs))
@@ -56,10 +60,6 @@ def test_local_workers_validate_and_inspect_with_host_tools(tmp_path, monkeypatc
         result = service.results.page("harbor", runs[0].task_id).items[0]
         assert result.status == "ready", result.problem
         inspections = Inspections(service.workspace)
-        inspections.configure(
-            "harbor",
-            InspectionConfig(expected_revision=2, run_command='test -n "$FLOWFIELD_RUNTIME_DIR"'),
-        )
         copy = await asyncio.to_thread(
             inspections.prepare,
             "harbor",

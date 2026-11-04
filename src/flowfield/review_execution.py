@@ -280,6 +280,10 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             for f in files
         )
         brief["instructions"] += (
+            " Inspect runtime_verification in validation evidence when present: it is bound "
+            "to the exact candidate and saved recipe and covers preparation, two runs and "
+            "process cleanup. Do not request another verification attempt just to repeat "
+            "those passing checks; request additional checks only for missing acceptance evidence. "
             " The files context section records the worker’s original inputs. The result "
             "section lists retained outputs. Both sets are copied into this review as "
             "input_files; match their IDs to distinguish sources from submitted outputs. "
@@ -314,12 +318,12 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
                 "or scope decisions. End after submitting the evidence."
             )
             if project_id:
-                from flowfield.inspection import Inspections
-
-                setup = service.integrations.settings(project_id).setup_commands
-                run_command = (
-                    Inspections(service.workspace).settings(project_id).run_command or None
+                assert review.result_id
+                recipe = (
+                    Results(service.workspace).get(review.workspace_id, review.result_id).recipe
                 )
+                setup = recipe.setup_commands if recipe else []
+                run_command = recipe.run_command or None if recipe else None
             brief["setup_commands"] = setup
         return ReviewLaunch(
             review.binding.candidate_commit,

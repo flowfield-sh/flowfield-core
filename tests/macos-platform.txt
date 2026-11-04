@@ -52,3 +52,4 @@ tests/test_management_mcp.py::test_scoped_evidence_reads_exact_logs_diffs_and_re
 tests/test_management_mcp.py::test_mcp_failed_setup_retains_paged_log_across_retry
 tests/test_management_mcp.py::test_external_coordinator_control_and_exact_recovery_use_mcp
 tests/test_check_logs.py
+tests/test_result_recipes.py

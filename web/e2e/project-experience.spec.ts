@@ -92,7 +92,9 @@ test("home, welcome and editable settings form a complete project journey", asyn
     .fill("pnpm check");
   await expect(
     editor.getByLabel("Validation commands", { exact: true }),
-  ).toHaveAccessibleDescription("Optional. One shell command per line.");
+  ).toHaveAccessibleDescription(
+    "Optional tests and checks to pass before code is ready for review. One command per line.",
+  );
   await expect(
     editor.getByRole("tab", { name: "Integration", exact: true }),
   ).toHaveAttribute("aria-selected", "true");

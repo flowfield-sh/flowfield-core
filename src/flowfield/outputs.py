@@ -77,11 +77,13 @@ class Outputs:
         run_id: str | None = None,
         review_attempt_id: str | None = None,
         result_id: str | None = None,
+        inspection_id: str | None = None,
+        runtime_generation: str | None = None,
     ) -> Iterator[list[OutputFile]]:
         if not selections:
             yield []
             return
-        if (run_id is None) == (review_attempt_id is None):
+        if sum(value is not None for value in (run_id, review_attempt_id, inspection_id)) != 1:
             raise ValueError("Evidence requires exactly one execution owner.")
         if len({item.path for item in selections}) != len(selections):
             raise ApplicationError("output_duplicate", "Submit each file only once.")
@@ -108,6 +110,8 @@ class Outputs:
                     run_id,
                     review_attempt_id,
                     result_id,
+                    inspection_id,
+                    runtime_generation,
                 )
             finally:
                 # Check actual commit evidence, including when an after-commit
@@ -129,6 +133,8 @@ class Outputs:
         run_id: str | None,
         review_attempt_id: str | None,
         result_id: str | None,
+        inspection_id: str | None,
+        runtime_generation: str | None,
     ) -> list[OutputFile]:
         copied: list[OutputFile] = []
         total = 0
@@ -144,6 +150,8 @@ class Outputs:
                 run_id=run_id,
                 review_attempt_id=review_attempt_id,
                 result_id=result_id,
+                inspection_id=inspection_id,
+                runtime_generation=runtime_generation,
                 name=selection.path,
                 description=selection.description,
                 media_type=mimetypes.guess_type(selection.path)[0] or "application/octet-stream",
@@ -207,14 +215,16 @@ class Outputs:
         """Caller rechecks current submission ownership in this short transaction."""
         for value in files:
             db.execute(
-                "INSERT INTO output_files(id,workspace_id,run_id,data,review_attempt_id) "
-                "VALUES (?,?,?,?,?)",
+                "INSERT INTO output_files"
+                "(id,workspace_id,run_id,data,review_attempt_id,inspection_id) "
+                "VALUES (?,?,?,?,?,?)",
                 (
                     value.id,
                     value.workspace_id,
                     value.run_id,
                     value.model_dump_json(),
                     value.review_attempt_id,
+                    value.inspection_id,
                 ),
             )
 

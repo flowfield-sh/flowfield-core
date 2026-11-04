@@ -10,8 +10,6 @@ from review_execution_fixtures import Reviewer, install, round_trip
 from task_reviews_fixtures import configured, verdict
 
 from flowfield.errors import ApplicationError
-from flowfield.inspection import Inspections
-from flowfield.inspection_models import InspectionConfig
 from flowfield.outputs import Outputs
 from flowfield.review_tools import ReviewBridge
 from flowfield.thread_view import ThreadView
@@ -41,16 +39,12 @@ def test_historical_notes_are_readable_without_a_new_review_round(tmp_path):
 def test_verification_uses_generated_launcher_and_retains_evidence_without_new_candidate(
     tmp_path, monkeypatch, edit_code
 ):
-    service, _, run, _, reviews = configured(tmp_path)
-    result = current(service)
-    inspection = Inspections(service.workspace)
-    settings = inspection.settings(run.project_id)
-    inspection.configure(
-        run.project_id,
-        InspectionConfig(
-            expected_revision=settings.revision, run_command="printf 'launcher verified\\n'"
-        ),
+    from flowfield.runtime_models import ResultRecipe
+
+    service, _, run, _, reviews = configured(
+        tmp_path, recipe=ResultRecipe(run_command="printf 'launcher verified\\n'")
     )
+    result = current(service)
     install(monkeypatch, "request_verification")
     asyncio.run(round_trip(service))
     review = reviews.latest("harbor", run.task_id)

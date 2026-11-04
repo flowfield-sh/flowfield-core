@@ -1,3 +1,4 @@
+import { RuntimeVerification } from "./RuntimeVerification";
 import { CheckEvidence } from "./CheckEvidence";
 export { CheckEvidence } from "./CheckEvidence";
 import { ConfirmButton } from "./ConfirmButton";
@@ -11,6 +12,7 @@ import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,13 +57,14 @@ export function IntegrationSettings({
 }) {
   const id = useId();
   const path = `projects/${projectId}/integration`;
-  const resource = useResource<Settings>(path, projectId);
+  const resource = useResource<Settings>(path, refresh);
   const [draft, setDraft] = useState<{
     target: string;
     checks: string;
     setup: string;
     setupTimeout: number;
     checkTimeout: number;
+    revision: number;
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const inspection = useInspectionSettings(projectId, refresh);
@@ -73,6 +76,7 @@ export function IntegrationSettings({
   const checkTimeout =
     draft?.checkTimeout ?? resource.data?.check_timeout_seconds ?? 60;
   const fields = {
+    revision: draft?.revision ?? resource.data?.revision ?? 1,
     target,
     checks,
     setup,
@@ -95,7 +99,6 @@ export function IntegrationSettings({
       className="worker-settings content-stack"
       data-space="settings"
     >
-      <p>Worker setup, checks and local code delivery.</p>
       <ResourceRetry resources={[resource, inspection]} />
       <form
         onSubmit={async (event) => {
@@ -107,7 +110,7 @@ export function IntegrationSettings({
           try {
             if (dirty) {
               const value = await request<Settings>(path, "PUT", {
-                expected_revision: resource.data.revision,
+                expected_revision: fields.revision,
                 target_branch: target,
                 checks: lines(checks),
                 setup_commands: setup
@@ -144,7 +147,7 @@ export function IntegrationSettings({
           className="content-stack"
           data-space="settings"
         >
-          <DetailSection settings title="Destination">
+          <DetailSection settings title="Delivery">
             <ContentStack space="tight">
               <Label className="field block">
                 Destination branch
@@ -159,184 +162,268 @@ export function IntegrationSettings({
                 />
               </Label>
               <p id={`${id}-destination-help`} className="detail-metadata">
-                Approval updates this branch and the project files. A missing
-                branch starts at the current commit. No push or deploy.
+                Approved code updates this local branch. Flowfield does not push
+                or deploy it.
               </p>
             </ContentStack>
           </DetailSection>
-          <DetailSection settings title="Validation">
-            <ContentStack space="tight">
-              <Label className="field block">
-                Validation commands
-                <Textarea
-                  aria-label="Validation commands"
-                  aria-describedby={`${id}-validation-help`}
-                  rows={3}
-                  value={checks}
-                  placeholder="Your project’s repeatable check command"
-                  onChange={(e) =>
-                    setDraft({ ...fields, checks: e.target.value })
-                  }
-                />
-              </Label>
-              <p id={`${id}-validation-help`} className="detail-metadata">
-                Optional. One shell command per line.
-              </p>
-            </ContentStack>
-          </DetailSection>
-          <DetailSection settings title="Runtime setup">
-            <ContentStack space="tight">
-              <Label className="field block">
-                Setup commands
-                <Textarea
-                  aria-label="Setup commands"
-                  aria-describedby={`${id}-setup-help`}
-                  rows={3}
-                  value={setup}
-                  onChange={(e) =>
-                    setDraft({ ...fields, setup: e.target.value })
-                  }
-                />
-              </Label>
-              <p id={`${id}-setup-help`} className="detail-metadata">
-                Install dependencies in each work copy. One command per line;
-                keep source files unchanged.
-              </p>
-            </ContentStack>
-          </DetailSection>
-          <ContentStack space="tight">
-            <SettingsCheckbox
-              checked={inspection.noPreview}
-              onChange={(event) =>
-                inspection.chooseNoPreview(event.target.checked)
-              }
-              disabled={!inspection.loaded || busy}
-            >
-              No runnable preview
-            </SettingsCheckbox>
-            {inspection.noPreview ? (
-              <Label className="field block">
-                Reason
-                <Textarea
-                  aria-label="No preview reason"
-                  rows={2}
-                  value={inspection.reason}
-                  placeholder="For example: a library verified through its tests"
-                  onChange={(event) =>
-                    inspection.changeReason(event.target.value)
-                  }
-                />
-              </Label>
-            ) : (
-              <>
+          <DetailSection settings title="Preparation and checks">
+            <ContentStack space="section">
+              <ContentStack space="tight">
                 <Label className="field block">
-                  Run command
+                  Setup commands
                   <Textarea
-                    aria-label="Run command"
-                    aria-describedby={`${id}-run-help`}
-                    rows={2}
-                    value={inspection.command}
-                    disabled={!inspection.loaded}
-                    placeholder="For example: npm run dev"
-                    onChange={(event) => inspection.change(event.target.value)}
+                    aria-label="Setup commands"
+                    aria-describedby={`${id}-setup-help`}
+                    rows={3}
+                    value={setup}
+                    onChange={(e) =>
+                      setDraft({ ...fields, setup: e.target.value })
+                    }
                   />
                 </Label>
-                <p id={`${id}-run-help`} className="detail-metadata">
-                  Run result executes this command after preparation. Keep
-                  services in the foreground so Flowfield can stop them.
+                <p id={`${id}-setup-help`} className="detail-metadata">
+                  Install dependencies and build each work copy. One command per
+                  line; keep source files unchanged.
                 </p>
-              </>
-            )}
-            {!inspection.noPreview && (
-              <>
-                <SettingsCheckbox
-                  checked={inspection.autoPrepare}
-                  disabled={!inspection.loaded || busy}
-                  onChange={(event) =>
-                    inspection.changeRuntime({
-                      autoPrepare: event.target.checked,
-                    })
-                  }
-                >
-                  Automatically prepare new results
-                </SettingsCheckbox>
+              </ContentStack>
+              <ContentStack space="tight">
                 <Label className="field block">
-                  Readiness command (optional)
+                  Validation commands
                   <Textarea
-                    aria-label="Readiness command"
+                    aria-label="Validation commands"
+                    aria-describedby={`${id}-validation-help`}
+                    rows={3}
+                    value={checks}
+                    placeholder="For example: npm test"
+                    onChange={(e) =>
+                      setDraft({ ...fields, checks: e.target.value })
+                    }
+                  />
+                </Label>
+                <p id={`${id}-validation-help`} className="detail-metadata">
+                  Optional tests and checks to pass before code is ready for
+                  review. One command per line.
+                </p>
+              </ContentStack>
+              <Disclosure summary="Time limits">
+                <ContentStack space="section">
+                  <Label className="field block">
+                    Seconds per setup command
+                    <Input
+                      type="number"
+                      min={1}
+                      max={900}
+                      value={setupTimeout}
+                      onChange={(e) =>
+                        setDraft({
+                          ...fields,
+                          setupTimeout: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </Label>
+                  <Label className="field block">
+                    Seconds per validation or result check
+                    <Input
+                      type="number"
+                      min={1}
+                      max={900}
+                      value={checkTimeout}
+                      onChange={(e) =>
+                        setDraft({
+                          ...fields,
+                          checkTimeout: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </Label>
+                </ContentStack>
+              </Disclosure>
+            </ContentStack>
+          </DetailSection>
+          <DetailSection settings title="Run results">
+            <ContentStack space="section">
+              <ContentStack space="tight">
+                <Label className="field block">
+                  Result preview
+                  <NativeSelect
+                    value={inspection.noPreview ? "none" : "command"}
+                    disabled={!inspection.loaded}
+                    onChange={(event) =>
+                      inspection.chooseNoPreview(event.target.value === "none")
+                    }
+                  >
+                    <option value="command">Run a command</option>
+                    <option value="none">No runnable result</option>
+                  </NativeSelect>
+                </Label>
+                <p className="detail-metadata">
+                  Defaults for new results. Each result keeps the recipe it was
+                  verified with.
+                </p>
+              </ContentStack>
+              {inspection.noPreview ? (
+                <Label className="field block">
+                  Reason
+                  <Textarea
+                    aria-label="No preview reason"
                     rows={2}
-                    value={inspection.readyCommand}
+                    value={inspection.reason}
+                    placeholder="For example: a library verified through its tests"
+                    onChange={(event) =>
+                      inspection.changeReason(event.target.value)
+                    }
+                  />
+                </Label>
+              ) : (
+                <>
+                  <ContentStack space="tight">
+                    <Label className="field block">
+                      Run command
+                      <Textarea
+                        aria-label="Run command"
+                        aria-describedby={`${id}-run-help`}
+                        rows={2}
+                        value={inspection.command}
+                        disabled={!inspection.loaded}
+                        placeholder="For example: npm run dev"
+                        onChange={(event) =>
+                          inspection.change(event.target.value)
+                        }
+                      />
+                    </Label>
+                    <p id={`${id}-run-help`} className="detail-metadata">
+                      Runs after setup. Keep services in the foreground; batch
+                      commands should finish.
+                    </p>
+                  </ContentStack>
+                  <SettingsCheckbox
+                    checked={inspection.autoPrepare}
+                    disabled={!inspection.loaded || busy}
+                    hint="Keep new reviewed results ready to run while Flowfield is open. Preparation does not start the result."
                     onChange={(event) =>
                       inspection.changeRuntime({
-                        readyCommand: event.target.value,
+                        autoPrepare: event.target.checked,
                       })
                     }
-                  />
-                </Label>
-                <Label className="field block">
-                  Result URL (optional)
-                  <Input
-                    aria-label="Result URL"
-                    value={inspection.url}
-                    onChange={(event) =>
-                      inspection.changeRuntime({ url: event.target.value })
-                    }
-                    placeholder="http://127.0.0.1:3000"
-                  />
-                </Label>
-              </>
-            )}
-            {inspection.stale && (
-              <p>
-                Run settings changed. Your draft is preserved.{" "}
+                  >
+                    Prepare new results automatically
+                  </SettingsCheckbox>
+                  <Disclosure summary="Service and output options">
+                    <ContentStack space="section">
+                      <ContentStack space="tight">
+                        <Label className="field block">
+                          Readiness command
+                          <Textarea
+                            aria-label="Readiness command"
+                            aria-describedby={`${id}-readiness-help`}
+                            rows={2}
+                            value={inspection.readyCommand}
+                            onChange={(event) =>
+                              inspection.changeRuntime({
+                                readyCommand: event.target.value,
+                              })
+                            }
+                          />
+                        </Label>
+                        <p
+                          id={`${id}-readiness-help`}
+                          className="detail-metadata"
+                        >
+                          For a long-running service, a command that exits
+                          successfully when it is usable. Leave empty for a
+                          batch command.
+                        </p>
+                      </ContentStack>
+                      <ContentStack space="tight">
+                        <Label className="field block">
+                          Result URL
+                          <Input
+                            aria-label="Result URL"
+                            aria-describedby={`${id}-url-help`}
+                            value={inspection.url}
+                            onChange={(event) =>
+                              inspection.changeRuntime({
+                                url: event.target.value,
+                              })
+                            }
+                            placeholder="http://127.0.0.1:${FLOWFIELD_PORT}"
+                          />
+                        </Label>
+                        <p id={`${id}-url-help`} className="detail-metadata">
+                          Optional. Use {"${FLOWFIELD_PORT}"} in the URL and
+                          $FLOWFIELD_PORT in commands for a separate local port.
+                        </p>
+                      </ContentStack>
+                      <ContentStack space="tight">
+                        <Label className="field block">
+                          Generated files
+                          <Textarea
+                            aria-label="Generated files"
+                            aria-describedby={`${id}-outputs-help`}
+                            rows={2}
+                            value={inspection.outputPaths}
+                            onChange={(event) =>
+                              inspection.changeRuntime({
+                                outputPaths: event.target.value,
+                              })
+                            }
+                            placeholder="report.json"
+                          />
+                        </Label>
+                        <p
+                          id={`${id}-outputs-help`}
+                          className="detail-metadata"
+                        >
+                          Optional file paths inside FLOWFIELD_OUTPUT_DIR, one
+                          per line. Completed runs retain these files for
+                          preview and download.
+                        </p>
+                      </ContentStack>
+                    </ContentStack>
+                  </Disclosure>
+                </>
+              )}
+              {inspection.stale && (
+                <ContentStack>
+                  <p>Run settings changed. Your draft is preserved.</p>
+                  <ConfirmButton
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    binding={inspection.binding}
+                    title="Discard your run settings draft?"
+                    description="Load the current saved defaults in place of your draft."
+                    action={() => inspection.loadCurrent()}
+                  >
+                    Load current run settings
+                  </ConfirmButton>
+                </ContentStack>
+              )}
+            </ContentStack>
+          </DetailSection>
+          {draft &&
+            resource.data &&
+            draft.revision !== resource.data.revision && (
+              <ContentStack>
+                <p>
+                  Preparation or delivery settings changed. Your draft is
+                  preserved.
+                </p>
                 <ConfirmButton
                   size="sm"
                   variant="outline"
                   disabled={busy}
-                  binding={inspection.binding}
-                  title="Discard your run command draft?"
-                  description="Load the current saved run command in place of your draft."
-                  action={() => inspection.loadCurrent()}
+                  binding={JSON.stringify([draft, resource.data.revision])}
+                  title="Discard your preparation and delivery draft?"
+                  description="Load the current saved settings in place of your draft. Your run settings draft will be kept."
+                  action={() => setDraft(null)}
                 >
-                  Load current run command
+                  Load current preparation and delivery settings
                 </ConfirmButton>
-              </p>
+              </ContentStack>
             )}
-          </ContentStack>
-          <DetailSection settings title="Time limits">
-            <ContentStack space="section">
-              <Label className="field block">
-                Seconds per setup command
-                <Input
-                  type="number"
-                  min={1}
-                  max={900}
-                  value={setupTimeout}
-                  onChange={(e) =>
-                    setDraft({
-                      ...fields,
-                      setupTimeout: Number(e.target.value),
-                    })
-                  }
-                />
-              </Label>
-              <Label className="field block">
-                Seconds per validation command
-                <Input
-                  type="number"
-                  min={1}
-                  max={900}
-                  value={checkTimeout}
-                  onChange={(e) =>
-                    setDraft({
-                      ...fields,
-                      checkTimeout: Number(e.target.value),
-                    })
-                  }
-                />
-              </Label>
-            </ContentStack>
-          </DetailSection>
           <Button
             size="sm"
             disabled={
@@ -346,7 +433,7 @@ export function IntegrationSettings({
               !inspection.valid
             }
           >
-            Save integration settings
+            {busy ? "Saving…" : "Save integration settings"}
           </Button>
         </fieldset>
       </form>
@@ -354,7 +441,7 @@ export function IntegrationSettings({
         <ProjectCheckPermission
           projectId={projectId}
           revision={resource.data.revision}
-          disabled={dirty || busy}
+          disabled={dirty || inspection.dirty || busy}
           refresh={refresh}
         />
       )}
@@ -362,7 +449,7 @@ export function IntegrationSettings({
         <SetupValidation
           projectId={projectId}
           revision={resource.data.revision}
-          disabled={dirty || busy}
+          disabled={dirty || inspection.dirty || busy}
           refresh={refresh}
         />
       )}
@@ -527,6 +614,7 @@ export function IntegrationEvidence({
   return (
     <ContentStack space="section" className="integration-evidence">
       <ValidationProgress record={record} />
+      <RuntimeVerification value={record.runtime_verification} />
       <DetailSection title="Branch">
         <p>
           {record.status === "ready"

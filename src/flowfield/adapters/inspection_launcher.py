@@ -1,6 +1,7 @@
 """Write a saved terminal launcher; preparation never executes project commands."""
 
 import shlex
+import sys
 from pathlib import Path
 
 from flowfield.adapters.local_execution import LocalAttempt
@@ -37,6 +38,18 @@ def write_launcher(environment: LocalAttempt, setup: list[str], run: str) -> Pat
                 "GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE\n"
             )
             + exports
+            + "temporary=$(mktemp -d /tmp/ff-r-terminal-XXXXXX)\n"
+            + 'trap \'rm -f "$temporary/t"; rmdir "$temporary"\' EXIT\n'
+            + 'ln -s "$TMPDIR" "$temporary/t"\n'
+            + 'export TMPDIR="$temporary/t" TMP="$temporary/t" TEMP="$temporary/t"\n'
+            + "export FLOWFIELD_PORT=$("
+            + shlex.quote(sys.executable)
+            + " -c "
+            + shlex.quote(
+                'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); '
+                "print(s.getsockname()[1]); s.close()"
+            )
+            + ")\n"
             + "\n".join([*setup, run]).rstrip()
             + "\n"
         )
