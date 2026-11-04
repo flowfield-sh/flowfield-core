@@ -35,7 +35,7 @@ export function TaskNeeds({
               task.project_id && (
                 <Button variant="outline" size="sm" asChild>
                   <WorkspaceLink
-                    to={`/projects/${task.project_id}/edit/integration`}
+                    to={`/projects/${task.project_id}/edit/execution`}
                   >
                     Configure preview
                   </WorkspaceLink>

@@ -42,7 +42,7 @@ test("candidate checks stream real output to the result and Coordinator without 
       },
     },
   );
-  expect(configured.ok()).toBeTruthy();
+  expect(configured.ok(), await configured.text()).toBeTruthy();
   const old = await (
     await request.get(`${base}/results/${seed.result}`)
   ).json();
@@ -90,11 +90,9 @@ test("candidate checks stream real output to the result and Coordinator without 
   const downloaded = await request.get((await log.getAttribute("href"))!);
   expect(downloaded.ok()).toBeTruthy();
   expect(await downloaded.text()).toContain("Check complete");
-  await page.goto(`/projects/${seed.project}/edit/integration`);
+  await page.goto(`/projects/${seed.project}/edit/validation`);
   await page.getByLabel("Validation commands", { exact: true }).fill("");
-  await page
-    .getByRole("button", { name: "Save integration settings", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect
     .poll(
       async () =>

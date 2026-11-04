@@ -1096,24 +1096,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/check-permission": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Check Permission */
-    get: operations["check_permission_api_projects__project_id__check_permission_get"];
-    /** Configure Check Permission */
-    put: operations["configure_check_permission_api_projects__project_id__check_permission_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/worker-models": {
     parameters: {
       query?: never;
@@ -2766,34 +2748,6 @@ export interface components {
       /** Result Commit */
       result_commit: string;
     };
-    /** CheckPermission */
-    CheckPermission: {
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      /**
-       * Enabled
-       * @default false
-       */
-      enabled: boolean;
-      /** Settings Revision */
-      settings_revision: number | null;
-      /** Project Path */
-      project_path: string | null;
-      /** Project Identity */
-      project_identity: [number, number] | null;
-    };
-    /** CheckPermissionEdit */
-    CheckPermissionEdit: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Settings Revision */
-      settings_revision: number;
-      /** Enabled */
-      enabled: boolean;
-    };
     /** CheckResult */
     CheckResult: {
       /** Command */
@@ -4103,7 +4057,7 @@ export interface components {
       no_preview_reason: string;
       /**
        * Auto Prepare
-       * @default false
+       * @default true
        */
       auto_prepare: boolean;
       /**
@@ -4112,10 +4066,10 @@ export interface components {
        */
       ready_command: string;
       /**
-       * Url
-       * @default
+       * Run Timeout Seconds
+       * @default 60
        */
-      url: string;
+      run_timeout_seconds: number;
       /** Outputs */
       outputs?: components["schemas"]["OutputSelection"][];
     };
@@ -4160,7 +4114,7 @@ export interface components {
       no_preview_reason: string;
       /**
        * Auto Prepare
-       * @default false
+       * @default true
        */
       auto_prepare: boolean;
       /**
@@ -4169,10 +4123,10 @@ export interface components {
        */
       ready_command: string;
       /**
-       * Url
-       * @default
+       * Run Timeout Seconds
+       * @default 60
        */
-      url: string;
+      run_timeout_seconds: number;
       /** Outputs */
       outputs: components["schemas"]["OutputSelection"][];
     };
@@ -4183,7 +4137,7 @@ export interface components {
       /** Runtime */
       runtime?: "local" | null;
       /** Target Branch */
-      target_branch: string;
+      target_branch?: string | null;
       /** Create From */
       create_from?: string | null;
       /** Checks */
@@ -5752,6 +5706,12 @@ export interface components {
     };
     /** SetupCheck */
     SetupCheck: {
+      /**
+       * Scope
+       * @default validation
+       * @enum {string}
+       */
+      scope: "setup" | "validation";
       /** Project Id */
       project_id: string;
       /** Settings Revision */
@@ -5793,6 +5753,12 @@ export interface components {
     SetupCheckRequest: {
       /** Expected Revision */
       expected_revision: number;
+      /**
+       * Scope
+       * @default validation
+       * @enum {string}
+       */
+      scope: "setup" | "validation";
     };
     /** Subtask */
     Subtask: {
@@ -9985,72 +9951,6 @@ export interface operations {
       };
     };
   };
-  check_permission_api_projects__project_id__check_permission_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CheckPermission"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  configure_check_permission_api_projects__project_id__check_permission_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CheckPermissionEdit"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CheckPermission"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
   models_api_worker_models_get: {
     parameters: {
       query?: {
@@ -11481,6 +11381,7 @@ export interface operations {
     parameters: {
       query?: {
         check_id?: string | null;
+        scope?: "setup" | "validation";
       };
       header?: never;
       path: {

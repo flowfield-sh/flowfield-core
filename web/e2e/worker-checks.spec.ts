@@ -12,7 +12,7 @@ function seed(project: string) {
   );
 }
 
-test("saved check authority invalidates on settings changes", async ({
+test("saved checks need no permission setting", async ({
   page,
   request,
 }, info) => {
@@ -33,14 +33,15 @@ test("saved check authority invalidates on settings changes", async ({
     page.getByRole("button", { name: "Save task limits" }),
   ).toHaveCount(0);
   await page.screenshot({ path: info.outputPath("workers-dark.png") });
-  await page.goto(`/projects/${value.project}/edit/integration`);
-  const grant = page.getByRole("checkbox", {
-    name: "Allow saved checks outside the worker sandbox",
-    exact: true,
-  });
-  await grant.check();
-  await expect(grant).toBeEnabled();
-  await page.screenshot({ path: info.outputPath("settings-checks-dark.png") });
+  await page.goto(`/projects/${value.project}/edit/validation`);
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Allow saved checks outside the worker sandbox",
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByLabel("Validation commands", { exact: true }),
+  ).toBeVisible();
   const settings = await (
     await request.get(`/api/projects/${value.project}/integration`)
   ).json();
@@ -56,5 +57,7 @@ test("saved check authority invalidates on settings changes", async ({
     ).ok(),
   ).toBeTruthy();
   await page.reload();
-  await expect(grant).not.toBeChecked();
+  await expect(
+    page.getByLabel("Validation commands", { exact: true }),
+  ).toHaveValue("echo changed");
 });

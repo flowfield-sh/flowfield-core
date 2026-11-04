@@ -198,7 +198,11 @@ def test_actual_published_0101_upgrade_and_rollback(tmp_path, monkeypatch):
         assert storage.version(db) == SCHEMA_VERSION and storage.identity(db) == identity
         assert [tuple(r) for r in db.execute("SELECT id,data FROM tasks ORDER BY id")] == before
         assert db.execute("SELECT count(*) FROM usage_context").fetchone()[0] == 0
-        assert snapshot(db, names) == all_rows
+        retained = [name for name in names if name != "worker_check_grants"]
+        assert snapshot(db, retained) == {name: all_rows[name] for name in retained}
+        assert not db.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='worker_check_grants'"
+        ).fetchone()
     backups = list((directory / "backups").glob("schema-93-*.sqlite3"))
     assert backups
     with sqlite3.connect(backups[0]) as db:

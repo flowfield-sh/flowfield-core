@@ -21,21 +21,10 @@ from flowfield.harness_models import HarnessKind
 from flowfield.review_models import ChangedFiles, FilePatch
 from flowfield.run_activity import RunActivity, RunActivityPage
 from flowfield.supervisor import Supervisor
-from flowfield.worker_checks import CheckPermission, CheckPermissionEdit, CheckPermissions
 
 
 def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     router = APIRouter(prefix="/api")
-
-    @router.get("/projects/{project_id}/check-permission")
-    def check_permission(project_id: str) -> CheckPermission:
-        return CheckPermissions(supervisor().workspace).get(project_id)
-
-    @router.put("/projects/{project_id}/check-permission")
-    def configure_check_permission(
-        project_id: str, request: CheckPermissionEdit
-    ) -> CheckPermission:
-        return CheckPermissions(supervisor().workspace).configure(project_id, request)
 
     @router.get("/worker-models")
     async def models(

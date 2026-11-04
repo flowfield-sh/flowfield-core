@@ -139,7 +139,7 @@ export function QueueControls({
               </p>
               <Link
                 className="text-link"
-                to={projectHref(item.projectId) + "/edit/integration"}
+                to={projectHref(item.projectId) + "/edit/setup"}
               >
                 Project setup
               </Link>

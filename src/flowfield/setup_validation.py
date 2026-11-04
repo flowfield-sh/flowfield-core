@@ -2,6 +2,7 @@
 
 import asyncio
 import fcntl
+import logging
 import os
 import re
 from functools import partial
@@ -23,10 +24,12 @@ from flowfield.integration_models import IntegrationSettings
 
 class SetupCheckRequest(Record):
     expected_revision: int = Field(ge=1)
+    scope: Literal["setup", "validation"] = "validation"
 
 
 class SetupCheck(Record):
     model_config = ConfigDict(extra="ignore")
+    scope: Literal["setup", "validation"] = "validation"
     project_id: str
     settings_revision: int
     id: str
@@ -52,12 +55,29 @@ class SetupValidation:
         self.active: set[str] = set()
         self.closing = False
 
-    def _path(self, project_id: str) -> Path:
+    async def start(self, project_id: str, request: SetupCheckRequest) -> SetupCheck:
+        """Return the retained checking state; browser timeouts do not own execution."""
+        job = asyncio.create_task(self.check(project_id, request))
+        await asyncio.sleep(0)
+        if job.done():
+            return await job
+
+        def completed(done: asyncio.Task[SetupCheck]) -> None:
+            if not done.cancelled() and (error := done.exception()):
+                logging.getLogger(__name__).error("Project validation failed: %s", error)
+
+        job.add_done_callback(completed)
+        value = self.get(project_id, scope=request.scope)
+        assert value
+        return value
+
+    def _path(self, project_id: str, scope: str = "validation") -> Path:
         self.workspace.project(project_id)
-        return self.workspace.directory / f"setup-{project_id}.json"
+        prefix = "setup-only" if scope == "setup" else "setup"
+        return self.workspace.directory / f"{prefix}-{project_id}.json"
 
     def _save(self, value: SetupCheck) -> None:
-        path = self._path(value.project_id)
+        path = self._path(value.project_id, value.scope)
         temporary = path.with_suffix(".pending")
         with temporary.open("w") as stream:
             stream.write(value.model_dump_json())
@@ -65,10 +85,26 @@ class SetupValidation:
             os.fsync(stream.fileno())
         temporary.replace(path)
 
-    def get(self, project_id: str, check_id: str | None = None) -> SetupCheck | None:
-        path = self._path(project_id)
+    def get(
+        self,
+        project_id: str,
+        check_id: str | None = None,
+        scope: Literal["setup", "validation"] = "validation",
+    ) -> SetupCheck | None:
+        path = self._path(project_id, scope)
         if check_id is not None and not re.fullmatch(r"[a-f0-9]{32}", check_id):
             raise ApplicationError("invalid_setup_check", "Invalid setup check identity.", 422)
+        if check_id:
+            candidates = [self._path(project_id, item) for item in ("setup", "validation")]
+            path = next(
+                (
+                    item
+                    for item in candidates
+                    if item.exists()
+                    and SetupCheck.model_validate_json(item.read_text()).id == check_id
+                ),
+                path.parent / "setup-history" / project_id / f"{check_id}.json",
+            )
         if not path.exists():
             if check_id:
                 raise ApplicationError("setup_check_missing", "Setup check not found.", 404)
@@ -91,7 +127,12 @@ class SetupValidation:
             value.checkout_problem = None
         except ApplicationError as error:
             value.checkout_problem = error.message
-        value.stale = settings.revision != value.settings_revision
+        fields = {"target_branch", "setup_commands", "setup_timeout_seconds"}
+        if value.scope == "validation":
+            fields.update({"checks", "check_timeout_seconds"})
+        value.stale = settings.model_dump(include=fields) != value.settings.model_dump(
+            include=fields
+        )
         if not value.stale:
             try:
                 head = gitops.target(
@@ -126,11 +167,21 @@ class SetupValidation:
                     raise ApplicationError(
                         "setup_busy", "Setup validation is already running.", 409
                     ) from error
-                previous = self.get(project_id)
-                if previous and previous.status == "uncertain":
+                previous = self.get(project_id, scope=request.scope)
+                scopes: tuple[Literal["setup", "validation"], ...] = ("setup", "validation")
+                uncertain = next(
+                    (
+                        value
+                        for scope in scopes
+                        if (value := self.get(project_id, scope=scope))
+                        and value.status == "uncertain"
+                    ),
+                    None,
+                )
+                if uncertain:
                     raise ApplicationError(
                         "setup_uncertain",
-                        previous.problem or "Check the previous process before retrying.",
+                        uncertain.problem or "Check the previous process before retrying.",
                         409,
                     )
                 settings = Integrations(self.workspace).settings(project_id)
@@ -140,6 +191,7 @@ class SetupValidation:
                 repo = Path(self.workspace.project(project_id).path)
                 commit = gitops.target(repo, settings.target_branch)
                 value = SetupCheck(
+                    scope=request.scope,
                     project_id=project_id,
                     id=uuid4().hex,
                     settings_revision=settings.revision,
@@ -191,7 +243,7 @@ class SetupValidation:
                         record_process,
                     )
                     self._save(value)
-                    if not any(c.exit_code for c in value.setup):
+                    if request.scope == "validation" and not any(c.exit_code for c in value.setup):
                         value.checks = await local_checks.run_checks(
                             environment,
                             settings.checks,
@@ -232,7 +284,7 @@ class SetupValidation:
                 finally:
                     self._save(value)
                     self.active.discard(project_id)
-                return self.get(project_id) or value
+                return self.get(project_id, scope=request.scope) or value
         finally:
             self.jobs.discard(task)
 

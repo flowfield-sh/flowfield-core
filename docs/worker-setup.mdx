@@ -3,7 +3,7 @@ title: Project setup and checks
 description: Configure repository setup, meaningful checks and local result previews.
 ---
 
-Before running tasks, configure each project's **Project settings → Integration**, directly or with the Coordinator. Use the repository's existing scripts and a committed baseline.
+Before running tasks, configure each project's **Project settings**, directly or with the Coordinator. Use the repository's existing scripts and a committed baseline.
 
 | Setting | Purpose | Example |
 | --- | --- | --- |
@@ -12,9 +12,9 @@ Before running tasks, configure each project's **Project settings → Integratio
 | Validation commands | Check the proposed code before approval. | `pnpm test` |
 | Run command | Launcher for **Run result**, configured before code work starts. | `pnpm dev` |
 
-For libraries or other projects without an interactive or command-line preview, choose **Result preview → No runnable result** and record why. Code work waits until this choice is saved; report-only work does not require it.
+For libraries or other projects without an interactive or command-line preview, choose **Execution → No runnable result** and record why. Code work waits until this choice is saved; report-only work does not require it.
 
-Saving a new destination branch name creates it from the repository’s current commit.
+Delivery starts with the repository’s current branch. Saving the initial Delivery, Setup or Validation settings records that default; later checkout switches do not redirect delivery. Saving a new destination branch name creates it from the repository’s current commit.
 
 Enter one shell command per line for setup and validation. Choose commands appropriate to your repository; the service host must already provide the language tools and credentials.
 
@@ -25,7 +25,7 @@ Flowfield refreshes tracked upstream branches before work and delivery. Local ch
 ## Validate before running workers
 
 1. Commit setup scripts, manifests and relevant repository guidance to the destination branch. Commit or ignore adoption metadata under your repository's rules; untracked files can block delivery.
-2. Save Integration settings and choose **Validate setup**. Flowfield checks the saved branch in a fresh worktree, runs setup and validation and reports readiness.
+2. Save each tab. In **Setup**, **Validate** runs setup alone in a fresh copy. In **Validation**, **Validate** runs saved setup followed by validation commands. Progress and results appear below the buttons; no model or queue starts.
 3. Choose a worker harness and model in **Workspace settings → Workers**, with supported effort/access controls. Capacity defaults to five parallel workers; adjust it to suit your projects.
 4. Have the Coordinator create a task, move it to **Up next** and choose **Run queue**.
 
@@ -41,9 +41,9 @@ Each command runs in a separate shell and its child processes stop when it finis
 
 For a shared service, agree its endpoint, data permissions, version and owner. Workers must leave borrowed services running. Cross-project references supply evidence, not running services.
 
-## Let workers run saved checks
+## Saved checks during development
 
-Enable **Allow saved checks outside the worker sandbox** in Project settings if Workers should run the saved validation commands with service-host access. Review the [permission and its scope](/configuration#saved-checks-outside-the-worker-sandbox) before enabling it.
+Workers can run the saved validation commands through Flowfield by default. The commands are frozen for each attempt, execute on its managed copy and retain output automatically. [Saved project checks](/configuration#saved-project-checks) explains their scope.
 
 Saved checks retain their logs with the attempt. Workers and Reviewers can inspect that evidence, and you can read the command output when reviewing the result.
 
@@ -57,15 +57,15 @@ For concurrent tasks, configure separate ports, databases and other mutable reso
 
 ## Try a result
 
-Open a code result and choose **Prepare**, then **Run result** in its status notice. Flowfield prepares an independent copy of that exact candidate, runs the saved setup commands, and owns the run command and its child processes. Opening the result page executes nothing.
+Open a prepared code result and choose **Run result** in its status notice. If automatic preparation is disabled, or Flowfield has restarted, choose **Prepare** first. Flowfield prepares an independent copy of that exact candidate, runs the saved setup commands, and owns the run command and its child processes. Opening the result page executes nothing.
 
-Enable **Prepare new results automatically** under **Run results** to have setup finish before you open each new result. Under **Service and output options**, give long-running services a **Readiness command** that exits successfully when they are usable. Add a **Result URL** for an **Open result** link. Batch commands should finish and leave readiness empty.
+**Prepare new results automatically** is on by default in **Execution**. Turn it off to prepare each result manually. Give long-running services a **Readiness command** that exits successfully when usable; batch commands should finish and leave readiness empty. The execution check time limit is independent of validation commands. A Worker can provide a URL in its result recipe to show **Open result**; project settings have no URL field.
 
 For a batch tool, save a command with its sample inputs and leave the URL empty. A successful exit shows **Result finished**; output remains readable and **Run result** can repeat it. Commands run without an interactive terminal and receive closed standard input, so supply arguments or pipe sample input explicitly. A desktop application can run its foreground executable directly; it appears on the service host, which may be different from your browser's computer.
 
 Keep the run command and its services in the foreground. A repository script can start several related services and wait for them. Commands that daemonize or hand off to an existing desktop application are outside managed cleanup. Use separate ports, databases and sample data for each task; Local execution uses the service host and is not a security sandbox.
 
-For several services, the launcher must stop the others and exit unsuccessfully when a required service fails. Check all required services for readiness, including an identity or private marker that distinguishes this run from another process on the same port. Put generated reports in `FLOWFIELD_OUTPUT_DIR` and builds/cache files in `FLOWFIELD_RUNTIME_DIR` or ignored project paths; modifying source files during setup prevents the prepared copy from running. Result environments provide a short private temporary path for tools that use Unix sockets. Use `$FLOWFIELD_PORT` in commands and `${FLOWFIELD_PORT}` in the Result URL for an allocated local port. The application must bind it; Flowfield never stops another process to free a port.
+For several services, the launcher must stop the others and exit unsuccessfully when a required service fails. Check all required services for readiness, including an identity or private marker that distinguishes this run from another process on the same port. Put generated reports in `FLOWFIELD_OUTPUT_DIR` and builds/cache files in `FLOWFIELD_RUNTIME_DIR` or ignored project paths; modifying source files during setup prevents the prepared copy from running. Result environments provide a short private temporary path for tools that use Unix sockets. Use `$FLOWFIELD_PORT` in commands and `${FLOWFIELD_PORT}` in the recipe URL for an allocated local port. The application must bind it; Flowfield never stops another process to free a port.
 
 Project settings supply defaults; each Worker can submit a structured `recipe` with result-specific setup, run, readiness, URL and generated-file selections. Flowfield freezes the resolved recipe with that result. Editing project defaults affects future results, including corrections, without changing earlier results.
 

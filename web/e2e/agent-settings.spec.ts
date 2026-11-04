@@ -609,18 +609,24 @@ test("Integration uses Local automatically and preserves drafts across project t
       await route.fulfill({ json: settings });
     },
   );
-  await page.goto("/projects/local-adoption/edit/integration");
+  await page.goto("/projects/local-adoption/edit/validation");
   const selection = page.getByLabel("Use Local host");
   await expect(selection).toHaveCount(0);
   await expect(page.getByLabel("Executable paths")).toHaveCount(0);
   await page.getByLabel("Validation commands").fill("pnpm check");
   await expect(page.getByLabel("Executable paths")).toHaveCount(0);
   await page.getByRole("tab", { name: "General", exact: true }).click();
-  await page.getByRole("tab", { name: "Integration", exact: true }).click();
+  await expect(
+    page.getByRole("tab", { name: "General", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Validation", exact: true }).click();
+  await expect(
+    page.getByRole("tab", { name: "Validation", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await expect(page.getByLabel("Validation commands")).toHaveValue(
     "pnpm check",
   );
-  await page.getByRole("button", { name: "Save integration settings" }).click();
+  await page.getByRole("button", { name: "Save changes" }).click();
   await expect(selection).toHaveCount(0);
   await page.reload();
   await expect(selection).toHaveCount(0);

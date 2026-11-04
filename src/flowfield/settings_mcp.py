@@ -26,7 +26,6 @@ from flowfield.reads import excerpt, receipt
 from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 from flowfield.source_navigation import navigate
 from flowfield.supervisor import Supervisor
-from flowfield.worker_checks import CheckPermissionEdit, CheckPermissions
 from flowfield.workspaces import Workspaces
 
 # Deliberate service-wide authority. Workspace binding must never be inferred or
@@ -130,19 +129,6 @@ def add_settings_tools(mcp: FastMCP, supervisor: Callable[[], Supervisor]) -> No
         """
         supervisor().catalogs.confirm_stopped(harness, request.id)
         return harness_status(supervisor(), harness).model_dump()
-
-    @mcp.tool(annotations=read)
-    def get_check_permission(project_id: str) -> dict[str, Any]:
-        """Read whether the human authorized saved project checks for Workers."""
-        return CheckPermissions(supervisor().workspace).get(project_id).model_dump()
-
-    @mcp.tool(annotations=write)
-    def configure_check_permission(project_id: str, request: CheckPermissionEdit) -> dict[str, Any]:
-        """Relay explicit human authorization or revocation for the exact saved check
-        commands and settings revision. Never infer permission from a task assignment.
-        Changing commands invalidates the grant. This does not execute them.
-        """
-        return CheckPermissions(supervisor().workspace).configure(project_id, request).model_dump()
 
     @mcp.tool(annotations=read)
     def get_permission(

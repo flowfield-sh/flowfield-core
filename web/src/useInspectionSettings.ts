@@ -15,7 +15,7 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     command: string;
     autoPrepare: boolean;
     readyCommand: string;
-    url: string;
+    runTimeout: number;
     outputPaths: string;
     reason: string;
     noPreview: boolean;
@@ -23,9 +23,9 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
   } | null>(null);
   const fields = draft ?? {
     command: resource.data?.run_command ?? "",
-    autoPrepare: resource.data?.auto_prepare ?? false,
+    autoPrepare: resource.data?.auto_prepare ?? true,
     readyCommand: resource.data?.ready_command ?? "",
-    url: resource.data?.url ?? "",
+    runTimeout: resource.data?.run_timeout_seconds ?? 60,
     outputPaths:
       resource.data?.outputs.map((file) => file.path).join("\n") ?? "",
     reason: resource.data?.no_preview_reason ?? "",
@@ -37,13 +37,13 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     command: fields.command,
     autoPrepare: fields.autoPrepare,
     readyCommand: fields.readyCommand,
-    url: fields.url,
+    runTimeout: fields.runTimeout,
     outputPaths: fields.outputPaths,
     changeRuntime(
       values: Partial<
         Pick<
           typeof fields,
-          "autoPrepare" | "readyCommand" | "url" | "outputPaths"
+          "autoPrepare" | "readyCommand" | "runTimeout" | "outputPaths"
         >
       >,
     ) {
@@ -81,9 +81,9 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
         const value = await request<Settings>(path, "PUT", {
           expected_revision: draft.revision,
           run_command: draft.noPreview ? "" : draft.command,
-          auto_prepare: !draft.noPreview && draft.autoPrepare,
+          auto_prepare: draft.autoPrepare,
           ready_command: draft.readyCommand,
-          url: draft.url,
+          run_timeout_seconds: draft.runTimeout,
           outputs: draft.noPreview
             ? []
             : draft.outputPaths

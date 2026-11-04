@@ -165,9 +165,7 @@ export function Inspection({
             !result.recipe?.run_command &&
             !result.recipe?.no_preview_reason && (
               <Button size="sm" variant="outline" asChild>
-                <WorkspaceLink
-                  to={`/projects/${repositoryId}/edit/integration`}
-                >
+                <WorkspaceLink to={`/projects/${repositoryId}/edit/execution`}>
                   Project run defaults
                 </WorkspaceLink>
               </Button>

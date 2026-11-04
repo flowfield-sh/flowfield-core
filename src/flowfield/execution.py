@@ -304,13 +304,6 @@ class Execution:
         """Freeze context once; input continuations reuse their original assignment."""
         workspace_id = task.workspace_id
         assert task.publication
-        from flowfield.worker_checks import CheckPermissions
-
-        runtime_settings["worker_checks_enabled"] = (
-            CheckPermissions(self.workspace).read(db, task.project_id).enabled
-            if task.project_id
-            else False
-        )
         if (
             resume
             and predecessor

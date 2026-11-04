@@ -43,7 +43,7 @@ def enrich(db: sqlite3.Connection, run: Run, sections: dict[str, str]) -> None:
                 "run_command": preview.get("run_command", ""),
                 "no_preview_reason": preview.get("no_preview_reason", ""),
                 "ready_command": preview.get("ready_command", ""),
-                "url": preview.get("url", ""),
+                "run_timeout_seconds": preview.get("run_timeout_seconds", 60),
                 "outputs": preview.get("outputs", []),
             }
         )

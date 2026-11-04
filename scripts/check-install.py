@@ -76,6 +76,7 @@ async def check_mcp(base: str, task: dict, workspace_id: str) -> None:
             "set_workspace_queue",
         } <= tools
         assert {"get_workers", "configure_workers", "set_queue"}.isdisjoint(tools)
+        assert {"get_check_permission", "configure_check_permission"}.isdisjoint(tools)
         assert {"get_project_guidance", "update_project_guidance"} <= tools
         assert {
             "get_task_conversation",

@@ -42,7 +42,7 @@ def rows(database):
             for row in db.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' "
                 "AND name NOT LIKE 'search_docs%' AND name NOT LIKE 'usage_%' "
-                "AND name!='task_deletions'"
+                "AND name NOT IN ('task_deletions','worker_check_grants')"
             )
         ]
         values = {

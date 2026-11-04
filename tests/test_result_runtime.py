@@ -34,7 +34,12 @@ def configured(tmp_path, command="sleep 60", **settings):
     service, repo, run = fixture(tmp_path)
     service.results.process("harbor")
     Inspections(service.workspace).configure(
-        "harbor", InspectionConfig(expected_revision=2, run_command=command, **settings)
+        "harbor",
+        InspectionConfig(
+            expected_revision=2,
+            run_command=command,
+            **{k: v for k, v in settings.items() if k != "url"},
+        ),
     )
     # Seed an already-reviewed recipe to isolate the human runtime lifecycle, including
     # deliberately failing launchers. Full pre-review verification is exercised separately.
@@ -297,6 +302,26 @@ def test_automatic_preparation_once_and_no_restart_autorun(tmp_path):
             assert not restarted.jobs
         finally:
             await runtime.close()
+
+    asyncio.run(exercise())
+
+
+def test_no_runnable_result_never_creates_an_automatic_copy(tmp_path, monkeypatch):
+    async def exercise():
+        service, version = await asyncio.to_thread(configured, tmp_path)
+        with service.workspace.connection(write=True) as db:
+            version.recipe = ResultRecipe(no_preview_reason="Library verified by tests.")
+            service.results._save(db, version)
+
+        def unexpected_copy(*args, **kwargs):
+            pytest.fail("A non-runnable result must not prepare a work copy")
+
+        monkeypatch.setattr(service.result_runtimes.copies, "prepare", unexpected_copy)
+        await service.result_runtimes.schedule()
+        assert service.result_runtimes.copies.latest("harbor", version.id) is None
+        with pytest.raises(ApplicationError, match="no runnable recipe"):
+            await prepared(service, version)
+        await service.result_runtimes.close()
 
     asyncio.run(exercise())
 

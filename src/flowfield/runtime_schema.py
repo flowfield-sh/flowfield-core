@@ -5,6 +5,7 @@ import sqlite3
 
 
 def migrate(db: sqlite3.Connection) -> None:
+    db.execute("DROP TABLE IF EXISTS worker_check_grants")
     if "inspection_id" not in {row[1] for row in db.execute("PRAGMA table_info(output_files)")}:
         sequence = db.execute(
             "SELECT seq FROM sqlite_sequence WHERE name='output_files'"

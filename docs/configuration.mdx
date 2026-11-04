@@ -38,7 +38,7 @@ The Coordinator runs independently of worker slots. [Tasks and execution](/tasks
 
 ## Project execution
 
-In **Project settings → Integration**, **Delivery** selects the local branch; **Preparation and checks** holds setup, validation and time limits; **Run results** supplies defaults for new results, or a reason for **No runnable result**. Each result retains its own verified recipe. [Project setup and checks](/worker-setup) walks through preparing and validating them.
+In **Project settings**, **Delivery** selects the local branch; **Setup** and **Validation** hold their commands and time limits; **Execution** supplies defaults for new results, or a reason for **No runnable result**. Each result retains its own verified recipe. [Project setup and checks](/worker-setup) walks through preparing and validating them.
 
 Setup and validation commands run on the machine hosting Flowfield. Workers use separate repository checkouts. Give concurrent tasks separate ports, databases and other mutable resources when their commands need them.
 
@@ -47,16 +47,13 @@ Setup and validation commands run on the machine hosting Flowfield. Workers use 
 | Decision | What it authorizes |
 | --- | --- |
 | Native access mode or tool permission | Agent actions allowed by the selected harness. |
-| **Allow saved checks outside the worker sandbox** | Running the project's saved validation commands with the Flowfield service's access. |
 | **Approve and integrate** | Delivering the exact reviewed code result to its local branch. |
 
 Choose a native access mode appropriate to the work. Answer tool permission requests in the conversation or Inbox while the agent is waiting.
 
-### Saved checks outside the worker sandbox
+### Saved project checks
 
-This project setting lets Workers call `run_project_checks` for the saved validation commands. It starts disabled. Enable it for projects whose code and check scripts you trust: the checks execute the Worker's edited code with service-host access.
-
-Changing the integration settings or repository invalidates the permission. Enable it again for the updated configuration. Revoking it prevents future calls; stopping the Worker cancels running checks.
+Saving validation commands makes them available to Workers through Flowfield. The service executes the attempt's frozen commands against its working copy, with time limits, retained logs and process cleanup. This uses service-host access; native shell tools retain their own permission controls. Editing defaults affects new attempts, and final candidate validation remains independent.
 
 ### Code delivery
 

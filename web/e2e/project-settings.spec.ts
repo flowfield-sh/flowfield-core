@@ -168,16 +168,13 @@ test("worker models load automatically and retry without replacing setting draft
   expect(refreshCalls).toBe(1);
 });
 
-test("integration settings create an explicit local target without changing the human checkout", async ({
+test("project tabs save independently and place scoped validation below actions", async ({
   page,
   request,
-}, testInfo) => {
-  const project = "integration-settings";
-  const repo = join(state, project);
-  await fixtureProject(request, {
-    data: { path: existingDirectory(repo) },
-  });
-  const workspace = await projectWorkspace(page.request, project);
+}) => {
+  const project = "tabbed-settings",
+    repo = join(state, project);
+  await fixtureProject(request, { data: { path: existingDirectory(repo) } });
   const git = (...args: string[]) =>
     execFileSync(
       "git",
@@ -196,200 +193,139 @@ test("integration settings create an explicit local target without changing the 
     "base",
   );
   const head = git("rev-parse", "HEAD");
-  await page.goto(`/projects/${project}/edit`);
-  await page.getByRole("tab", { name: "Integration", exact: true }).click();
-  const settings = page.getByRole("region", {
-    name: "Integration settings",
-    exact: true,
-  });
-  await settings
-    .getByLabel("Destination branch", { exact: true })
-    .fill("integration");
+  await page.goto(`/projects/${project}/edit/setup`);
+  const panel = () =>
+    page
+      .getByRole("region", { name: "Edit project", exact: true })
+      .locator('[role="tabpanel"]:not([hidden])');
+  const tab = async (name: string) => {
+    await page.getByRole("tab", { name, exact: true }).click();
+    await expect(page.getByRole("tab", { name, exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(panel()).toBeVisible();
+  };
+  const save = async () => {
+    await panel()
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
+    await expect(
+      panel().getByRole("button", { name: "Save changes", exact: true }),
+    ).toBeDisabled();
+  };
+  await expect(panel().locator("details")).toHaveCount(0);
   await expect(
-    settings.getByRole("checkbox", { name: "Create this branch" }),
+    panel().getByRole("heading", { name: "Setup validation", exact: true }),
   ).toHaveCount(0);
-  await expect(settings.getByLabel("Executable paths")).toHaveCount(0);
-  await settings.getByText("Time limits", { exact: true }).click();
-  await expect(settings.getByLabel("Seconds per setup command")).toBeVisible();
-  await settings
+  await panel()
+    .getByLabel("Setup commands", { exact: true })
+    .fill("echo prepared");
+  await panel().getByLabel("Time limit per command (seconds)").fill("15");
+  await tab("Validation");
+  await panel()
     .getByLabel("Validation commands", { exact: true })
-    .fill("python -m unittest -v");
-  await settings.getByLabel("Result preview").selectOption("command");
-  await settings
-    .getByLabel("Run command", { exact: true })
-    .fill("python app.py");
-  let runSaves = 0;
+    .fill("echo test-failure; exit 4");
+  await tab("Delivery");
+  await panel().getByLabel("Destination branch").fill("delivery");
+  await save();
+  await tab("Setup");
+  await expect(
+    panel().getByLabel("Setup commands", { exact: true }),
+  ).toHaveValue("echo prepared");
+  await save();
+  // Saving another tab rebases only our own unchanged revision; the Validation draft survives.
+  await tab("Validation");
+  await expect(
+    panel().getByLabel("Validation commands", { exact: true }),
+  ).toHaveValue("echo test-failure; exit 4");
+  await save();
+  await tab("Setup");
+  await panel().getByRole("button", { name: "Validate", exact: true }).click();
+  await expect(
+    panel().getByRole("heading", { name: "Setup validation", exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel().getByRole("heading", { name: "Validation passed", exact: true }),
+  ).toBeVisible();
+  const actions = await panel()
+    .getByRole("button", { name: "Validate", exact: true })
+    .boundingBox();
+  const observed = await panel()
+    .getByRole("heading", { name: "Setup validation", exact: true })
+    .boundingBox();
+  expect(observed!.y).toBeGreaterThan(actions!.y + actions!.height);
+  await tab("Validation");
+  await expect(
+    panel().getByRole("heading", { name: "Validation results", exact: true }),
+  ).toHaveCount(0);
+  await panel().getByRole("button", { name: "Validate", exact: true }).click();
+  await expect(
+    panel().getByRole("heading", { name: "Validation failed", exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel().getByText("test-failure", { exact: true }),
+  ).toBeVisible();
+  await tab("Setup");
+  await expect(
+    panel().getByRole("heading", { name: "Validation passed", exact: true }),
+  ).toBeVisible();
+  await tab("Execution");
+  await panel().getByLabel("Result execution").selectOption("command");
+  await expect(
+    panel().getByRole("checkbox", {
+      name: "Prepare new results automatically",
+    }),
+  ).toBeChecked();
+  await expect(panel().getByLabel("Result URL")).toHaveCount(0);
+  await expect(panel().locator("details")).toHaveCount(0);
+  await panel().getByLabel("Run command", { exact: true }).fill("echo result");
+  let attempts = 0;
   await page.route(
     `**/api/projects/${project}/inspection/settings`,
     (route) => {
-      if (route.request().method() === "PUT" && ++runSaves === 1)
+      if (route.request().method() === "PUT" && ++attempts === 1)
         return route.fulfill({
           status: 503,
-          json: { error: { message: "Run command save interrupted" } },
+          json: { error: { message: "Execution save interrupted" } },
         });
       return route.continue();
     },
   );
-  const saved = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(`/api/projects/${project}/integration`) &&
-      response.request().method() === "PUT",
-  );
-  await settings
-    .getByRole("button", { name: "Save integration settings", exact: true })
+  await panel()
+    .getByRole("button", { name: "Save changes", exact: true })
     .click();
-  expect((await saved).ok()).toBe(true);
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
-  ).toContainText("Run command save interrupted");
-  await expect(
-    page.locator("[data-sonner-toast][data-type=error]"),
-  ).toContainText("Integration saved; run command save was not confirmed");
-  await expect(settings.getByLabel("Run command", { exact: true })).toHaveValue(
-    "python app.py",
+  ).toContainText("Execution save interrupted");
+  await expect(panel().getByLabel("Run command", { exact: true })).toHaveValue(
+    "echo result",
   );
-  // Integration was saved; retry only the pending run command without revising delivery settings.
-  const runSaved = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(`/api/projects/${project}/inspection/settings`) &&
-      response.request().method() === "PUT",
-  );
-  await settings
-    .getByRole("button", { name: "Save integration settings", exact: true })
-    .click();
-  expect((await runSaved).ok()).toBe(true);
-  await expect(
-    settings.getByRole("button", {
-      name: "Save integration settings",
-      exact: true,
-    }),
-  ).toBeDisabled();
-  expect(
-    (await (await request.get(`/api/projects/${project}/integration`)).json())
-      .revision,
-  ).toBe(2);
-  expect(
-    (
-      await (
-        await request.get(`/api/projects/${project}/inspection/settings`)
-      ).json()
-    ).run_command,
-  ).toBe("python app.py");
-  // Deterministic UI projection; backend tests execute real Local setup commands.
-  await page.route(
-    `**/api/projects/${project}/setup-validation`,
-    async (route) => {
-      if (route.request().method() !== "POST") return route.continue();
-      expect(route.request().postDataJSON().expected_revision).toBe(2);
-      await route.fulfill({
-        json: {
-          project_id: project,
-          id: "setup-check",
-          settings_revision: 2,
-          commit: head,
-          created_at: new Date().toISOString(),
-          status: "failed",
-          stale: false,
-          problem: "The required compiler is unavailable in this environment.",
-          checkout_problem:
-            "Switch the project checkout to 'integration', then retry integration. Local files are unchanged.",
-          setup: [
-            {
-              command: "compiler --version",
-              exit_code: 127,
-              output: "compiler: not found",
-              truncated: false,
-            },
-          ],
-          checks: [],
-          workspace: null,
-          pid: null,
-          commands: [],
-        },
-      });
-    },
-  );
-  await settings.getByRole("button", { name: "Validate saved setup" }).click();
-  await expect(
-    settings.getByText(
-      "The required compiler is unavailable in this environment.",
-    ),
-  ).toBeVisible();
-  await expect(
-    settings.getByText("compiler: not found", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    settings
-      .getByRole("status")
-      .filter({ hasText: "Checkout is not ready for delivery" }),
-  ).toContainText("Switch the project checkout");
-  const validationStatus = settings
-    .getByRole("status")
-    .filter({ hasText: "Project setup validation failed" });
-  await expect(
-    validationStatus.getByRole("button", { name: "Validate saved setup" }),
-  ).toBeEnabled();
-  if (process.env.FLOWFIELD_VISUAL_EVIDENCE) {
-    await validationStatus.scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath("integration-validation-desktop.png"),
-      animations: "disabled",
-    });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await validationStatus.scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath("integration-validation-mobile.png"),
-      animations: "disabled",
-    });
-  }
-  await settings.getByLabel("Setup commands").fill("install-dependencies");
-  await expect(
-    settings.getByRole("button", { name: "Validate saved setup" }),
-  ).toBeDisabled();
-  await settings.getByLabel("Setup commands").fill("");
-  expect(git("rev-parse", "refs/heads/integration")).toBe(head);
+  await save();
+  const integration = await (
+    await request.get(`/api/projects/${project}/integration`)
+  ).json();
+  expect(integration).toMatchObject({
+    target_branch: "delivery",
+    setup_commands: ["echo prepared"],
+    setup_timeout_seconds: 15,
+    checks: ["echo test-failure; exit 4"],
+  });
+  expect(git("rev-parse", "refs/heads/delivery")).toBe(head);
   expect(git("symbolic-ref", "--short", "HEAD")).toBe("main");
-  await page.reload();
+  await panel().getByLabel("Result execution").selectOption("none");
   await expect(
-    settings.getByLabel("Destination branch", { exact: true }),
-  ).toHaveValue("integration");
-  await expect(
-    settings.getByLabel("Validation commands", { exact: true }),
-  ).toHaveValue("python -m unittest -v");
-  await settings.getByLabel("Result preview").selectOption("none");
-  await settings.getByLabel("No preview reason").fill("");
-  await expect(
-    settings.getByRole("button", {
-      name: "Save integration settings",
-      exact: true,
-    }),
+    panel().getByRole("button", { name: "Save changes", exact: true }),
   ).toBeDisabled();
-  await settings
-    .getByLabel("No preview reason")
-    .fill("Library verified through automated tests.");
-  await settings
-    .getByRole("button", { name: "Save integration settings", exact: true })
-    .click();
-  await expect
-    .poll(
-      async () =>
-        (
-          await (
-            await request.get(`/api/projects/${project}/inspection/settings`)
-          ).json()
-        ).no_preview_reason,
-    )
-    .toBe("Library verified through automated tests.");
+  await panel()
+    .getByLabel("Reason", { exact: true })
+    .fill("Library verified through tests.");
+  await save();
   await page.reload();
-  await expect(settings.getByLabel("Result preview")).toHaveValue("none");
-  await expect(settings.getByLabel("No preview reason")).toHaveValue(
-    "Library verified through automated tests.",
-  );
-  expect((await request.get(`/api/workspaces/${workspace}/workers`)).ok()).toBe(
-    true,
+  await expect(panel().getByLabel("Reason", { exact: true })).toHaveValue(
+    "Library verified through tests.",
   );
   expect(
-    (await (await request.get(`/api/workspaces/${workspace}/workers`)).json())
-      .enabled,
-  ).toBe(false);
+    (await request.get(`/api/projects/${project}/check-permission`)).status(),
+  ).toBe(404);
 });

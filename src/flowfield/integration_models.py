@@ -45,7 +45,7 @@ class IntegrationSettings(Record):
 class IntegrationConfig(Record):
     expected_revision: int = Field(ge=1)
     runtime: Literal["local"] | None = None
-    target_branch: str = Field(min_length=1, max_length=200)
+    target_branch: str | None = Field(default=None, min_length=1, max_length=200)
     create_from: str | None = Field(default=None, min_length=1, max_length=200)
     checks: list[str] = Field(default_factory=list, max_length=10)
     setup_commands: list[str] = Field(default_factory=list, max_length=10)

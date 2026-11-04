@@ -55,7 +55,7 @@ class Inspections:
                 no_preview_reason=request.no_preview_reason.strip(),
                 auto_prepare=request.auto_prepare,
                 ready_command=request.ready_command.strip(),
-                url=request.url.strip(),
+                run_timeout_seconds=request.run_timeout_seconds,
                 outputs=request.outputs,
             )
             db.execute(

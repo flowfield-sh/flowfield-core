@@ -8,7 +8,7 @@ import { MarkdownField } from "./Markdown";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import type { Project } from "./workspace";
 import { useId, useState } from "react";
-import { IntegrationSettings } from "./Integration";
+import { ProjectConfiguration } from "./ProjectConfiguration";
 import { WorkerDocumentPicker } from "./WorkerDocuments";
 
 const fields = (record?: Project) => ({
@@ -33,7 +33,8 @@ export function ProjectEditor({
 }) {
   const id = useId();
   const { projectTab } = useParams();
-  const tab = projectTab === "integration" ? "integration" : "general";
+  const tabs = ["general", "delivery", "setup", "validation", "execution"];
+  const tab = tabs.includes(projectTab ?? "") ? projectTab! : "general";
   const navigate = useNavigate();
   const location = useLocation();
   const [integrationDirty, setIntegrationDirty] = useState(false);
@@ -66,7 +67,7 @@ export function ProjectEditor({
       <DetailTabs
         id={id}
         title="Project settings"
-        tabs={["general", "integration"]}
+        tabs={tabs}
         active={tab}
         change={(value) =>
           void navigate(
@@ -138,18 +139,13 @@ export function ProjectEditor({
           </fieldset>
         </form>
       </div>
-      <div
-        role="tabpanel"
-        id={`${id}-integration`}
-        aria-labelledby={`${id}-integration-tab`}
-        hidden={tab !== "integration"}
-      >
-        <IntegrationSettings
-          projectId={incoming.id}
-          onDirty={setIntegrationDirty}
-          refresh={incoming}
-        />
-      </div>
+      <ProjectConfiguration
+        projectId={incoming.id}
+        active={tab}
+        panelId={id}
+        onDirty={setIntegrationDirty}
+        refresh={incoming}
+      />
     </section>
   );
 }

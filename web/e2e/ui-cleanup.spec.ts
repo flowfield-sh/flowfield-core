@@ -21,7 +21,7 @@ test("failed resource reads and a broken event stream stay local while health is
   await page.addInitScript(() =>
     Object.defineProperty(window, "SharedWorker", { value: undefined }),
   );
-  const paths = ["inspection/settings", "setup-validation"];
+  const paths = ["inspection/settings", "integration"];
   const reads = new Set<string>();
   await page.route("**/api/events", (route) => route.abort());
   await page.route(`**/api/projects/${id}/**`, (route) => {
@@ -37,16 +37,16 @@ test("failed resource reads and a broken event stream stay local while health is
     }
     return route.continue();
   });
-  await page.goto(`/projects/${id}/edit/integration`);
+  await page.goto(`/projects/${id}/edit/validation`);
   const integration = page.getByRole("region", {
-    name: "Integration settings",
+    name: "Edit project",
   });
   const retries = integration.getByRole("button", {
     name: "Retry loading",
     exact: true,
   });
   await expect.poll(() => reads.size).toBe(2);
-  await expect(retries).toHaveCount(2);
+  await expect(retries).toHaveCount(1);
   await expect(
     page.getByRole("status", { name: "Reconnecting…", exact: true }),
   ).toBeVisible();
@@ -55,14 +55,15 @@ test("failed resource reads and a broken event stream stay local while health is
   ).toHaveCount(0);
   // Each failed resource retains its own deliberate retry.
   failed = false;
-  for (const remaining of [1, 0]) {
-    await retries.first().click();
-    await expect(retries).toHaveCount(remaining);
-  }
+  await retries.click();
+  await expect(retries).toHaveCount(0);
   await expect(
     integration.getByLabel("Validation commands", { exact: true }),
   ).toBeEnabled();
-  await expect(integration.getByLabel("Result preview")).toBeEnabled();
+  await page.getByRole("tab", { name: "Execution", exact: true }).click();
+  await retries.click();
+  await expect(retries).toHaveCount(0);
+  await expect(integration.getByLabel("Result execution")).toBeEnabled();
 });
 
 test("a service outage blocks once, preserves drafts, and recovers without replaying a save", async ({

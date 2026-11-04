@@ -33,12 +33,16 @@ def integration_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         return supervisor().integrations.configure(project_id, request)
 
     @router.get("/projects/{project_id}/setup-validation")
-    def setup_validation(project_id: str, check_id: str | None = None) -> SetupCheck | None:
-        return supervisor().setup_validation.get(project_id, check_id)
+    def setup_validation(
+        project_id: str,
+        check_id: str | None = None,
+        scope: Literal["setup", "validation"] = "validation",
+    ) -> SetupCheck | None:
+        return supervisor().setup_validation.get(project_id, check_id, scope)
 
     @router.post("/projects/{project_id}/setup-validation")
     async def validate_setup(project_id: str, request: SetupCheckRequest) -> SetupCheck:
-        return await supervisor().setup_validation.check(project_id, request)
+        return await supervisor().setup_validation.start(project_id, request)
 
     @router.get("/workspaces/{workspace_id}/integrations")
     def listing(

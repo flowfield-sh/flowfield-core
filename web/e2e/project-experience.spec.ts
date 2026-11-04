@@ -86,23 +86,29 @@ test("home, welcome and editable settings form a complete project journey", asyn
     editor.getByRole("button", { name: "Edit", exact: true }),
   ).toHaveCount(0);
   await editor.getByLabel("Name", { exact: true }).fill("Garden plans");
-  await editor.getByRole("tab", { name: "Integration", exact: true }).click();
+  await editor.getByRole("tab", { name: "Validation", exact: true }).click();
+  await expect(
+    page.getByRole("tab", { name: "Validation", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await editor
     .getByLabel("Validation commands", { exact: true })
     .fill("pnpm check");
   await expect(
     editor.getByLabel("Validation commands", { exact: true }),
   ).toHaveAccessibleDescription(
-    "Optional tests and checks to pass before code is ready for review. One command per line.",
+    "Checks Workers can run while developing and Flowfield runs before review. One command per line.",
   );
   await expect(
-    editor.getByRole("tab", { name: "Integration", exact: true }),
+    editor.getByRole("tab", { name: "Validation", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await page.screenshot({
     animations: "disabled",
     path: testInfo.outputPath("integration-hints-desktop.png"),
   });
   await editor.getByRole("tab", { name: "General", exact: true }).click();
+  await expect(
+    page.getByRole("tab", { name: "General", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await expect(editor.getByLabel("Name", { exact: true })).toHaveValue(
     "Garden plans",
   );
@@ -134,12 +140,18 @@ test("home, welcome and editable settings form a complete project journey", asyn
   await savedToast.locator("[data-close-button]").click();
   await expect(savedToast).toHaveCount(0);
   await expect(editor).toBeVisible();
-  await editor.getByRole("tab", { name: "Integration", exact: true }).click();
+  await editor.getByRole("tab", { name: "Validation", exact: true }).click();
+  await expect(
+    page.getByRole("tab", { name: "Validation", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await expect(
     editor.getByLabel("Validation commands", { exact: true }),
   ).toHaveValue("pnpm check");
   await editor.getByLabel("Validation commands", { exact: true }).fill("");
   await editor.getByRole("tab", { name: "General", exact: true }).click();
+  await expect(
+    page.getByRole("tab", { name: "General", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await page.reload();
   await expect(editor.getByLabel("Name", { exact: true })).toHaveValue(
     "Garden plans",
@@ -153,9 +165,12 @@ test("home, welcome and editable settings form a complete project journey", asyn
     animations: "disabled",
     path: testInfo.outputPath("general-mobile.png"),
   });
-  await editor.getByRole("tab", { name: "Integration", exact: true }).click();
+  await editor.getByRole("tab", { name: "Validation", exact: true }).click();
   await expect(
-    editor.getByRole("tab", { name: "Integration", exact: true }),
+    page.getByRole("tab", { name: "Validation", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    editor.getByRole("tab", { name: "Validation", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await page.screenshot({
     animations: "disabled",

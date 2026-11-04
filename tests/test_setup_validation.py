@@ -187,3 +187,82 @@ def test_changing_checks_preserves_unspecified_setup_and_timeouts(tmp_path, monk
     )
     assert cleared.setup_commands == []
     assert cleared.setup_timeout_seconds == 120 and cleared.check_timeout_seconds == 60
+
+
+def test_setup_and_validation_have_independent_evidence_and_scoped_saves(tmp_path, monkeypatch):
+    _, service, settings = configured(tmp_path, monkeypatch, checks=["echo bad-check; exit 9"])
+    integration = Integrations(service.workspace)
+    saved = integration.configure(
+        "project",
+        IntegrationConfig(
+            expected_revision=settings.revision,
+            setup_commands=["echo prepared"],
+            setup_timeout_seconds=17,
+        ),
+    )
+    assert saved.target_branch == settings.target_branch
+    assert saved.checks == settings.checks
+    setup = asyncio.run(
+        service.check("project", SetupCheckRequest(expected_revision=saved.revision, scope="setup"))
+    )
+    assert setup.status == "passed" and not setup.checks
+    validation = asyncio.run(
+        service.check(
+            "project", SetupCheckRequest(expected_revision=saved.revision, scope="validation")
+        )
+    )
+    assert validation.status == "failed" and validation.checks[0].exit_code == 9
+    assert service.get("project", scope="setup").id == setup.id
+    assert service.get("project", setup.id).setup[0].output == "prepared\n"
+    changed = integration.configure(
+        "project", IntegrationConfig(expected_revision=saved.revision, checks=["echo fixed"])
+    )
+    assert changed.setup_commands == ["echo prepared"] and changed.setup_timeout_seconds == 17
+    assert not service.get("project", scope="setup").stale
+    assert service.get("project", scope="validation").stale
+
+
+def test_start_returns_before_commands_finish_and_service_owns_shutdown(tmp_path, monkeypatch):
+    _, service, settings = configured(tmp_path, monkeypatch)
+
+    async def scenario():
+        entered, cancelled = asyncio.Event(), asyncio.Event()
+
+        async def held(*args, **kwargs):
+            entered.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+
+        monkeypatch.setattr(local_checks, "run_checks", held)
+        value = await service.start(
+            "project", SetupCheckRequest(expected_revision=settings.revision, scope="setup")
+        )
+        assert value.status == "checking"
+        await asyncio.wait_for(entered.wait(), 10)
+        with pytest.raises(ApplicationError, match="already running"):
+            await service.start("project", SetupCheckRequest(expected_revision=settings.revision))
+        await service.close()
+        assert cancelled.is_set()
+        assert service.get("project", scope="setup").status == "failed"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("field", ["setup_commands", "checks"])
+def test_first_scoped_save_freezes_displayed_destination(tmp_path, monkeypatch, field):
+    root, service, _ = configured(tmp_path, monkeypatch)
+    with service.workspace.connection(write=True) as db:
+        db.execute("DELETE FROM integration_settings WHERE project_id='project'")
+    integration = Integrations(service.workspace)
+    displayed = integration.settings("project")
+    assert displayed.revision == 1 and displayed.target_branch == "main"
+    saved = integration.configure(
+        "project", IntegrationConfig(expected_revision=1, **{field: ["echo ready"]})
+    )
+    assert saved.target_branch == "main"
+    with service.workspace.connection() as db:
+        assert integration._settings(db, "project").target_branch == "main"
+    git(root, "switch", "delivery")
+    assert integration.settings("project").target_branch == "main"

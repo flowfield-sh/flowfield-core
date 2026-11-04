@@ -75,25 +75,34 @@ class Integrations:
                 "Provide 1–10 nonempty project check commands, each at most 4000 characters.",
             )
         with gitops.lock(repository):
-            ref = gitops.branch_ref(repository, request.target_branch)
             # This repository lock serializes settings with preparation/delivery.
             # Check the expected revision before any external mutation; recheck on save.
             with self.workspace.connection() as db:
                 current = self._settings(db, project_id)
                 self.workspace._current(current.revision, request.expected_revision)
-            if request.create_from:
-                base = gitops.resolve(repository, request.create_from)
-                # Creation is explicit and never resets an existing branch. If the
-                # later DB save fails, the created branch remains available to select.
-                git(repository, "update-ref", ref, base, "0" * len(base))
-            else:
+            # Freeze the displayed current-branch default on the first scoped save.
+            # A later checkout switch must not redirect the saved destination.
+            destination = request.target_branch or current.target_branch
+            if destination is None:
                 try:
-                    gitops.target(repository, request.target_branch)
-                except ApplicationError as error:
-                    if error.code != "missing_destination":
-                        raise
-                    base = gitops.resolve(repository, "HEAD")
+                    destination = git_checkout.current_branch(repository)
+                except ApplicationError:
+                    pass
+            if request.target_branch is not None:
+                ref = gitops.branch_ref(repository, request.target_branch)
+                if request.create_from:
+                    base = gitops.resolve(repository, request.create_from)
+                    # Creation is explicit and never resets an existing branch. If the
+                    # later DB save fails, the created branch remains available to select.
                     git(repository, "update-ref", ref, base, "0" * len(base))
+                else:
+                    try:
+                        gitops.target(repository, request.target_branch)
+                    except ApplicationError as error:
+                        if error.code != "missing_destination":
+                            raise
+                        base = gitops.resolve(repository, "HEAD")
+                        git(repository, "update-ref", ref, base, "0" * len(base))
             with self.workspace.connection(
                 write=True, workspace_id=Workspaces(self.workspace).for_project(project_id).id
             ) as db:
@@ -104,8 +113,10 @@ class Integrations:
                     project_id=project_id,
                     revision=current.revision + 1,
                     runtime=runtime,
-                    target_branch=request.target_branch,
-                    checks=request.checks,
+                    target_branch=destination,
+                    checks=request.checks
+                    if "checks" in request.model_fields_set
+                    else current.checks,
                     setup_commands=request.setup_commands
                     if "setup_commands" in request.model_fields_set
                     else current.setup_commands,

@@ -250,8 +250,7 @@ CREATE TABLE subtask_dependencies (
 CREATE TABLE update_state (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
 
 
-CREATE TABLE worker_check_grants (project_id TEXT PRIMARY KEY REFERENCES projects(id),
-    data TEXT NOT NULL);
+
 
 
 

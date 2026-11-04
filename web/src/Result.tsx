@@ -105,7 +105,7 @@ export function Result({
       ? `${taskHref(projectId, { key: taskKey })}/settings`
       : version?.next_action?.settings === "integration"
         ? worker.data?.project_id
-          ? `/projects/${worker.data.project_id}/edit/integration`
+          ? `/projects/${worker.data.project_id}/edit/setup`
           : null
         : `/workspaces/${projectId}/edit/workers`;
   const href = `/workspaces/${encodeURIComponent(projectId)}/results`;

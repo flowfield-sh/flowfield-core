@@ -1368,7 +1368,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   expect(readFileSync(join(copy.workspace, "app.py"), "utf8")).toContain(
     "Preview edit",
   );
-  await page.goto(`/projects/${project}/edit/integration`);
+  await page.goto(`/projects/${project}/edit/execution`);
   const runCommand = page.getByLabel("Run command", { exact: true });
   await expect(runCommand).toHaveValue("python app.py");
   await runCommand.fill("python app.py --draft");
@@ -1381,14 +1381,12 @@ test("inspection preserves exact versions, preview edits and direct approval", a
       run_command: "python app.py --elsewhere",
     },
   });
-  await page
-    .getByRole("button", { name: "Save integration settings", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(runCommand).toHaveValue("python app.py --draft");
   await expect(
-    page.getByRole("button", { name: "Load current run settings" }),
+    page.getByRole("button", { name: "Load current settings" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Load current run settings" }).click();
+  await page.getByRole("button", { name: "Load current settings" }).click();
   const runDialog = page.getByRole("alertdialog");
   await expect(
     runDialog.getByRole("button", { name: "Cancel", exact: true }),
@@ -1396,10 +1394,10 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await dialogViews(page, testInfo, "integration-run-reload");
   await page.keyboard.press("Escape");
   await expect(runCommand).toHaveValue("python app.py --draft");
-  await page.getByRole("button", { name: "Load current run settings" }).click();
+  await page.getByRole("button", { name: "Load current settings" }).click();
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: "Load current run settings", exact: true })
+    .getByRole("button", { name: "Load current settings", exact: true })
     .click();
   await expect(runCommand).toHaveValue("python app.py --elsewhere");
   await runCommand.fill("python app.py");
@@ -1408,13 +1406,11 @@ test("inspection preserves exact versions, preview edits and direct approval", a
       response.url().endsWith(`/api/projects/${project}/inspection/settings`) &&
       response.request().method() === "PUT",
   );
-  await page
-    .getByRole("button", { name: "Save integration settings", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
   expect((await runSaved).ok()).toBe(true);
   await expect(
     page.getByRole("button", {
-      name: "Save integration settings",
+      name: "Save changes",
       exact: true,
     }),
   ).toBeDisabled();
@@ -1695,7 +1691,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   ).toBeDisabled();
   releaseRun();
   await actions.getByRole("link", { name: "Fix project setup" }).click();
-  await expect(page).toHaveURL(/edit\/integration/);
+  await expect(page).toHaveURL(/edit\/setup/);
   // Stop polling and drain handlers before removing interception. Removing routes
   // while a delayed response is pending can continue it before fulfill runs.
   await page.goto("about:blank");

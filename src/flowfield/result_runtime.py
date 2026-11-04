@@ -106,6 +106,10 @@ class ResultRuntimes:
         async with self._lock(workspace_id, result.task_id):
             self._eligible(workspace_id, result.id)
             self.workspace._current(result.revision, request.expected_revision)
+            if not result.recipe or not result.recipe.run_command:
+                raise ApplicationError(
+                    "runtime_unavailable", "This result has no runnable recipe.", 409
+                )
             previous = self.copies.latest(workspace_id, result.id)
             if previous:
                 self._reconcile_cleanup(previous)
@@ -425,6 +429,8 @@ class ResultRuntimes:
                 continue
             self.seen.add(identity)
             result = Results(self.workspace).get(workspace_id, identity)
+            if not result.recipe or not result.recipe.run_command:
+                continue
             task = self.workspace.task(workspace_id, result.task_id)
             if not task.project_id or not self.copies.settings(task.project_id).auto_prepare:
                 continue

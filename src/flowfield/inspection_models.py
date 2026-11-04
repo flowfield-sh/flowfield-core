@@ -13,9 +13,9 @@ class InspectionSettings(Record):
     revision: int = 1
     run_command: str = ""
     no_preview_reason: str = ""
-    auto_prepare: bool = False
+    auto_prepare: bool = True
     ready_command: str = ""
-    url: str = ""
+    run_timeout_seconds: int = 60
     outputs: list[OutputSelection] = Field(default_factory=list, max_length=32)
 
 
@@ -23,9 +23,9 @@ class InspectionConfig(Record):
     expected_revision: int = Field(ge=1)
     run_command: str = Field(max_length=4000)
     no_preview_reason: str = Field(default="", max_length=500)
-    auto_prepare: bool = False
+    auto_prepare: bool = True
     ready_command: str = Field(default="", max_length=4000)
-    url: str = Field(default="", max_length=2000, pattern=r"^(https?://[^\s]+)?$")
+    run_timeout_seconds: int = Field(default=60, ge=1, le=900)
     outputs: list[OutputSelection] = Field(default_factory=list, max_length=32)
 
     @model_validator(mode="after")

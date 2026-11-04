@@ -97,7 +97,7 @@ function editorIdentity(path: string) {
       "/settings",
     )
     .replace(
-      /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)\/edit)\/(general|info|coordinator|workers|integration)\/?$/,
+      /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)\/edit)\/(general|info|coordinator|workers|integration|delivery|setup|validation|execution)\/?$/,
       "$1",
     )
     .replace(

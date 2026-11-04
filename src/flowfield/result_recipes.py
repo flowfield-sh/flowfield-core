@@ -17,7 +17,6 @@ def capture(db: sqlite3.Connection, run: Run) -> ResultRecipe | None:
     recipe = {
         "setup_commands": run.setup_commands,
         "setup_timeout_seconds": run.setup_timeout_seconds,
-        "run_timeout_seconds": run.check_timeout_seconds,
         **defaults,
     }
     if run.result and run.result.recipe is not None:
