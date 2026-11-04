@@ -25,7 +25,10 @@ def main() -> int:
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
-    child = subprocess.Popen(["/bin/sh", "-c", command], start_new_session=True)
+    # The service pipe is a lifetime lease, never the program's input stream.
+    child = subprocess.Popen(
+        ["/bin/sh", "-c", command], start_new_session=True, stdin=subprocess.DEVNULL
+    )
     clean = False
     try:
         while child.poll() is None and not stopping:

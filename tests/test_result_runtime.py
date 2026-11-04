@@ -433,3 +433,154 @@ def test_runtime_setup_failure_and_readiness_are_separate_from_code_validation(t
             await runtime.close()
 
     asyncio.run(exercise())
+
+
+def python_command(source):
+    return f"{shlex.quote(sys.executable)} -c {shlex.quote(source)}"
+
+
+def test_batch_result_finishes_repeats_and_preserves_generated_files(tmp_path):
+    async def exercise():
+        command = python_command(
+            "import os,pathlib; p=pathlib.Path(os.environ['FLOWFIELD_OUTPUT_DIR'])/'report.txt'; "
+            "p.write_text('résumé: 42\\n'); print(p.read_text(), end='')"
+        )
+        service, version = await asyncio.to_thread(configured, tmp_path, command)
+        runtime = service.result_runtimes
+        try:
+            value = await prepared(service, version)
+            for _ in range(2):
+                await runtime.run("harbor", value.id)
+                done = await settled(runtime, value, {"ready", "finished", "failed"})
+                assert done.runtime_state == "finished", done.runtime_problem
+                assert "résumé: 42" in done.runtime_output
+                assert done.runtime_prepared and not done.locally_changed
+                assert (Path(done.workspace).parent / "runtime/output/report.txt").read_text() == (
+                    "résumé: 42\n"
+                )
+            assert current(service).candidate_commit == version.candidate_commit
+            assert not current(service).approved_at
+        finally:
+            await runtime.close()
+
+    asyncio.run(exercise())
+
+
+def test_noninteractive_stdin_is_eof_not_the_guardian_lease(tmp_path):
+    async def exercise():
+        service, version = await asyncio.to_thread(
+            configured,
+            tmp_path,
+            python_command("import sys; print('stdin:', repr(sys.stdin.read()))"),
+        )
+        runtime = service.result_runtimes
+        try:
+            value = await prepared(service, version)
+            await runtime.run("harbor", value.id)
+            async with asyncio.timeout(3):
+                done = await settled(runtime, value, {"ready", "finished", "failed"})
+            assert "stdin: ''" in done.runtime_output
+        finally:
+            await runtime.close()
+
+    asyncio.run(exercise())
+
+
+def test_failed_launch_does_not_wait_for_hung_readiness_probe(tmp_path):
+    async def exercise():
+        probe_pid = tmp_path / "probe.pid"
+        service, version = await asyncio.to_thread(
+            configured,
+            tmp_path,
+            "sleep 0.2; exit 9",
+            ready_command=f"echo $$ > {shlex.quote(str(probe_pid))}; exec sleep 60",
+        )
+        runtime = service.result_runtimes
+        try:
+            value = await prepared(service, version)
+            await runtime.run("harbor", value.id)
+            async with asyncio.timeout(3):
+                failed = await settled(runtime, value, {"failed", "uncertain"})
+            assert failed.runtime_state == "failed"
+            assert "9" in failed.runtime_problem
+            with pytest.raises(ProcessLookupError):
+                os.kill(int(probe_pid.read_text()), 0)
+        finally:
+            await runtime.close()
+
+    asyncio.run(exercise())
+
+
+def test_split_utf8_output_preserves_characters(tmp_path):
+    async def exercise():
+        service, version = await asyncio.to_thread(
+            configured,
+            tmp_path,
+            python_command(
+                "import os,time; os.write(1,b'caf\\xc3'); time.sleep(.2); "
+                "os.write(1,b'\\xa9 \\xf0\\x9f'); time.sleep(.2); os.write(1,b'\\x8e\\xae\\n')"
+            ),
+        )
+        runtime = service.result_runtimes
+        try:
+            value = await prepared(service, version)
+            await runtime.run("harbor", value.id)
+            done = await settled(runtime, value, {"ready", "finished", "failed"})
+            assert done.runtime_output == "café 🎮\n"
+        finally:
+            await runtime.close()
+
+    asyncio.run(exercise())
+
+
+def test_immediate_launch_failure_cleans_a_cancelled_readiness_start(tmp_path):
+    async def exercise():
+        service, version = await asyncio.to_thread(
+            configured,
+            tmp_path,
+            "exec /definitely-missing-flowfield-fixture-executable",
+            ready_command="test -f /definitely-missing-flowfield-fixture-ready",
+        )
+        runtime = service.result_runtimes
+        try:
+            for _ in range(6):
+                value = await prepared(service, version)
+                await runtime.run("harbor", value.id)
+                failed = await settled(runtime, value, {"failed", "uncertain"})
+                assert failed.runtime_state == "failed", failed.runtime_problem
+                assert any(str(code) in failed.runtime_problem for code in (126, 127))
+                assert all(runtime._clean(path) for path in runtime._receipts(failed))
+        finally:
+            await runtime.close()
+
+    asyncio.run(exercise())
+
+
+def test_cancel_before_readiness_guardian_launch_still_records_cleanup(tmp_path, monkeypatch):
+    from flowfield.adapters.local_process import LocalProcess
+
+    start = LocalProcess.start
+
+    async def delayed(command, **kwargs):
+        if command[-1] == "sleep 10":
+            await asyncio.sleep(0.2)
+        return await start(command, **kwargs)
+
+    monkeypatch.setattr(LocalProcess, "start", delayed)
+
+    async def exercise():
+        service, version = await asyncio.to_thread(
+            configured, tmp_path, "exit 17", ready_command="sleep 10"
+        )
+        runtime = service.result_runtimes
+        try:
+            value = await prepared(service, version)
+            await runtime.run("harbor", value.id)
+            failed = await settled(runtime, value, {"failed", "uncertain"})
+            assert failed.runtime_state == "failed", failed.runtime_problem
+            assert "17" in failed.runtime_problem
+            assert all(runtime._clean(path) for path in runtime._receipts(failed))
+        finally:
+            await runtime.close()
+
+    asyncio.run(exercise())

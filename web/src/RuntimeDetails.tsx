@@ -1,6 +1,7 @@
 import { useContext, useEffect } from "react";
 import { useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type { components } from "./api-schema";
 import type { AdjacentSnapshot } from "./AdjacentView";
 import { ContentStack, DetailHeading } from "./DetailLayout";
@@ -11,7 +12,6 @@ import { DetailHeader } from "./Presentation";
 import { ResourceRetry } from "./ResourceRetry";
 import { useActivityFollow } from "./useActivityFollow";
 import { useResource } from "./useResource";
-import { WorkspaceLink } from "./WorkspaceLink";
 import { ResourceTitles } from "./WorkspaceTabs";
 import type { WorkspaceBoard } from "./workspace";
 
@@ -52,7 +52,7 @@ export function RuntimeDetails({
   useEffect(() => {
     setTitle?.(
       href + "/runtime",
-      `${version?.task_key ? version.task_key + " " : ""}Runtime details`,
+      `${version?.task_key ? version.task_key + " " : ""}Result output`,
     );
     publishView({
       workspaceId,
@@ -81,20 +81,28 @@ export function RuntimeDetails({
   ]);
   return (
     <EntityPane
-      label="Runtime details"
+      label="Result output"
       identity={href}
       returnFocusHref={href}
       close={close}
       responseFooter={false}
     >
       <section className="editor request-detail">
-        <DetailHeader title="Runtime details" close={close} />
+        <DetailHeader
+          title={
+            <span className="feed-event-title">
+              {version && <Badge variant="outline">{version.task_key}</Badge>}
+              <span>Result output</span>
+            </span>
+          }
+          close={close}
+        />
         <ContentStack space="section">
           <ResourceRetry resources={[result, runtime]} />
           {version && (
             <DetailHeading
               title={task?.title ?? `Result ${version.version}`}
-              metadata={`${version.task_key} · Result ${version.version}${value ? " · " + runtimeTitles[value.runtime_state] : ""}`}
+              metadata={value ? runtimeTitles[value.runtime_state] : undefined}
             />
           )}
           {!value && runtime.loading && <p>Loading runtime…</p>}
@@ -104,11 +112,6 @@ export function RuntimeDetails({
           {value && (
             <>
               <div className="actions">
-                <Button size="sm" variant="outline" asChild>
-                  <WorkspaceLink to={href} intent="open">
-                    View result
-                  </WorkspaceLink>
-                </Button>
                 {value.runtime_output && (
                   <Button size="sm" variant="outline" asChild>
                     <a
@@ -142,7 +145,7 @@ export function RuntimeDetails({
                 <p className="muted">
                   The retained log reached its size limit.
                 </p>
-              )}{" "}
+              )}
             </>
           )}
         </ContentStack>

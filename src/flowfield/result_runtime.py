@@ -165,7 +165,7 @@ class ResultRuntimes:
             if value.runtime_state in ("starting", "running") and identity in self.jobs:
                 return value
             if (
-                value.runtime_state not in ("ready", "stopped")
+                value.runtime_state not in ("ready", "stopped", "finished")
                 or not value.runtime_prepared
                 or value.runtime_session != self.session
             ):
@@ -277,8 +277,8 @@ class ResultRuntimes:
     async def _operate(self, value: Inspection, *, preparing: bool) -> None:
         assert value.workspace and value.runtime_generation
 
-        def output(block: bytes) -> None:
-            combined = (value.runtime_output + block.decode(errors="replace")).encode()
+        def output(block: str) -> None:
+            combined = (value.runtime_output + block).encode()
             value.runtime_truncated |= len(combined) > 16000
             value.runtime_output = combined[-16000:].decode(errors="ignore")
 
@@ -316,14 +316,23 @@ class ResultRuntimes:
                     if value.ready_command:
                         async with asyncio.timeout(60):
                             while True:
-                                code = await environment.run(value.ready_command)
-                                if code == 0:
-                                    break
-                                if process.done():
-                                    raise ApplicationError(
-                                        "runtime_not_ready",
-                                        "Run command exited before readiness succeeded.",
+                                probe = asyncio.create_task(environment.run(value.ready_command))
+                                try:
+                                    await asyncio.wait(
+                                        (process, probe), return_when=asyncio.FIRST_COMPLETED
                                     )
+                                    if process.done():
+                                        code = await process
+                                        raise ApplicationError(
+                                            "runtime_not_ready",
+                                            f"Run command exited before readiness (exit {code}).",
+                                        )
+                                    if await probe == 0:
+                                        break
+                                finally:
+                                    if not probe.done():
+                                        probe.cancel()
+                                    await asyncio.gather(probe, return_exceptions=True)
                                 await asyncio.sleep(0.5)
                     else:
                         await asyncio.sleep(0.1)
@@ -336,7 +345,7 @@ class ResultRuntimes:
                             "runtime_failed",
                             f"Run command failed (exit {code}).",
                         )
-                    value.runtime_state = "ready"
+                    value.runtime_state = "finished"
                 finally:
                     if not process.done():
                         process.cancel()

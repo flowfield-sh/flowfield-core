@@ -1,6 +1,7 @@
 """Concrete Local result execution. No task scheduling, result selection or delivery authority."""
 
 import asyncio
+import codecs
 import contextlib
 import json
 import os
@@ -11,12 +12,12 @@ from uuid import uuid4
 
 from flowfield.adapters import result_process
 from flowfield.adapters.local_execution import FileWorkspace, LocalHost
-from flowfield.adapters.local_process import LocalLaunchCancelled, LocalProcess
+from flowfield.adapters.local_process import LocalProcess
 
 
 class LocalResultEnvironment:
     def __init__(
-        self, identity: str, checkout: Path, generation: str, output: Callable[[bytes], None]
+        self, identity: str, checkout: Path, generation: str, output: Callable[[str], None]
     ):
         self.runtime = checkout.parent / "runtime"
         self.environment = LocalHost(os.environ).restore(
@@ -45,6 +46,7 @@ class LocalResultEnvironment:
         readers: list[asyncio.Task[None]] = []
 
         async def drain(stream: asyncio.StreamReader) -> None:
+            decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
             with self.log.open("ab") as log:
                 while block := await stream.read(8192):
                     retained = block[: max(0, 8 * 1024 * 1024 - self.log_bytes)]
@@ -52,36 +54,49 @@ class LocalResultEnvironment:
                     log.flush()
                     self.log_bytes += len(retained)
                     self.log_truncated |= len(retained) < len(block)
-                    self.output(block)
+                    self.output(decoder.decode(block))
+                self.output(decoder.decode(b"", final=True))
 
         try:
-            owner = await LocalProcess.start(
-                [
-                    sys.executable,
-                    str(Path(result_process.__file__).resolve()),
-                    str(receipt),
-                    command,
-                ],
-                cwd=self.environment.checkout,
-                env=self.environment.launch_environment(),
+            launching = asyncio.create_task(
+                LocalProcess.start(
+                    [
+                        sys.executable,
+                        str(Path(result_process.__file__).resolve()),
+                        str(receipt),
+                        command,
+                    ],
+                    cwd=self.environment.checkout,
+                    env=self.environment.launch_environment(),
+                )
             )
-            self.owners.append(owner)
+            try:
+                owner = await asyncio.shield(launching)
+            except asyncio.CancelledError:
+                # Let the guardian adopt its child and observe EOF before killing
+                # its group. Cancelling a not-yet-started readiness probe otherwise
+                # kills the guardian before it can write its cleanup receipt.
+                while True:
+                    try:
+                        owner = await asyncio.shield(launching)
+                        break
+                    except asyncio.CancelledError:
+                        if launching.cancelled():
+                            raise
+                raise
             assert owner.process.stdout and owner.process.stderr
             readers = [
                 asyncio.create_task(drain(stream))
                 for stream in (owner.process.stdout, owner.process.stderr)
             ]
             return await owner.process.wait()
-        except LocalLaunchCancelled as error:
-            owner = error.owner
-            self.owners.append(owner)
-            raise
         except OSError:
             if owner is None:
                 receipt.write_text('{"cleanup_confirmed": true}')
             raise
         finally:
             if owner:
+                self.owners.append(owner)
                 if owner.process.stdin:
                     owner.process.stdin.close()
                 with contextlib.suppress(TimeoutError):

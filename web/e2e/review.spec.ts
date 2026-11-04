@@ -1150,7 +1150,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
       )
       .filter({
         has: page.getByRole("heading", {
-          name: /Run result|Result ready to run|Result running|Result stopped/,
+          name: /Run result|Result ready to run|Result running|Result stopped|Result finished/,
         }),
       });
   await expect(preview()).toBeVisible();
@@ -1179,12 +1179,23 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await page.setViewportSize({ width: 1440, height: 1000 });
   await runButton.click();
   await expect(preview()).not.toContainText("First greeting");
+  await expect(
+    preview().getByRole("heading", { name: "Result finished", exact: true }),
+  ).toBeVisible();
+  await expect(
+    preview().getByRole("button", { name: "Run result", exact: true }),
+  ).toBeEnabled();
   const retainedNotice = await preview().elementHandle();
+  const openResources = page.getByRole("tablist", { name: "Open resources" });
+  const tabCount = await openResources.getByRole("tab").count();
+  const resultTabId = await openResources
+    .getByRole("tab", { name: "T-1 Result", exact: true })
+    .getAttribute("id");
   await preview()
-    .getByRole("link", { name: "Runtime details", exact: true })
+    .getByRole("link", { name: "Result output", exact: true })
     .click();
   const runtimeDetails = page.getByRole("region", {
-    name: "Runtime details",
+    name: "Result output",
     exact: true,
   });
   await expect(runtimeDetails).toContainText("First greeting");
@@ -1192,28 +1203,40 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     runtimeDetails.getByRole("region", { name: "Runtime output", exact: true }),
   ).toContainText("First greeting");
   await expect(runtimeDetails).not.toContainText("Saved commands");
-  const openResources = page.getByRole("tablist", { name: "Open resources" });
+  await expect(openResources.getByRole("tab")).toHaveCount(tabCount);
   await expect(
-    openResources.getByRole("tab", { name: "T-1 Result", exact: true }),
+    runtimeDetails.getByRole("heading", {
+      name: "T-1 Result output",
+      exact: true,
+    }),
   ).toBeVisible();
+  await expect(runtimeDetails.locator(".detail-metadata")).not.toContainText(
+    "Result 1",
+  );
+  await expect(
+    runtimeDetails.getByRole("link", { name: "View result", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    openResources.getByRole("tab", { name: "T-1 Result output", exact: true }),
+  ).toHaveAttribute("id", resultTabId!);
   await expect(
     openResources.getByRole("tab", {
-      name: "T-1 Runtime details",
+      name: "T-1 Result output",
       exact: true,
     }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(new RegExp(`/results/${first!.id}/runtime$`));
   await runtimeDetails
-    .getByRole("link", { name: "View result", exact: true })
+    .getByRole("button", { name: "Back", exact: true })
     .click();
   expect(await retainedNotice!.evaluate((node) => node.isConnected)).toBe(true);
   await preview()
-    .getByRole("link", { name: "Runtime details", exact: true })
+    .getByRole("link", { name: "Result output", exact: true })
     .click();
   await page.reload();
   await expect(runtimeDetails).toContainText("First greeting");
   await runtimeDetails
-    .getByRole("link", { name: "View result", exact: true })
+    .getByRole("button", { name: "Back", exact: true })
     .click();
   await expect(preview()).toBeVisible();
   writeFileSync(join(copy.workspace, "app.py"), "print('Preview edit')\n");
@@ -1293,11 +1316,11 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     .click();
   await expect(preview()).not.toContainText("Useful successor");
   await preview()
-    .getByRole("link", { name: "Runtime details", exact: true })
+    .getByRole("link", { name: "Result output", exact: true })
     .click();
   await expect(runtimeDetails).toContainText("Useful successor");
   await runtimeDetails
-    .getByRole("link", { name: "View result", exact: true })
+    .getByRole("button", { name: "Back", exact: true })
     .click();
   expect(readFileSync(join(copy.workspace, "app.py"), "utf8")).toContain(
     "Preview edit",

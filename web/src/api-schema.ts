@@ -4044,6 +4044,7 @@ export interface components {
         | "running"
         | "stopping"
         | "stopped"
+        | "finished"
         | "failed"
         | "uncertain";
       /** Runtime Problem */

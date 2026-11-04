@@ -20,6 +20,7 @@ export const runtimeTitles: Record<Copy["runtime_state"], string> = {
   running: "Result running",
   stopping: "Stopping result",
   stopped: "Result stopped",
+  finished: "Result finished",
   failed: "Result could not run",
   uncertain: "Runtime needs attention",
 };
@@ -55,7 +56,7 @@ export function Inspection({
   );
   const eligible = current && ["ready", "delivered"].includes(result.status);
   const prepared =
-    (state === "ready" || state === "stopped") && value?.runtime_prepared;
+    ["ready", "stopped", "finished"].includes(state) && value?.runtime_prepared;
   async function act(
     action: "prepare" | "run" | "stop" | "confirm-stopped",
     newCopy = false,
@@ -160,9 +161,8 @@ export function Inspection({
             <Button size="sm" variant="outline" asChild>
               <WorkspaceLink
                 to={`/workspaces/${projectId}/results/${result.id}/runtime`}
-                intent="open"
               >
-                Runtime details
+                Result output
               </WorkspaceLink>
             </Button>
           )}

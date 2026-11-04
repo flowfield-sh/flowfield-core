@@ -71,6 +71,7 @@ class Inspection(Record):
         "running",
         "stopping",
         "stopped",
+        "finished",
         "failed",
         "uncertain",
     ] = "cold"
