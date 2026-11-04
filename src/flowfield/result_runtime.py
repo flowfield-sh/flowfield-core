@@ -303,7 +303,7 @@ class ResultRuntimes:
                     if code:
                         raise ApplicationError(
                             "runtime_setup_failed",
-                            f"Preparation failed (exit {code}). See runtime output.",
+                            f"Preparation failed (exit {code}).",
                         )
                 value.runtime_state = "ready"
                 value.runtime_prepared = True
@@ -331,7 +331,7 @@ class ResultRuntimes:
                     if code:
                         raise ApplicationError(
                             "runtime_failed",
-                            f"Run command failed (exit {code}). See runtime output.",
+                            f"Run command failed (exit {code}).",
                         )
                     value.runtime_state = "ready"
                 finally:
@@ -342,7 +342,7 @@ class ResultRuntimes:
             value.runtime_state = "stopped"
         except TimeoutError:
             value.runtime_state = "failed"
-            value.runtime_problem = "Preparation or readiness timed out. See runtime output."
+            value.runtime_problem = "Preparation or readiness timed out."
         except Exception as error:
             value.runtime_state = "failed"
             value.runtime_problem = (
@@ -379,6 +379,12 @@ class ResultRuntimes:
             ]
         for workspace_id, identity in candidates:
             if identity in self.seen or self.closing:
+                continue
+            # Candidate validation can finish before independent review. Wait for
+            # the task's human-review phase before consuming its automatic prepare.
+            try:
+                self._eligible(workspace_id, identity)
+            except ApplicationError:
                 continue
             self.seen.add(identity)
             result = Results(self.workspace).get(workspace_id, identity)

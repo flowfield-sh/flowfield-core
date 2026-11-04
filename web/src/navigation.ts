@@ -25,6 +25,7 @@ const pagePaths = [
   "workspaces/:workspaceId/inbox",
   "workspaces/:workspaceId/requests/:requestKind/:requestId",
   "workspaces/:workspaceId/results/:resultId",
+  "workspaces/:workspaceId/results/:resultId/runtime",
   "workspaces/:workspaceId/edit/:workspaceTab?",
   "projects/:projectId",
   "projects/:projectId/overview",

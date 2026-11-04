@@ -1,6 +1,6 @@
 import { Link, useLocation, type LinkProps } from "react-router";
 import { createContext, useContext, type ComponentProps } from "react";
-import { ResourceNavigation } from "./WorkspaceTabs";
+import { ResourceNavigation, type NavigationIntent } from "./WorkspaceTabs";
 import { canonicalHref, followLink } from "./navigation";
 
 export const ProjectOwners = createContext<Record<string, string>>({});
@@ -12,8 +12,12 @@ export function ScopedAnchor({ href, ...props }: ComponentProps<"a">) {
 /** Native link semantics with the same resource history as button navigation. */
 export function WorkspaceLink({
   to,
+  intent,
   ...props
-}: Omit<LinkProps, "to" | "state"> & { to: string }) {
+}: Omit<LinkProps, "to" | "state"> & {
+  to: string;
+  intent?: NavigationIntent;
+}) {
   const location = useLocation();
   const owners = useContext(ProjectOwners);
   const navigate = useContext(ResourceNavigation);
@@ -32,7 +36,7 @@ export function WorkspaceLink({
       onClick={(event) => {
         props.onClick?.(event);
         if (!event.defaultPrevented && navigate)
-          followLink(event, () => navigate(target));
+          followLink(event, () => navigate(target, intent));
       }}
       state={location.state}
     />

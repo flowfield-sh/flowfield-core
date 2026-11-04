@@ -1841,7 +1841,9 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await expect(
     page.getByRole("button", { name: "Send feedback", exact: true }),
   ).toBeDisabled();
-  await expect(dialog.getByRole("status")).toContainText("The context changed");
+  await expect(
+    dialog.getByRole("status").filter({ hasText: "The context changed" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Use current context", exact: true }),
   ).toHaveCount(0);

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "./ConfirmButton";
 import { StatusNotice } from "./StatusNotice";
-import { Disclosure } from "./DetailLayout";
 import { ResourceRetry } from "./ResourceRetry";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { reportError } from "./requestFeedback";
@@ -12,6 +11,18 @@ import type { components } from "./api-schema";
 
 type Copy = components["schemas"]["Inspection"];
 type Version = components["schemas"]["ResultVersion"];
+
+export const runtimeTitles: Record<Copy["runtime_state"], string> = {
+  cold: "Run result",
+  preparing: "Preparing result",
+  ready: "Result ready to run",
+  starting: "Starting result",
+  running: "Result running",
+  stopping: "Stopping result",
+  stopped: "Result stopped",
+  failed: "Result could not run",
+  uncertain: "Runtime needs attention",
+};
 
 export function Inspection({
   projectId,
@@ -71,20 +82,9 @@ export function Inspection({
       setBusy(false);
     }
   }
-  const titles: Record<string, string> = {
-    cold: "Run result",
-    preparing: "Preparing result",
-    ready: "Result ready to run",
-    starting: "Starting result",
-    running: "Result running",
-    stopping: "Stopping result",
-    stopped: "Result stopped",
-    failed: "Result could not run",
-    uncertain: "Runtime needs attention",
-  };
   return (
     <StatusNotice
-      title={titles[state]}
+      title={runtimeTitles[state]}
       tone={
         state === "failed" || state === "uncertain"
           ? "attention"
@@ -156,6 +156,16 @@ export function Inspection({
               Stop
             </Button>
           )}
+          {value && (
+            <Button size="sm" variant="outline" asChild>
+              <WorkspaceLink
+                to={`/workspaces/${projectId}/results/${result.id}/runtime`}
+                intent="open"
+              >
+                Runtime details
+              </WorkspaceLink>
+            </Button>
+          )}
           {eligible &&
             instructions.data &&
             !instructions.data.run_command &&
@@ -190,20 +200,6 @@ export function Inspection({
         <p>
           This result is retained for inspection. Run the current ready result.
         </p>
-      )}
-      {value?.runtime_output && (
-        <Disclosure summary="Runtime output">
-          {value.runtime_truncated && <p>Earlier output omitted.</p>}
-          {value.runtime_log_truncated && (
-            <p>The retained log reached its size limit.</p>
-          )}
-          <a href={`/api/${path}/inspections/${value.id}/runtime/log`} download>
-            Download runtime log
-          </a>
-          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs">
-            {value.runtime_output}
-          </pre>
-        </Disclosure>
       )}
     </StatusNotice>
   );

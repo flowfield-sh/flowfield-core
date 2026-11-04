@@ -260,6 +260,29 @@ def test_automatic_preparation_once_and_no_restart_autorun(tmp_path):
     asyncio.run(exercise())
 
 
+def test_automatic_preparation_waits_for_independent_review(tmp_path):
+    async def exercise():
+        service, version = await asyncio.to_thread(configured, tmp_path, auto_prepare=True)
+        runtime = service.result_runtimes
+        try:
+            with service.workspace.connection(write=True, workspace_id="harbor") as db:
+                task = service.workspace._task(db, "harbor", version.task_id)
+                service.execution._task_state(db, task, "in_progress", "Independent review.")
+            await runtime.schedule()
+            assert runtime.copies.latest("harbor", version.id) is None
+            with service.workspace.connection(write=True, workspace_id="harbor") as db:
+                task = service.workspace._task(db, "harbor", version.task_id)
+                service.execution._task_state(db, task, "in_review", "Review passed.")
+            await runtime.schedule()
+            value = runtime.copies.latest("harbor", version.id)
+            assert value
+            assert (await settled(runtime, value, {"ready"})).runtime_prepared
+        finally:
+            await runtime.close()
+
+    asyncio.run(exercise())
+
+
 def test_guardian_stops_command_when_service_pipe_disappears(tmp_path):
     receipt = tmp_path / "receipt.json"
     pidfile = tmp_path / "child.pid"

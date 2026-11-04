@@ -53,6 +53,7 @@ import { ProjectEditor } from "./ProjectEditor";
 import { WorkspaceEditor } from "./WorkspaceEditor";
 import { QueueControls } from "./Workers";
 import { RequestDetail } from "./RequestDetail";
+import { RuntimeDetails } from "./RuntimeDetails";
 import { AttentionBoard } from "./AttentionBoard";
 import { ArchiveAttribution, TaskIdentity } from "./Presentation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -936,18 +937,29 @@ function WorkspaceResource({
   );
   return (
     <LabelCatalog value={board.labels}>
-      {requestSelected && (
-        <RequestDetail
-          publishView={publishView}
+      {requestSelected && params.resultId && pathname.endsWith("/runtime") ? (
+        <RuntimeDetails
           workspaceId={workspaceId}
-          kind={params.resultId ? "result" : params.requestKind!}
-          identity={(params.resultId ?? params.requestId)!}
-          projectId={query.get("project_id") ?? undefined}
+          resultId={params.resultId}
           board={board}
           refresh={refresh}
-          onDirty={setUnsaved}
+          publishView={publishView}
           close={() => closeEntity(`${base}/inbox`)}
         />
+      ) : (
+        requestSelected && (
+          <RequestDetail
+            publishView={publishView}
+            workspaceId={workspaceId}
+            kind={params.resultId ? "result" : params.requestKind!}
+            identity={(params.resultId ?? params.requestId)!}
+            projectId={query.get("project_id") ?? undefined}
+            board={board}
+            refresh={refresh}
+            onDirty={setUnsaved}
+            close={() => closeEntity(`${base}/inbox`)}
+          />
+        )
       )}
       {!selection &&
         !workspaceSettings &&

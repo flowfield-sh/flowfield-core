@@ -1178,8 +1178,33 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   expect(box.x >= 0 && box.x + box.width <= 390).toBe(true);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await runButton.click();
-  await preview().getByText("Runtime output", { exact: true }).click();
-  await expect(preview()).toContainText("First greeting");
+  await expect(preview()).not.toContainText("First greeting");
+  await preview()
+    .getByRole("link", { name: "Runtime details", exact: true })
+    .click();
+  const runtimeDetails = page.getByRole("region", {
+    name: "Runtime details",
+    exact: true,
+  });
+  await expect(runtimeDetails).toContainText("First greeting");
+  await expect(runtimeDetails).toContainText("python app.py");
+  const openResources = page.getByRole("tablist", { name: "Open resources" });
+  await expect(
+    openResources.getByRole("tab", { name: "T-1 Result", exact: true }),
+  ).toBeVisible();
+  await expect(
+    openResources.getByRole("tab", {
+      name: "T-1 Runtime details",
+      exact: true,
+    }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(new RegExp(`/results/${first!.id}/runtime$`));
+  await page.reload();
+  await expect(runtimeDetails).toContainText("First greeting");
+  await runtimeDetails
+    .getByRole("link", { name: "View result", exact: true })
+    .click();
+  await expect(preview()).toBeVisible();
   writeFileSync(join(copy.workspace, "app.py"), "print('Preview edit')\n");
   await expect(
     page.getByRole("button", { name: "Record testing", exact: true }),
@@ -1255,8 +1280,14 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await preview()
     .getByRole("button", { name: "Run result", exact: true })
     .click();
-  await preview().getByText("Runtime output", { exact: true }).click();
-  await expect(preview()).toContainText("Useful successor");
+  await expect(preview()).not.toContainText("Useful successor");
+  await preview()
+    .getByRole("link", { name: "Runtime details", exact: true })
+    .click();
+  await expect(runtimeDetails).toContainText("Useful successor");
+  await runtimeDetails
+    .getByRole("link", { name: "View result", exact: true })
+    .click();
   expect(readFileSync(join(copy.workspace, "app.py"), "utf8")).toContain(
     "Preview edit",
   );
