@@ -218,6 +218,36 @@ def test_one_runtime_owns_multiple_services_and_preserves_unrelated_process(tmp_
     asyncio.run(exercise())
 
 
+def test_approval_keeps_preview_running_through_delivery(tmp_path):
+    async def exercise():
+        service, version = await asyncio.to_thread(configured, tmp_path)
+        runtime = service.result_runtimes
+        try:
+            value = await prepared(service, version)
+            await runtime.run("harbor", value.id)
+            await settled(runtime, value, {"running"})
+            service.results.review(
+                "harbor",
+                version.id,
+                ResultReview(
+                    expected_revision=version.revision,
+                    candidate_commit=version.candidate_commit,
+                    action="approve",
+                ),
+            )
+            assert current(service).status == "delivering"
+            await runtime.schedule()
+            assert runtime.copies.get("harbor", value.id).runtime_state == "running"
+            await asyncio.to_thread(service.results.process, "harbor")
+            assert current(service).status == "delivered"
+            await runtime.schedule()
+            assert runtime.copies.get("harbor", value.id).runtime_state == "running"
+        finally:
+            await runtime.close()
+
+    asyncio.run(exercise())
+
+
 def test_failed_run_and_bounded_output(tmp_path):
     async def exercise():
         service, version = await asyncio.to_thread(

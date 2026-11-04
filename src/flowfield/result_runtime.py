@@ -79,7 +79,7 @@ class ResultRuntimes:
     def _lock(self, workspace_id: str, task_id: str) -> asyncio.Lock:
         return self.locks.setdefault((workspace_id, task_id), asyncio.Lock())
 
-    def _eligible(self, workspace_id: str, result_id: str) -> None:
+    def _eligible(self, workspace_id: str, result_id: str, *, allow_delivery: bool = False) -> None:
         result = Results(self.workspace).get(workspace_id, result_id)
         page = Results(self.workspace).page(workspace_id, result.task_id, limit=1)
         task = self.workspace.task(workspace_id, result.task_id)
@@ -87,7 +87,10 @@ class ResultRuntimes:
             self.closing
             or page.current_id != result_id
             or page.current_run_id != result.run_id
-            or result.status not in ("ready", "delivered")
+            or result.status
+            not in (
+                ("ready", "delivering", "delivered") if allow_delivery else ("ready", "delivered")
+            )
             or task.archived
             or task.status not in ("in_review", "done")
         ):
@@ -366,7 +369,7 @@ class ResultRuntimes:
             if value.runtime_state in ("ready", "preparing", "starting", "running"):
                 try:
                     assert value.result_id
-                    self._eligible(value.workspace_id, value.result_id)
+                    self._eligible(value.workspace_id, value.result_id, allow_delivery=True)
                 except ApplicationError:
                     with contextlib.suppress(ApplicationError):
                         await self.stop(value.workspace_id, value.id)
