@@ -517,3 +517,28 @@ def test_launcher_stops_with_its_terminal_process_group(tmp_path):
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGKILL)
         process.communicate(timeout=5)
+
+
+def test_saved_launcher_owns_output_directory_instead_of_inheriting_it(tmp_path):
+    service, repo, _ = fixture(tmp_path)
+    service.results.process("harbor")
+    inspections = Inspections(service.workspace)
+    inspections.configure(
+        "harbor",
+        InspectionConfig(
+            expected_revision=2,
+            run_command='printf report > "$FLOWFIELD_OUTPUT_DIR/report.txt"',
+        ),
+    )
+    copy = prepare(inspections, current(service))
+    borrowed = tmp_path / "unrelated-output"
+    borrowed.mkdir()
+    subprocess.run(
+        ["/bin/sh", "-c", copy.command],
+        env={**os.environ, "FLOWFIELD_OUTPUT_DIR": str(borrowed)},
+        check=True,
+        timeout=10,
+    )
+    assert not list(borrowed.iterdir())
+    assert (Path(copy.workspace).parent / "runtime/output/report.txt").read_text() == "report"
+    assert not (repo / "report.txt").exists()

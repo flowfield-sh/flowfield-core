@@ -20,6 +20,7 @@ def write_launcher(environment: LocalAttempt, setup: list[str], run: str) -> Pat
             "FLOWFIELD_RUN_ID",
             "FLOWFIELD_WORKSPACE",
             "FLOWFIELD_RUNTIME_DIR",
+            "FLOWFIELD_OUTPUT_DIR",
         )
     }
     exports = "".join(f"export {key}={shlex.quote(value)}\n" for key, value in variables.items())
