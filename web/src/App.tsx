@@ -54,6 +54,8 @@ import { WorkspaceEditor } from "./WorkspaceEditor";
 import { QueueControls } from "./Workers";
 import { RequestDetail } from "./RequestDetail";
 import { RuntimeDetails } from "./RuntimeDetails";
+import { liveEvents } from "./sharedEvents";
+import { Activity } from "react";
 import { AttentionBoard } from "./AttentionBoard";
 import { ArchiveAttribution, TaskIdentity } from "./Presentation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -234,7 +236,7 @@ export function App() {
   }, [refresh]);
   useEffect(() => {
     if (!connected) return;
-    let events: EventSource;
+    let events: ReturnType<typeof liveEvents>;
     let opened = false;
     let streaming = false;
     let streamNeedsRefresh = false;
@@ -276,7 +278,7 @@ export function App() {
       clearTimeout(retry);
       if (offlineState) return;
       events?.close();
-      events = new EventSource("/api/events");
+      events = liveEvents();
       events.onopen = () => {
         clearTimeout(retry);
         retryDelay = 1000;
@@ -313,6 +315,9 @@ export function App() {
           }),
         ),
       );
+      events.addEventListener("notification", () =>
+        window.dispatchEvent(new Event("flowfield:notification")),
+      );
     }
     function offline() {
       offlineState = true;
@@ -326,6 +331,8 @@ export function App() {
       connect();
     }
     if (navigator.onLine) connect();
+    window.addEventListener("pagehide", offline);
+    window.addEventListener("pageshow", online);
     window.addEventListener("online", online);
     window.addEventListener("offline", offline);
     window.addEventListener("flowfield:service-recovered", recovered);
@@ -333,6 +340,8 @@ export function App() {
     return () => {
       clearTimeout(retry);
       events?.close();
+      window.removeEventListener("pagehide", offline);
+      window.removeEventListener("pageshow", online);
       window.removeEventListener("online", online);
       window.removeEventListener("offline", offline);
       window.removeEventListener("flowfield:service-recovered", recovered);
@@ -666,6 +675,10 @@ function WorkspaceResource({
   const base = workspaceHref(workspaceId);
   const { data: board, setData: setBoard, error, invalidate } = boardResource;
   const requestSelected = !!(params.requestId || params.resultId);
+  const runtimeSelected = !!params.resultId && pathname.endsWith("/runtime");
+  const [visitedRuntime, setVisitedRuntime] = useState<string>();
+  if (runtimeSelected && visitedRuntime !== params.resultId)
+    setVisitedRuntime(params.resultId);
   const taskRef = params.taskKey;
   const {
     data: taskDetail,
@@ -937,17 +950,28 @@ function WorkspaceResource({
   );
   return (
     <LabelCatalog value={board.labels}>
-      {requestSelected && params.resultId && pathname.endsWith("/runtime") ? (
-        <RuntimeDetails
-          workspaceId={workspaceId}
-          resultId={params.resultId}
-          board={board}
-          refresh={refresh}
-          publishView={publishView}
-          close={() => closeEntity(`${base}/inbox`)}
-        />
-      ) : (
-        requestSelected && (
+      {requestSelected &&
+        params.resultId &&
+        visitedRuntime === params.resultId && (
+          <Activity
+            key={params.resultId + "/runtime"}
+            mode={runtimeSelected ? "visible" : "hidden"}
+          >
+            <RuntimeDetails
+              workspaceId={workspaceId}
+              resultId={params.resultId}
+              board={board}
+              refresh={refresh}
+              publishView={publishView}
+              close={() => closeEntity(`${base}/inbox`)}
+            />
+          </Activity>
+        )}
+      {requestSelected && (
+        <Activity
+          key={params.resultId ?? params.requestId}
+          mode={runtimeSelected ? "hidden" : "visible"}
+        >
           <RequestDetail
             publishView={publishView}
             workspaceId={workspaceId}
@@ -959,7 +983,7 @@ function WorkspaceResource({
             onDirty={setUnsaved}
             close={() => closeEntity(`${base}/inbox`)}
           />
-        )
+        </Activity>
       )}
       {!selection &&
         !workspaceSettings &&

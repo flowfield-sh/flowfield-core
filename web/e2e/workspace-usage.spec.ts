@@ -26,6 +26,8 @@ test("usage invalidations coalesce without workspace reloads or cancelling slow 
 }) => {
   const f = seed();
   await page.addInitScript(() => {
+    // This test injects events into the direct EventSource fallback.
+    Object.defineProperty(window, "SharedWorker", { value: undefined });
     const streams: EventSource[] = [];
     const NativeEventSource = window.EventSource;
     window.EventSource = class extends NativeEventSource {

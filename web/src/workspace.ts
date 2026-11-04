@@ -32,6 +32,7 @@ export async function request<T>(
   body?: unknown,
   signal?: AbortSignal,
   timeoutMs = 10000,
+  headers: Record<string, string> = {},
 ): Promise<T> {
   const startedAt = performance.now();
   const timeout = AbortSignal.timeout(timeoutMs);
@@ -56,7 +57,7 @@ export async function request<T>(
   try {
     response = await fetch("/api/" + path, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...headers },
       body: payload,
       signal: combined,
     });

@@ -75,15 +75,25 @@ class Changes:
                 pending.workspaces.add(workspace_id)
             queue.put_nowait(pending)
 
-    async def events(self) -> AsyncIterator[dict[str, str | int]]:
+    async def events(self, *, presence_interval: float = 2) -> AsyncIterator[dict[str, str | int]]:
         queue: asyncio.Queue[Pending] = asyncio.Queue(maxsize=1)
         self.subscribers.add(queue)
         queue.put_nowait(
             Pending(workspaces=None)
         )  # Every connection resyncs, including after a restart.
         try:
+            next_presence = self.loop.time() + presence_interval
             while True:
-                pending = await queue.get()
+                try:
+                    pending = await asyncio.wait_for(
+                        queue.get(), timeout=max(0, next_presence - self.loop.time())
+                    )
+                except TimeoutError:
+                    pending = Pending()
+                if self.loop.time() >= next_presence:
+                    # A shared wake-up for short presence reads; no data invalidation.
+                    next_presence = self.loop.time() + presence_interval
+                    yield {"event": "notification", "data": "{}"}
                 if pending.workspaces is None or pending.workspaces:
                     yield {
                         "event": "change",

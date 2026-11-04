@@ -38,6 +38,22 @@ def test_change_scopes_coalesce_and_reconnect() -> None:
     asyncio.run(check())
 
 
+def test_presence_ticks_do_not_invalidate_data_or_starve_during_activity():
+    async def check():
+        changes = Changes()
+        events = changes.events(presence_interval=0.01)
+        assert (await anext(events))["event"] == "change"
+        assert (await anext(events))["event"] == "notification"
+        changes.publish_activity("workspace", "attempt")
+        await asyncio.sleep(0.02)
+        assert (await anext(events))["event"] == "notification"
+        assert (await anext(events))["event"] == "activity"
+        await events.aclose()
+        assert not changes.subscribers
+
+    asyncio.run(check())
+
+
 def test_only_committed_writes_publish_project(tmp_path: Path) -> None:
     published: list[str | None] = []
     workspace = Workspace(tmp_path / "state", on_change=published.append)

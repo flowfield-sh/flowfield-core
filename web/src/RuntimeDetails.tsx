@@ -3,13 +3,13 @@ import { useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
 import type { AdjacentSnapshot } from "./AdjacentView";
-import { ContentStack, DetailHeading, DetailSection } from "./DetailLayout";
+import { ContentStack, DetailHeading } from "./DetailLayout";
 import { EntityPane } from "./EntityPane";
 import { runtimeTitles } from "./Inspection";
 import { resultHref } from "./navigation";
 import { DetailHeader } from "./Presentation";
 import { ResourceRetry } from "./ResourceRetry";
-import { StatusNotice } from "./StatusNotice";
+import { useActivityFollow } from "./useActivityFollow";
 import { useResource } from "./useResource";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { ResourceTitles } from "./WorkspaceTabs";
@@ -41,6 +41,10 @@ export function RuntimeDetails({
     refresh,
   );
   const value = runtime.data;
+  const { pane: outputRef, content: contentRef } = useActivityFollow(
+    true,
+    !!value,
+  );
   const version = result.data;
   const task = board.tasks.find((task) => task.id === version?.task_id);
   const href = resultHref(workspaceId, resultId);
@@ -90,7 +94,7 @@ export function RuntimeDetails({
           {version && (
             <DetailHeading
               title={task?.title ?? `Result ${version.version}`}
-              metadata={`${version.task_key} · Result ${version.version}`}
+              metadata={`${version.task_key} · Result ${version.version}${value ? " · " + runtimeTitles[value.runtime_state] : ""}`}
             />
           )}
           {!value && runtime.loading && <p>Loading runtime…</p>}
@@ -99,82 +103,46 @@ export function RuntimeDetails({
           )}
           {value && (
             <>
-              <StatusNotice
-                title={runtimeTitles[value.runtime_state]}
-                tone={
-                  value.runtime_state === "failed" ||
-                  value.runtime_state === "uncertain"
-                    ? "attention"
-                    : "neutral"
-                }
-                actions={
+              <div className="actions">
+                <Button size="sm" variant="outline" asChild>
+                  <WorkspaceLink to={href} intent="open">
+                    View result
+                  </WorkspaceLink>
+                </Button>
+                {value.runtime_output && (
                   <Button size="sm" variant="outline" asChild>
-                    <WorkspaceLink to={href} intent="open">
-                      View result
-                    </WorkspaceLink>
+                    <a
+                      href={`/api/${path}/inspections/${value.id}/runtime/log`}
+                      download
+                    >
+                      Download log
+                    </a>
                   </Button>
-                }
+                )}
+              </div>
+              <div
+                ref={outputRef}
+                className="run-activity-output"
+                role="region"
+                aria-label="Runtime output"
+                tabIndex={0}
               >
-                {value.runtime_problem && <p>{value.runtime_problem}</p>}
-                {value.problem && <p>{value.problem}</p>}
-              </StatusNotice>
-              <DetailSection
-                title="Runtime output"
-                actions={
-                  value.runtime_output ? (
-                    <Button size="sm" variant="outline" asChild>
-                      <a
-                        href={`/api/${path}/inspections/${value.id}/runtime/log`}
-                        download
-                      >
-                        Download log
-                      </a>
-                    </Button>
-                  ) : undefined
-                }
-              >
-                {value.runtime_truncated && (
-                  <p>
-                    Showing recent output. Download the log for earlier output.
-                  </p>
-                )}
-                {value.runtime_log_truncated && (
-                  <p>The retained log reached its size limit.</p>
-                )}
-                {value.runtime_output ? (
-                  <pre
-                    className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-xs"
-                    tabIndex={0}
-                    aria-label="Runtime output"
-                  >
-                    {value.runtime_output}
-                  </pre>
-                ) : (
-                  <p>No output yet.</p>
-                )}
-              </DetailSection>
-              <DetailSection title="Saved commands">
-                <div>
-                  <p>Preparation</p>
-                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs">
-                    {value.setup_commands.join("\n") || "No setup commands."}
+                <div ref={contentRef}>
+                  <pre className="m-0 whitespace-pre-wrap break-words text-xs leading-relaxed">
+                    {value.runtime_output || "No output yet."}
                   </pre>
                 </div>
-                <div>
-                  <p>Run</p>
-                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs">
-                    {value.run_command || "No run command."}
-                  </pre>
-                </div>
-                {value.ready_command && (
-                  <div>
-                    <p>Readiness</p>
-                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs">
-                      {value.ready_command}
-                    </pre>
-                  </div>
-                )}
-              </DetailSection>
+              </div>
+              {value.runtime_truncated && (
+                <p className="muted">
+                  Showing recent output. Download the log for earlier output.
+                </p>
+              )}
+              {value.runtime_log_truncated && (
+                <p className="muted">
+                  The retained log reached its size limit.
+                </p>
+              )}{" "}
             </>
           )}
         </ContentStack>

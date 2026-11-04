@@ -39,6 +39,7 @@ export function ResourceScroll({
       }
       if (!restoring || !saved) return;
       for (const node of host!.querySelectorAll<HTMLElement>(selector)) {
+        if (!node.getClientRects().length) continue;
         const value = saved.get(identity(node));
         if (value) {
           node.scrollTop = value.top;
@@ -50,6 +51,7 @@ export function ResourceScroll({
       if (restoring) return;
       const node = event.target;
       if (!(node instanceof HTMLElement) || !node.matches(selector)) return;
+      if (!node.getClientRects().length) return;
       const values = positions.get(key) ?? new Map();
       values.set(identity(node), {
         top: node.scrollTop,

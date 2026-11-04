@@ -5,7 +5,7 @@ import logging
 from collections.abc import Callable
 from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from flowfield.announcements import Announcements, AnnouncementSettings, Delivery, Presence
@@ -62,10 +62,13 @@ def notification_router(service: Callable[[], NotificationService]) -> APIRouter
         return service().announcements.configure(value, partial=True)
 
     @router.post("/announcements/poll")
-    async def poll(value: Presence) -> Delivery:
-        # Pace on the service: inactive browsers throttle JavaScript timers. Each
-        # response drives the next bounded request without a background timer loop.
-        await asyncio.sleep(2)
+    async def poll(value: Presence, request: Request) -> Delivery:
+        # The shared event stream paces presence. Never occupy an HTTP connection
+        # while idle: several browser tabs otherwise starve ordinary reads.
+        # Tabs loaded before the upgrade still immediately repeat their polls.
+        # Keep their pacing until reload, without slowing the current client.
+        if request.headers.get("x-flowfield-event-pacing") != "1":
+            await asyncio.sleep(2)
         return await asyncio.to_thread(service().announcements.poll, value)
 
     @router.get("/updates")

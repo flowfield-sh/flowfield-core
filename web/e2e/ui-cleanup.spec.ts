@@ -17,6 +17,10 @@ test("failed resource reads and a broken event stream stay local while health is
     data: { path: existingDirectory(join(state, id)) },
   });
   let failed = true;
+  // Exercise the direct EventSource fallback; page routes cannot intercept workers.
+  await page.addInitScript(() =>
+    Object.defineProperty(window, "SharedWorker", { value: undefined }),
+  );
   const paths = ["inspection/settings", "setup-validation"];
   const reads = new Set<string>();
   await page.route("**/api/events", (route) => route.abort());

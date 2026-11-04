@@ -101,12 +101,13 @@ export function AnnouncementProvider({
     let timer: ReturnType<typeof setTimeout>;
     let inFlight = false;
     let failures = 0;
+    let lastPoll = 0;
     const controller = new AbortController();
     async function poll() {
-      if (stopped || inFlight) return;
+      if (stopped || inFlight || Date.now() - lastPoll < 500) return;
       clearTimeout(timer);
       inFlight = true;
-      let failed = false;
+      lastPoll = Date.now();
       try {
         const delivery = await request<Delivery>(
           "announcements/poll",
@@ -122,6 +123,7 @@ export function AnnouncementProvider({
           },
           controller.signal,
           15000,
+          { "X-Flowfield-Event-Pacing": "1" },
         );
         if (failures > 1) toast.dismiss("request:announcements/poll");
         failures = 0;
@@ -164,7 +166,6 @@ export function AnnouncementProvider({
             }
           }
       } catch (error) {
-        failed = true;
         // A suspended tab or transient delay can interrupt one poll. Polling
         // already retries; it is not a user action whose result needs a reload.
         if (!stopped && ++failures > 1)
@@ -182,13 +183,15 @@ export function AnnouncementProvider({
       } finally {
         inFlight = false;
         if (!stopped) {
-          if (failed) timer = setTimeout(() => void poll(), 2000);
-          else void poll();
+          // Fallback during stream recovery. Live service ticks also wake
+          // background tabs whose JavaScript timers are throttled.
+          timer = setTimeout(() => void poll(), 2000);
         }
       }
     }
     const wake = () => void poll();
     window.addEventListener("focus", wake);
+    window.addEventListener("flowfield:notification", wake);
     window.addEventListener("blur", wake);
     document.addEventListener("visibilitychange", wake);
     void poll();
@@ -198,6 +201,7 @@ export function AnnouncementProvider({
       controller.abort();
       clearTimeout(timer);
       window.removeEventListener("focus", wake);
+      window.removeEventListener("flowfield:notification", wake);
       window.removeEventListener("blur", wake);
       document.removeEventListener("visibilitychange", wake);
     };

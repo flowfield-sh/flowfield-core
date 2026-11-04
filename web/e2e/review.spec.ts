@@ -1179,6 +1179,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await page.setViewportSize({ width: 1440, height: 1000 });
   await runButton.click();
   await expect(preview()).not.toContainText("First greeting");
+  const retainedNotice = await preview().elementHandle();
   await preview()
     .getByRole("link", { name: "Runtime details", exact: true })
     .click();
@@ -1187,7 +1188,10 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     exact: true,
   });
   await expect(runtimeDetails).toContainText("First greeting");
-  await expect(runtimeDetails).toContainText("python app.py");
+  await expect(
+    runtimeDetails.getByRole("region", { name: "Runtime output", exact: true }),
+  ).toContainText("First greeting");
+  await expect(runtimeDetails).not.toContainText("Saved commands");
   const openResources = page.getByRole("tablist", { name: "Open resources" });
   await expect(
     openResources.getByRole("tab", { name: "T-1 Result", exact: true }),
@@ -1199,6 +1203,13 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(new RegExp(`/results/${first!.id}/runtime$`));
+  await runtimeDetails
+    .getByRole("link", { name: "View result", exact: true })
+    .click();
+  expect(await retainedNotice!.evaluate((node) => node.isConnected)).toBe(true);
+  await preview()
+    .getByRole("link", { name: "Runtime details", exact: true })
+    .click();
   await page.reload();
   await expect(runtimeDetails).toContainText("First greeting");
   await runtimeDetails
