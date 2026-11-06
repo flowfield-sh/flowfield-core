@@ -27,6 +27,5 @@ tests/test_local_execution.py::test_service_wrappers_isolate_ports_and_cleanup_w
 tests/test_transaction_boundaries.py
 tests/test_transaction_scaling.py
 tests/test_outputs.py
-
 tests/test_result_runtime.py
 tests/test_result_recipes.py
