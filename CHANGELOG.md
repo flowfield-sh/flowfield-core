@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.13.0
+
+### Features
+
+- Try code results directly from Flowfield. Eligible results prepare automatically; Run result starts the exact candidate, with Open result for linked applications, retained output and generated files. Request changes stops the previous result before correction work begins. Flowfield owns these processes and stops them on shutdown; prepare again after restarting.
+- Workers can provide result-specific execution recipes for web services, batch tools and foreground applications. Flowfield checks preparation, startup, cleanup and repeat runs before independent review.
+
+### Improvements
+
+- Organize project configuration into Delivery, Setup, Validation and Execution tabs, with separate saves and validation results beside the relevant commands.
+- Run saved project checks through Flowfield during development, including repository-owned browser checks. Setup commands can reuse repository-scoped download caches across independent working copies.
+- Keep result output in a terminal-style view and reduce repeated background work when several Flowfield browser tabs are open.
+
+### Upgrade
+
+Stop Flowfield, run `uv tool upgrade flowfield-core`, then start it with `flowfield serve`. Workspaces and history are retained. Existing projects keep automatic result preparation off until you enable it in Execution. Saved validation commands are available to Workers through Flowfield by default and run with service-host access. See [updating Flowfield](https://docs.flowfield.sh/installation#update) for other installation methods.
+
 ## 0.12.0
 
 ### Improvements

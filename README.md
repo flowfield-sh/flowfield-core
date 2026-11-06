@@ -46,7 +46,7 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
 
 **📊 See what your agents spend**<br>Track tokens, cost and running time across your workspace and individual tasks. Compare agent types, harnesses or models, then open a task to follow its work and corrections.
 
-**🔎 Review the result and decide what ships**<br>The Reviewer checks the result against the task and can request corrections. Inspect or run the code, then approve it for your local branch. Reports and files finish after configured review and remain available in Files. Ask the Coordinator to run, push or publish a result when you’re ready.
+**🔎 Try the result and decide what ships**<br>The Reviewer checks the result against the task and can request corrections. Run prepared code results directly from Flowfield, open the application or inspect its output, then request changes or approve the exact code for your local branch. Reports and files finish after configured review and remain available in Files. Ask the Coordinator to push or publish a result when you’re ready.
 
 ## Screenshots
 
