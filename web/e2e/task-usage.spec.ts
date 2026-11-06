@@ -152,13 +152,19 @@ test("failed reads retry and unknown usage never becomes measured zero", async (
   await expect(usage.getByText(/Could not refresh/)).toBeVisible();
   const retry = usage.getByRole("button", { name: "Retry task metrics" });
   // Initial background refreshes must keep failing until the actual click.
-  await retry.evaluate((button) =>
-    button.addEventListener(
+  // Background refresh can replace the retry node; observe the user's click
+  // on the stable document instead of attaching test state to that node.
+  await page.evaluate(() =>
+    document.addEventListener(
       "click",
-      () => {
-        document.documentElement.dataset.metricsRetried = "true";
+      (event) => {
+        if (
+          (event.target as Element).closest("button")?.textContent ===
+          "Retry task metrics"
+        )
+          document.documentElement.dataset.metricsRetried = "true";
       },
-      { once: true },
+      { capture: true },
     ),
   );
   await retry.click();

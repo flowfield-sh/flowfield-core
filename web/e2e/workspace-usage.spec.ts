@@ -65,6 +65,15 @@ test("usage invalidations coalesce without workspace reloads or cancelling slow 
   await expect(
     page.getByRole("status", { name: "Connected", exact: true }),
   ).toBeVisible();
+  // Metrics and Recent Work load independently. Finish the initial sidebar
+  // reads before counting requests caused by the injected usage events.
+  const recent = page.getByRole("navigation", { name: "Recent Work" });
+  await expect(
+    recent.getByRole("link", { name: "T-3 Interrupted investigation" }),
+  ).toBeVisible();
+  await expect(
+    recent.getByRole("link", { name: "T-1 Trace recorded task usage" }),
+  ).toBeVisible();
   await page.clock.install();
   const otherReads: string[] = [];
   page.on("request", (request) => {

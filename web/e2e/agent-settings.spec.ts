@@ -639,4 +639,5 @@ test("Integration uses Local automatically and preserves drafts across project t
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  await page.unrouteAll({ behavior: "wait" });
 });
