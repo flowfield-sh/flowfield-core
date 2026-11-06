@@ -115,14 +115,22 @@ def test_generated_files_are_immutable_run_outputs_not_delivery_files(tmp_path):
 
 
 def test_service_verification_uses_allocated_port_and_short_temp_path(tmp_path):
+    # Exercise owned loopback I/O, without HTTPServer's reverse DNS lookup or
+    # urllib's system proxy discovery becoming part of the readiness deadline.
     script = (
-        "import http.server,os; "
+        "import http.server,os,socketserver; "
         'assert len(os.environ["TMPDIR"]) < 60; '
         'print("owned-port",os.environ["FLOWFIELD_PORT"],flush=True); '
-        'http.server.HTTPServer(("127.0.0.1",int(os.environ["FLOWFIELD_PORT"])), '
+        "socketserver.TCPServer.allow_reuse_address=True; "
+        'socketserver.TCPServer(("127.0.0.1",int(os.environ["FLOWFIELD_PORT"])), '
         "http.server.SimpleHTTPRequestHandler).serve_forever()"
     )
-    probe = 'import os,urllib.request; urllib.request.urlopen("http://127.0.0.1:"+os.environ["FLOWFIELD_PORT"]).read()'
+    probe = (
+        "import http.client,os; "
+        'connection=http.client.HTTPConnection("127.0.0.1",int(os.environ["FLOWFIELD_PORT"])); '
+        'connection.request("GET","/"); '
+        "response=connection.getresponse(); assert response.status == 200; response.read()"
+    )
 
     def command(code):
         return shlex.quote(sys.executable) + " -c " + shlex.quote(code)
@@ -138,8 +146,8 @@ def test_service_verification_uses_allocated_port_and_short_temp_path(tmp_path):
     )
     service.results.process("harbor")
     result = current(service)
-    assert result.status == "ready", result.problem
     evidence = service.integrations.get("harbor", result.integration_id).runtime_verification
+    assert result.status == "ready", evidence.model_dump()
     assert evidence.passed and evidence.cleanup_confirmed
     receipts = list((Path(evidence.workspace).parent / "runtime").glob("owner-*.json"))
     assert receipts and all(json.loads(p.read_text())["cleanup_confirmed"] for p in receipts)
